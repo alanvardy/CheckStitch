@@ -13,7 +13,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphoneos/${SCHEME}.app"
 
 # === Temp file + cleanup (use the OS temp dir; do not clobber $TMPDIR) ===
-DEVICES_JSON="${TMPDIR:-/tmp}/run-device-$$.json"
+DEVICES_JSON="${TMPDIR:-/tmp}/run-devices-$$.json"
 trap 'rm -f "$DEVICES_JSON"' EXIT
 
 cd "$REPO_ROOT"
