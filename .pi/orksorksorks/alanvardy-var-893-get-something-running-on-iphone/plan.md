@@ -157,8 +157,8 @@ If the Step 1 verification build fails with a team-cert mismatch, change `DEVELO
 
 ### Changes
 
-#### 1. Create run-device.sh
-**File**: `scripts/run-device.sh`
+#### 1. Create run-devices.sh
+**File**: `scripts/run-devices.sh`
 **Action**: create
 
 ```bash
@@ -242,10 +242,10 @@ echo "✅ Installed and launched $SCHEME on $DEVICE_NAME"
 ### Verification
 
 #### Automated
-- [x] `bash -n scripts/run-device.sh` — no syntax errors
+- [x] `bash -n scripts/run-devices.sh` — no syntax errors
 
 #### Manual
-- [ ] `bash scripts/run-device.sh` — exits 0; app builds, installs, and launches on iPhone
+- [ ] `bash scripts/run-devices.sh` — exits 0; app builds, installs, and launches on iPhone
 - [ ] "Hello, world!" visible on the iPhone screen
 
 ---
@@ -263,7 +263,7 @@ echo "✅ Installed and launched $SCHEME on $DEVICE_NAME"
 | Stage | Checkpoint |
 |---|---|
 | **1. Identity + signing** | `xcodebuild … build` → `BUILD SUCCEEDED`; `codesign -d --entitlements` shows application-groups |
-| **2. Script** | `bash scripts/run-device.sh` → exit 0; app launches on iPhone |
+| **2. Script** | `bash scripts/run-devices.sh` → exit 0; app launches on iPhone |
 
 ---
 
