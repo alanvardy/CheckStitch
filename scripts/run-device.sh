@@ -12,9 +12,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphoneos/${SCHEME}.app"
 
-# === Temp dir + cleanup ===
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
+# === Temp file + cleanup (use the OS temp dir; do not clobber $TMPDIR) ===
+DEVICES_JSON="${TMPDIR:-/tmp}/run-device-$$.json"
+trap 'rm -f "$DEVICES_JSON"' EXIT
 
 cd "$REPO_ROOT"
 
@@ -24,6 +24,7 @@ xcodebuild -scheme "$SCHEME" \
   -destination 'generic/platform=iOS' \
   -configuration "$CONFIGURATION" \
   -derivedDataPath "$DERIVED_DATA" \
+  -allowProvisioningUpdates \
   build
 
 if [ ! -d "$APP_PATH" ]; then
@@ -33,20 +34,30 @@ fi
 
 # === Discover device ===
 echo "==> Discovering iOS device..."
-DEVICES_JSON="$TMPDIR/devices.json"
-xcrun devicectl list devices -j > "$DEVICES_JSON"
+command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required (brew install jq)." >&2; exit 1; }
 
-# jq filter: platform=iOS, developerModeStatus=enabled, reachable
-DEVICE_ID=$(jq -r '
-  .devices[]
-  | select(.platform == "iOS")
-  | select(.developerModeStatus == "enabled")
-  | select(
-      (.connectionProperties.reachable == true) or
-      (.connectionProperties.tunnelState == "connected")
-    )
-  | .identifier
-' "$DEVICES_JSON" | head -n1)
+if ! xcrun devicectl list devices -j "$DEVICES_JSON" >/dev/null 2>&1; then
+  echo "ERROR: devicectl could not list devices." >&2
+  echo "       Plug in the device, unlock it, and tap Trust, then retry." >&2
+  exit 1
+fi
+
+# devicectl nests devices under `result.devices`, with platform/deviceType under
+# hardwareProperties and name/developerModeStatus under deviceProperties. A
+# reachable physical device has a non-null transportType and not "unavailable".
+# Prefer an iPhone over an iPad (the ticket's target is the iPhone).
+DEVICE_ID=$(jq -re '
+  [
+    .result.devices[]
+    | select(.hardwareProperties.platform == "iOS")
+    | select(.hardwareProperties.deviceType == "iPhone" or .hardwareProperties.deviceType == "iPad")
+    | select(.deviceProperties.developerModeStatus == "enabled")
+    | select((.connectionProperties.transportType | type) == "string")
+    | select(.connectionProperties.tunnelState != "unavailable")
+  ]
+  | sort_by(.hardwareProperties.deviceType != "iPhone")
+  | .[0].identifier
+' "$DEVICES_JSON") || DEVICE_ID=""
 
 if [ -z "$DEVICE_ID" ]; then
   echo "ERROR: No iOS device with Developer Mode enabled and reachable." >&2
@@ -55,7 +66,7 @@ if [ -z "$DEVICE_ID" ]; then
 fi
 
 DEVICE_NAME=$(jq -r --arg id "$DEVICE_ID" '
-  .devices[] | select(.identifier == $id) | .name
+  .result.devices[] | select(.identifier == $id) | .deviceProperties.name
 ' "$DEVICES_JSON")
 echo "   Device: $DEVICE_NAME ($DEVICE_ID)"
 
