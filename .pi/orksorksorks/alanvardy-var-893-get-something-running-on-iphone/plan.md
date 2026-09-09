@@ -242,7 +242,7 @@ echo "✅ Installed and launched $SCHEME on $DEVICE_NAME"
 ### Verification
 
 #### Automated
-- [ ] `bash -n scripts/run-device.sh` — no syntax errors
+- [x] `bash -n scripts/run-device.sh` — no syntax errors
 
 #### Manual
 - [ ] `bash scripts/run-device.sh` — exits 0; app builds, installs, and launches on iPhone
