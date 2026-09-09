@@ -1,7 +1,9 @@
 import EventKit
+import os
 import SwiftUI
 
 struct ContentView: View {
+    private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "Checklist")
     var body: some View {
         Button("checklist") {
             Task { await createChecklistReminders() }
@@ -21,7 +23,7 @@ struct ContentView: View {
                 try eventStore.save(reminder, commit: true)
             }
         } catch {
-            return
+            Self.logger.error("Failed to create checklist reminders: \(error.localizedDescription, privacy: .public)")
         }
     }
 }
