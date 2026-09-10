@@ -67,6 +67,8 @@ struct ContentView: View {
             if !granted { return }
             // One reminder per checklist item, in the Reminders Inbox.
             for item in items {
+                // Skip blank titles so an emptied row can't produce a meaningless reminder.
+                guard !item.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
                 let reminder = EKReminder(eventStore: eventStore)
                 reminder.title = item.title
                 reminder.calendar = eventStore.defaultCalendarForNewReminders()
