@@ -147,7 +147,7 @@ struct EditChecklistView: View {
                 }
             }
             .navigationTitle("Edit checklist")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
