@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Fixed the settings gear not rendering on macOS. Root cause (established empirically by probing the macOS build: view-tree dump, window renders, and an SF-Symbol rasterization check): the gearshape symbol exists and the overlay places the button correctly, but macOS SwiftUI `Button` defaults to the bordered style, which draws an opaque bezel chrome over icon-only labels — washing out the gear icon. Added `.buttonStyle(.borderless)` to `settingsButton` in `CheckStitch/ContentView.swift` (with a why-comment); `.borderless` removes the macOS bezel and is a no-op on iOS, so the iOS look is unchanged. Also removed the tracked `DELETEME` placeholder per repo convention.
+- **Commit SHA(s)**: `3c506be` (implementation; pushed to origin/alanvardy-var-975-settings-menu-not-appearing-in-macos)
+- **Verification**: `scripts/test.sh` gate passes — macOS build `** BUILD SUCCEEDED **`, iOS simulator build `** BUILD SUCCEEDED **`, shellcheck clean, `gate: ok`. No test target exists in this repo (gate is build + shellcheck per AGENTS.md), so none added.
+- **Reviewer findings**: No blockers, no nits; "Merge verdict: OK". The reviewer confirmed iOS behavior and the sheet binding are untouched and the change mirrors the SingleThread + sibling var-973 fix pattern exactly.
+- **Remaining manual items**: A visual spot-check of the gear on macOS (it should now draw as the tint-bordered gear plate without the default bezel) is the only manual confirmation worth doing — `bash scripts/run-devices.sh` on this Mac launches the macOS app for that.
