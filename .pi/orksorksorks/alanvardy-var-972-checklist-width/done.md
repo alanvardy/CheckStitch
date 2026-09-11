@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Capped the checklist content width in `CheckStitch/ContentView.swift` so the button row no longer stretches edge-to-edge on iPad/iOS — a `GeometryReader`-wrapped body applies `ChecklistWidth.maxContentWidth` (`min(340, viewportWidth * 0.6)`, mirrored from SingleThread's `CardWidth`) with 32pt gutters and center alignment preserved. `.sheet` attachment and all other views unchanged.
+- **Commit SHA(s)**: `9cac48b` (implementation), `2645997` (doc-layout cleanup), `c33f673` (review-nit fix: rephrased the `nonisolated` rationale — CheckStitch has no test target, so the "pinnable from test contexts" claim was dropped)
+- **Verification**: `./scripts/test.sh` = gate (`make build` on the worktree simulator + `shellcheck` over `scripts/`) — `** BUILD SUCCEEDED **`, `gate: ok`, run 3× (post-implementation, post-cleanup, post-nit-fix)
+- **Reviewer findings**: no blockers. One nit fixed: doc comment copied SingleThread's test-pinnability rationale verbatim although CheckStitch has no test target.
+- **Remaining manual items**: none code-wise. Optional: eyeball the app on iPad (`make run`) to confirm the capped row looks right at 340pt; the unstaged `DELETEME` deletion in the worktree predates this ticket and was intentionally left untouched.
