@@ -147,9 +147,8 @@ struct ContentView: View {
 /// CardWidth. Returns `min(ceiling, fraction)` so the content hugs narrow
 /// screens but never balloons on wide (iPad) screens.
 ///
-/// `maxContentWidth` is `nonisolated` so the pure math stays pinnable from
-/// nonisolated test contexts — the app target defaults all declarations to
-/// `MainActor` isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION`).
+/// `maxContentWidth` is `nonisolated` so the pure math stays callable outside
+/// the app target's `MainActor` isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION`).
 enum ChecklistWidth {
     nonisolated static func maxContentWidth(viewportWidth: CGFloat) -> CGFloat {
         min(340, viewportWidth * 0.6)
