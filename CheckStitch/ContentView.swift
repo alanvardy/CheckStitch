@@ -137,6 +137,13 @@ struct EditChecklistView: View {
                         Label("Add Item", systemImage: "plus.circle.fill")
                     }
                     .accessibilityIdentifier("addItemButton")
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Label("Remove Checklist", systemImage: "trash")
+                    }
+                    .accessibilityIdentifier("removeChecklistButton")
                 }
             }
             .navigationTitle("Edit checklist")
