@@ -1,3 +1,4 @@
+import CheckStitchCore
 import SwiftUI
 
 /// Modal settings screen presented from the gear button. Currently holds a

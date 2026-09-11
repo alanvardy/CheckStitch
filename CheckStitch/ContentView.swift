@@ -1,3 +1,4 @@
+import CheckStitchCore
 import EventKit
 import os
 import SwiftUI
@@ -144,25 +145,6 @@ struct ContentView: View {
             Self.logger.error("Failed to create checklist reminders: \(error.localizedDescription, privacy: .public)")
         }
     }
-}
-
-/// Viewport-relative cap for the checklist content, mirroring SingleThread's
-/// CardWidth. Returns `min(ceiling, fraction)` so the content hugs narrow
-/// screens but never balloons on wide (iPad) screens.
-///
-/// `maxContentWidth` is `nonisolated` so the pure math stays callable outside
-/// the app target's `MainActor` isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION`).
-enum ChecklistWidth {
-    nonisolated static func maxContentWidth(viewportWidth: CGFloat) -> CGFloat {
-        min(340, viewportWidth * 0.6)
-    }
-}
-
-/// Editable row model for a checklist item. The ID is stable so rows can be
-/// added, removed, and edited without conflating duplicate titles.
-struct ChecklistItem: Identifiable {
-    let id = UUID()
-    var title: String
 }
 
 /// Overlay sheet for renaming the checklist and adding, removing, and editing

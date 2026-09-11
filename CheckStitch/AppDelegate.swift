@@ -1,3 +1,5 @@
+import CheckStitchCore
+
 #if os(iOS)
     import UIKit
 
