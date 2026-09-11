@@ -31,7 +31,11 @@ struct ContentView: View {
         Button {
             Task {
                 isCreatingChecklist = true
+                // Hold the spinner for at least a second so saving quickly
+                // doesn't flash the progress feedback past the user.
+                async let minimumSpinner: Void = Task.sleep(for: .seconds(1))
                 await createChecklistReminders()
+                try? await minimumSpinner
                 isCreatingChecklist = false
                 isChecklistCreated = true
                 try? await Task.sleep(for: .seconds(1))
