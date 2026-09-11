@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Removed the default macOS button chrome (lighter grey bezel/background) by mirroring SingleThread's fix pattern — a new shared `CheckStitchButtonModifier` (a `ViewModifier` applying `.buttonStyle(.borderless)`, exposed as `.checkStitchButton()`), applied to all 7 default-chrome buttons across `ContentView.swift` (settings, create checklist, edit checklist, Add Item, Remove Checklist, Edit toolbar Done) and `SettingsView.swift` (toolbar Done). `.borderless` is a no-op on iOS, so the iOS look is unchanged; no `controlPlate` was added (labels already hand-draw `.stroke(.tint)` overlays) and no `.menuStyle` was needed (no `Menu` exists).
+- **Commit SHA(s)**: `7890f4c` (implementation), `6ee80ca` (trailing-newline nit fix), `d47c2e7` (DELETEME placeholder cleanup)
+- **Verification**: `./scripts/test.sh` passes — `** BUILD SUCCEEDED **` then `gate: ok` (shellcheck clean). There is no test target in this repo (gate is build + shellcheck), so none added.
+- **Reviewer findings**: No blockers, no actionable nits. Options: exhaustive — all 7 buttons covered, nothing over-applied, pattern mirrored from `SingleThreadButtonModifier.swift` exactly; one nit (missing trailing newline at EOF of the new modifier file) fixed in `6ee80ca`.
+- **Remaining manual items**: None required. A visual spot-check on macOS dark mode (buttons render without the grey bezel) is the only manual confirmation worth doing; `make run` on the simulator or a real device can be used for it.
