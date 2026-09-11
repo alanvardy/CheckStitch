@@ -10,6 +10,9 @@ build/
 *.hmap
 *.ipa
 
+# Per-worktree simulator UDID, written by the addworktree/takeoff fish functions
+.simulator_id
+
 # Swift Package Manager
 .build/
 .swiftpm/
