@@ -1462,8 +1462,12 @@ with
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` still prints `gate: ok` after the edit
-- [ ] `rg -n "no test target" AGENTS.md` returns nothing
+- [x] `bash scripts/test.sh` still prints `gate: ok` after the edit
+- [x] `rg -n "no test target" AGENTS.md` returns nothing
+
+> **Deviation (implementation)**: the plan calls the section "**Testing**"; the file's actual
+> heading is "**Conventions**" — the new unit-testing contract bullets sit at the top of
+> that section instead.
 
 #### Manual
 - [ ] Read the edited sections once for accuracy: every claimed command actually exists
