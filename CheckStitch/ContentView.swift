@@ -23,7 +23,7 @@ struct ContentView: View {
             }
             .navigationTitle("Checklists")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
                         createChecklist()
                     } label: {
@@ -73,14 +73,38 @@ struct ContentView: View {
     }
 
     private var checklistList: some View {
-        List {
-            ForEach(store.checklists) { checklist in
-                HStack(spacing: 12) {
-                    NavigationLink(checklist.name, value: checklist.id)
-                    createRemindersButton(for: checklist.id)
+        GeometryReader { geometry in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(store.checklists) { checklist in
+                        checklistRow(for: checklist)
+                        if checklist.id != store.checklists.last?.id {
+                            Divider()
+                        }
+                    }
                 }
+                .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(.tint, lineWidth: 2)
+                )
+                .padding(.horizontal, 32)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
+    }
+
+    /// One checklist row inside the width-capped card: the name navigates to
+    /// the detail screen, the play button turns the list into reminders.
+    private func checklistRow(for checklist: Checklist) -> some View {
+        HStack(spacing: 12) {
+            NavigationLink(checklist.name, value: checklist.id)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            createRemindersButton(for: checklist.id)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private var emptyState: some View {
@@ -106,7 +130,7 @@ struct ContentView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
-                Image(systemName: "plus.circle")
+                Image(systemName: "play.circle.fill")
             }
         }
         .buttonStyle(.borderless)
