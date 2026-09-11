@@ -1,8 +1,11 @@
 # CheckStitch
 
 A small iOS app that turns a list of items into Reminders checklists (one
-reminder per item, grouped in a "CheckStitch" reminders list). Swift/SwiftUI,
-one app target, no dependencies.
+reminder per item, grouped in a "CheckStitch" reminders list).
+Swift/SwiftUI. `CheckStitch/` is the thin app target (views + platform delegates only);
+`CheckStitchCore/` is a local sources-only SPM package holding models, the EventKit
+seam, the checklist creator and the view model; `CheckStitchTests/` (Swift Testing,
+macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 
 ## Layout
 
@@ -17,12 +20,18 @@ one app target, no dependencies.
 
 - `make build` — simulator build (`xcodebuild`, scheme `CheckStitch`).
 - `make run` — build, then boot/install/launch on a simulator.
+- **The gate is `./scripts/test.sh`** — `make build` (simulator) → `make test` →
+  `shellcheck scripts/*.sh`, printing `gate: ok`.
+- `make test-unit` runs `CheckStitchTests` on `platform=macOS` with
+  `CODE_SIGNING_ALLOWED=NO` (no sim, no signing). `make test-ui` runs exactly one
+  `CheckStitchUITests` smoke case via `build-for-testing` →
+  `test-without-building` on this worktree's `.simulator_id` simulator.
+- Unit tests import `@testable import CheckStitchCore`; the UI smoke stays XCTest.
+  Test targets deliberately do **not** set `SWIFT_DEFAULT_ACTOR_ISOLATION`, so
+  suites opt in with `@MainActor` — never restore the app's default there.
 - `bash scripts/run-devices.sh` — install + launch on a real device
   (requires Developer Mode; prefers an iPhone). Honours `SCHEME`,
   `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA` overrides.
-- **There is no test target — the gate is `./scripts/test.sh`**, which runs
-  the build plus `shellcheck` over `scripts/`. Do not add a test target as
-  part of a small task; that is a ticket of its own.
 - Destination precedence is documented in the `Makefile`: explicit `SIM=` >
   this worktree's `.simulator_id` > shared default. Never leave a bare
   `name=` destination in a script — it selects a shared device and wedges
@@ -37,6 +46,10 @@ add `-allowProvisioningUpdates`. Do not re-derive the team from
 
 ## Conventions
 
+- Unit suites: `struct <Thing>Tests` in Swift Testing (`@Test`, `#expect`), behaviour-named
+  functions (never `test`-prefixed), `@Test(arguments:)` for cases, `@MainActor` on any
+  suite touching EventKit or the view model. Fakes live in `CheckStitchTests/TestFixtures.swift`.
+- Verify with `make test-unit` (fast) before `bash scripts/test.sh` (full gate).
 - `scripts/*.sh` are `#!/bin/bash` with `set -euo pipefail`, committed mode
   `100755` (`chmod +x` before committing). Keep the plural `run-devices.sh`
   name: the `r` fish alias runs `./scripts/run-devices.sh`.
