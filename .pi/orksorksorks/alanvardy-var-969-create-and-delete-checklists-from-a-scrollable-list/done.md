@@ -1,7 +1,7 @@
 # Done
 
-- **Branch / head SHA**: `alanvardy-var-969-create-and-delete-checklists-from-a-scrollable-list` @ `3bc1bb5` (pushed to `origin`; branch level with `main`, working tree clean).
-- **Mechanical checks**: `./scripts/test.sh` → `gate: ok` — simulator build, `CheckStitchTests` (12 tests, 0 failures) and `shellcheck scripts/*.sh` all pass. Run once after the review fixes and before the fix commit.
+- **Branch / head SHA**: `alanvardy-var-969-create-and-delete-checklists-from-a-scrollable-list` @ `e953b9b` (pushed to `origin`; branch level with `main`, working tree clean).
+- **Mechanical checks**: `./scripts/test.sh` → `gate: ok` — simulator build, `CheckStitchTests` (14 tests, 0 failures) and `shellcheck scripts/*.sh` all pass. Run after every applied fix, before each commit.
 
 ## Review outcome
 
@@ -35,11 +35,15 @@ shellcheck).
 - `ChecklistDetailView` skips the "Checklist not found" placeholder during a
   self-initiated delete so the pop animation never flashes it.
 
-**Optional improvement declined:** per-keystroke `save()` debouncing. The cost
-is one JSON encode of a small array per keystroke (`UserDefaults.set` is
-in-memory); a debounce would trade that for a real data-loss window if the app
-is killed mid-edit, and would complicate the reload-immediately test seam. Not
-worth the risk for this payload size. Revisit only if checklists grow large.
+**Optional improvement applied (owner request):** per-keystroke `save()` was
+coalesced over a 300ms debounce (`ChecklistStore.scheduleSave`). The durability
+window is bounded rather than open: `flushPendingSave()` runs synchronously when
+the detail screen disappears and when the app leaves the foreground, and every
+structural edit (`create`/`addItem`/`removeItems`/`delete`) cancels the queued
+write and persists immediately. The delay is injectable — tests asserting on
+disk right after a mutation pass `nil` for synchronous saving — and
+`testTextEditsAreCoalescedUntilFlush` + `testStructuralSaveCancelsPendingTextEdit`
+cover the new path.
 
 ## Remaining manual items
 
