@@ -25,3 +25,31 @@
         }
     }
 #endif
+
+#if os(macOS)
+    import AppKit
+
+    /// macOS counterpart to `AppDelegate`: bridges the persisted appearance
+    /// setting into every `NSWindow` so the theme applies app-wide rather than
+    /// per-view.
+    ///
+    /// Registered via `@NSApplicationDelegateAdaptor` in `MyApp`.
+    final class MacAppDelegate: NSObject, NSApplicationDelegate {
+        /// Re-applies `mode` to every open window. `.system` maps to `nil`,
+        /// clearing the explicit appearance so windows follow the system —
+        /// mirroring the iOS override-clear behavior.
+        static func applyAppearance(_ mode: AppearanceMode) {
+            for window in NSApp.windows {
+                window.appearance = mode.appKitAppearance
+            }
+        }
+
+        func applicationDidFinishLaunching(_: Notification) {
+            Self.applyAppearance(AppearanceMode.load())
+        }
+
+        func applicationDidBecomeActive(_: Notification) {
+            Self.applyAppearance(AppearanceMode.load())
+        }
+    }
+#endif
