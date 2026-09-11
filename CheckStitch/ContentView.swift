@@ -12,6 +12,8 @@ struct ContentView: View {
         ChecklistItem(title: "three"),
     ]
     @State private var isShowingEditChecklist = false
+    @State private var isCreatingChecklist = false
+    @State private var isChecklistCreated = false
 
     var body: some View {
         HStack(spacing: 16) {
@@ -27,17 +29,34 @@ struct ContentView: View {
 
     private var createChecklistButton: some View {
         Button {
-            Task { await createChecklistReminders() }
+            Task {
+                isCreatingChecklist = true
+                await createChecklistReminders()
+                isCreatingChecklist = false
+                isChecklistCreated = true
+                try? await Task.sleep(for: .seconds(1))
+                isChecklistCreated = false
+            }
         } label: {
-            Text(checklistName)
-                .font(.title2.weight(.semibold))
-                .padding(.horizontal, 28)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(.tint, lineWidth: 2)
-                )
+            HStack(spacing: 8) {
+                Text(checklistName)
+                    .font(.title2.weight(.semibold))
+                if isCreatingChecklist {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if isChecklistCreated {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.green)
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(.tint, lineWidth: 2)
+            )
         }
         .accessibilityLabel("Create checklist named \(checklistName)")
         .accessibilityIdentifier("checklistButton")
