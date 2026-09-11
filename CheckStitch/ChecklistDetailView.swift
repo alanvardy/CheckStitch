@@ -52,6 +52,7 @@ struct ChecklistDetailView: View {
                         .checkStitchButton()
                 }
             }
+            .onDisappear { store.flushPendingSave() }
         } else if !isRemoving {
             // Deleted elsewhere while this screen was on the stack. A delete
             // from this screen skips the message so the pop never flashes it.
