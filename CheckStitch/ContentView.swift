@@ -27,7 +27,12 @@ struct ContentView: View {
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .onChange(of: appearanceMode) { _, new in
-            AppDelegate.applyAppearance(new)
+            #if os(iOS)
+                AppDelegate.applyAppearance(new)
+            #endif
+            #if os(macOS)
+                MacAppDelegate.applyAppearance(new)
+            #endif
         }
         .sheet(isPresented: $isShowingEditChecklist) {
             EditChecklistView(name: $checklistName, items: $items)
@@ -35,10 +40,10 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(appearanceMode: $appearanceMode)
         }
-        .overlay(alignment: .topLeading) {
+        .overlay(alignment: .topTrailing) {
             settingsButton
                 .padding(.top, 8)
-                .padding(.leading, 12)
+                .padding(.trailing, 12)
         }
     }
 
