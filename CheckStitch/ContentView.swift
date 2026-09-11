@@ -65,6 +65,10 @@ struct ContentView: View {
         }
         .accessibilityLabel("Settings")
         .accessibilityIdentifier("settingsButton")
+        // macOS's default bordered button style draws an opaque bezel over
+        // icon-only labels, hiding the gear icon; `.borderless` removes that
+        // chrome and is a no-op on iOS.
+        .buttonStyle(.borderless)
     }
 
     private var createChecklistButton: some View {
