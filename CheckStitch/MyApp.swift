@@ -1,3 +1,5 @@
+import CheckStitchCore
+import EventKit // EKEventStore() below — EventKit symbol, same plan-gap as ContentView's preview
 import SwiftUI
 #if os(iOS)
     import UIKit
@@ -7,6 +9,11 @@ import SwiftUI
 #endif
 
 @main struct MyApp: App {
+    // One long-lived store for the app: EKReminder weakly references it, and a
+    // fresh store per creation would be deallocated underneath the reminders.
+    private let environment = AppEnvironment(
+        reminderCreator: EventKitReminderCreator(eventStore: EKEventStore()))
+
     #if os(iOS)
         @UIApplicationDelegateAdaptor(AppDelegate.self)
         private var appDelegate
@@ -18,7 +25,7 @@ import SwiftUI
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(environment: environment)
         }
     }
 }

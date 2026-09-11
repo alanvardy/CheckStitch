@@ -1215,12 +1215,13 @@ struct MyApp: App {
 
 Add `import CheckStitchCore` at the top (above the `#if os(iOS)` block). No other change:
 `AppearanceMode`, `AppearanceMode.load`, `windowOverrideStyle` and `appKitAppearance` now
-resolve to the package.
+resolve to the package. *(Already applied in Phase 2 — required the moment
+`CheckStitch/AppearanceMode.swift` was deleted, or `make build` would have failed.)*
 
 #### 4. `CheckStitch/SettingsView.swift` — **modify**
 
 Add `import CheckStitchCore`. Body unchanged; the `#Preview` blocks keep using
-`AppearanceMode.dark.colorScheme`.
+`AppearanceMode.dark.colorScheme`. *(Already applied in Phase 2, same reason as §3.)*
 
 #### 5. `CheckStitchTests/ViewRenderTests.swift` — **create**
 
@@ -1259,10 +1260,18 @@ struct ViewRenderTests {
 ### Verification
 
 #### Automated
-- [ ] macOS `-only-testing:CheckStitchTests` run green (all suites)
-- [ ] `make build` green
-- [ ] `rg -n "createChecklistReminders|EKEventStore\(\)" CheckStitch/` returns nothing
-- [ ] `rg -n "@AppStorage" CheckStitch/` shows only the `AppearanceModePreference.defaultsKey` form
+- [x] macOS `-only-testing:CheckStitchTests` run green (all suites)
+- [x] `make build` green
+- [x] `rg -n "createChecklistReminders" CheckStitch/` returns nothing
+- [x] `rg -n "@AppStorage" CheckStitch/` shows only the `AppearanceModePreference.defaultsKey` form
+
+> **Deviation (implementation)**: the plan's check 3 `rg "EKEventStore\(\)"` is formally
+> unsatisfiable against the plan's own §1/§2 edits: the `#Preview` (ContentView.swift) and
+> MyApp's long-lived singleton store must both construct `EKEventStore()`. The check is
+> reworded to the plan's real intent — `createChecklistReminders` is gone; `EKEventStore()`
+> survives only at those two mandated construction sites. `import EventKit` therefore also
+> stays in ContentView.swift (preview) and is added to MyApp.swift (singleton store), same
+> approved-renaming-class deviation as `AppEnvironment`.
 
 #### Manual
 - [ ] `make run` on the worktree simulator (`845FFF19-…`): tap the checklist button —
