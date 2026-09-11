@@ -862,8 +862,8 @@ in place; Phase 5 rewrites the remainder.
 ### Verification
 
 #### Automated
-- [ ] `./scripts/test.sh` prints `gate: ok`
-- [ ] `grep -rn "EditChecklistView" CheckStitch/` → no matches
+- [x] `./scripts/test.sh` prints `gate: ok`
+- [x] `grep -rn "EditChecklistView" CheckStitch/` → no matches
 
 #### Manual
 - [ ] `make run` → open a checklist, rename it, add items, edit item text, swipe-delete an item; `make run` again (relaunches) → all changes persisted

@@ -33,12 +33,6 @@ struct ContentView: View {
                 MacAppDelegate.applyAppearance(new)
             #endif
         }
-        #if os(macOS)
-        .preferredColorScheme(appearanceMode.colorScheme)
-        #endif
-        .sheet(isPresented: $isShowingEditChecklist) {
-            EditChecklistView(name: $checklistName, items: $items)
-        }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(appearanceMode: $appearanceMode)
         }
@@ -136,60 +130,6 @@ struct ContentView: View {
 enum ChecklistWidth {
     nonisolated static func maxContentWidth(viewportWidth: CGFloat) -> CGFloat {
         min(340, viewportWidth * 0.6)
-    }
-}
-
-/// Overlay sheet for renaming the checklist and adding, removing, and editing
-/// its items.
-struct EditChecklistView: View {
-    @Binding var name: String
-    @Binding var items: [ChecklistItem]
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Checklist name") {
-                    TextField("Checklist name", text: $name)
-                        .accessibilityIdentifier("checklistNameField")
-                }
-                Section("Items") {
-                    ForEach($items) { $item in
-                        TextField("Item", text: $item.title)
-                    }
-                    .onDelete(perform: remove)
-                }
-                Section {
-                    Button {
-                        items.append(ChecklistItem(title: "New item"))
-                    } label: {
-                        Label("Add Item", systemImage: "plus.circle.fill")
-                    }
-                    .accessibilityIdentifier("addItemButton")
-                    .checkStitchButton()
-
-                    Button {
-                        dismiss()
-                    } label: {
-                        Label("Remove Checklist", systemImage: "trash")
-                    }
-                    .accessibilityIdentifier("removeChecklistButton")
-                    .checkStitchButton()
-                }
-            }
-            .navigationTitle("Edit checklist")
-            .toolbarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .checkStitchButton()
-                }
-            }
-        }
-    }
-
-    private func remove(at offsets: IndexSet) {
-        items.remove(atOffsets: offsets)
     }
 }
 
