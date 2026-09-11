@@ -623,9 +623,14 @@ struct AppearanceModePreferenceTests {
 ### Verification
 
 #### Automated
-- [ ] macOS `-only-testing:CheckStitchTests` run green (four new suites + `SmokeTests`)
-- [ ] `make build` green — proves the app compiles against the package types
-- [ ] `rg -n "struct ChecklistItem|enum ChecklistWidth" CheckStitch/` returns nothing
+- [x] macOS `-only-testing:CheckStitchTests` run green (four new suites + `SmokeTests`)
+- [x] `make build` green — proves the app compiles against the package types
+- [x] `rg -n "struct ChecklistItem|enum ChecklistWidth" CheckStitch/` returns nothing
+
+> **Deviation (implementation)**: `ChecklistWidthTests.swift` additionally imports
+> `CoreGraphics` — without it the `CGFloat` literal conversions (`viewportWidth: 200`,
+> `340 / 0.6`) fail with *"missing import of defining module 'CoreFoundation'"*.
+> SingleThread's `CardWidthTests.swift` carries the same `import CoreGraphics`.
 
 #### Manual
 - [ ] `make run` launches the app; the checklist screen renders as before (no behaviour
