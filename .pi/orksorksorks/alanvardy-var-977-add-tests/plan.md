@@ -1393,11 +1393,17 @@ echo "gate: ok"
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` green
-- [ ] `make test-ui` green (boots `845FFF19-…` itself)
-- [ ] `bash scripts/test.sh` prints `gate: ok`
-- [ ] `shellcheck scripts/*.sh` clean
-- [ ] `git diff scripts/run-devices.sh` is empty (untouched)
+- [x] `make test-unit` green
+- [x] `make test-ui` green (boots `845FFF19-…` itself)
+- [x] `bash scripts/test.sh` prints `gate: ok`
+- [x] `shellcheck scripts/*.sh` clean
+- [x] `git diff scripts/run-devices.sh` is empty (untouched)
+
+> **Deviation (implementation)**: the plan's "Scoped `#if os(iOS)` is unnecessary" note is
+> wrong — the scheme's macOS unit phase still **compiles** the `CheckStitchUITests` bundle,
+> and macOS's `XCUIAccessibilityAuditType` has no `.trait` member. The suite therefore
+> guards the audit categories with `#if os(iOS) … #else app.performAccessibilityAudit()
+> #endif`, mirroring `SingleThreadUITests.swift` exactly.
 
 #### Manual
 - [ ] Confirm the UI smoke ran on the worktree simulator, not a shared device:
