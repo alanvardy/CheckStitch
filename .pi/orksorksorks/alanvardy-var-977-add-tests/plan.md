@@ -897,8 +897,12 @@ struct ChecklistCreatorTests {
 ### Verification
 
 #### Automated
-- [ ] macOS `-only-testing:CheckStitchTests` run green
-- [ ] Blank-title parametrization covers all four blank shapes and both non-blank shapes
+- [x] macOS `-only-testing:CheckStitchTests` run green
+- [x] Blank-title parametrization covers all four blank shapes and both non-blank shapes
+
+> **Deviation (implementation)**: `ChecklistCreatorTests.swift` additionally imports
+> `Foundation` for `TestError.boom.localizedDescription` (same missing-import class as
+> CoreGraphics in Phase 2).
 
 #### Manual
 - [ ] None (pure logic)
