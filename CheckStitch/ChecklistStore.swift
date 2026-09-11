@@ -7,11 +7,30 @@ final class ChecklistStore {
 
     private let defaults: UserDefaults
     private let key: String
+    /// False when the stored payload came from a newer app version: mutations
+    /// still work in memory, but saving is refused so that payload survives.
+    private let canOverwriteStoredPayload: Bool
 
     init(defaults: UserDefaults = AppGroup.defaults, key: String = "checklists.v1") {
         self.defaults = defaults
         self.key = key
-        self.checklists = ChecklistStore.load(defaults: defaults, key: key)
+
+        if let data = defaults.data(forKey: key) {
+            switch ChecklistCodec.classify(data) {
+            case .loaded(let stored):
+                self.checklists = stored
+                self.canOverwriteStoredPayload = true
+            case .unsupportedVersion:
+                self.checklists = []
+                self.canOverwriteStoredPayload = false
+            case .unreadable:
+                self.checklists = []
+                self.canOverwriteStoredPayload = true
+            }
+        } else {
+            self.checklists = []
+            self.canOverwriteStoredPayload = true
+        }
     }
 
     func checklist(id: UUID) -> Checklist? {
@@ -62,12 +81,11 @@ final class ChecklistStore {
         save()
     }
 
-    private static func load(defaults: UserDefaults, key: String) -> [Checklist] {
-        guard let data = defaults.data(forKey: key) else { return [] }
-        return ChecklistCodec.decode(data)
-    }
-
     private func save() {
+        guard canOverwriteStoredPayload else {
+            Self.logger.error("Refusing to overwrite checklist payload written by a newer app version")
+            return
+        }
         do {
             defaults.set(try ChecklistCodec.encode(checklists), forKey: key)
         } catch {

@@ -153,8 +153,12 @@ Patterns **not** to follow:
   is available and versioned.
 - Migration/back-compat for previously persisted data — none exists today, and
   first launch yields an empty list.
-- Test target, UI tests, or CI — the gate remains `make build` + shellcheck per
-  `scripts/test.sh:1-15` and repo AGENTS.md.
+- **Superseded after VAR-969:** a `CheckStitchTests` unit target, its
+  `Makefile test` goal, and a committed shared scheme were added with this
+  ticket; the gate is now `make build` + `make test` + shellcheck. The
+  original line read: "Test target, UI tests, or CI — the gate remains
+  `make build` + shellcheck per `scripts/test.sh:1-15` and repo AGENTS.md"
+  (`AGENTS.md`, `conventions.md` and `implement.md` record the change).
 - Cross-device sync conflict resolution; last write wins within the shared
   suite.
 - Changing `createChecklistReminders()`'s EventKit behavior (blank-skipping,

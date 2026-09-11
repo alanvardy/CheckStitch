@@ -26,4 +26,11 @@ final class ChecklistCodecTests: XCTestCase {
     func testEmptyEnvelopeDecodes() throws {
         XCTAssertEqual(ChecklistCodec.decode(try ChecklistCodec.encode([])), [])
     }
+
+    func testClassifyDistinguishesUnsupportedFromUnreadable() {
+        XCTAssertEqual(ChecklistCodec.classify(Data("not json".utf8)), .unreadable)
+
+        let newer = Data(#"{"version":99,"checklists":[]}"#.utf8)
+        XCTAssertEqual(ChecklistCodec.classify(newer), .unsupportedVersion)
+    }
 }

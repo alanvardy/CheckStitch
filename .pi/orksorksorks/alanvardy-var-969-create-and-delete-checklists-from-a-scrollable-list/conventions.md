@@ -29,9 +29,12 @@ Makefile variables: `SCHEME := CheckStitch`, `CONFIGURATION := Debug`,
 
 ## Test-suite inventory
 
-- **There is no test target.** No CheckStitchTests, no unit tests, nothing
-  platform-gated. The gate (`./scripts/test.sh`) is build + shellcheck of
-  `scripts/`. Do not add a test target as part of a small task (repo AGENTS.md).
+- **Amended after VAR-969:** the repo now has a `CheckStitchTests` unit suite
+  (XCTest, committed shared scheme) and the gate (`./scripts/test.sh`) is
+  `make build` + `make test` + shellcheck of `scripts/`. **Before VAR-969**
+  there was no test target and this file said not to add one as part of a
+  small task; that rule is superseded — see the updated `AGENTS.md` and
+  `implement.md` for the documented scope change.
 - Scripts are `#!/bin/bash` with `set -euo pipefail`, committed mode `100755`
   (`chmod +x` before committing). Keep the plural name `run-devices.sh` (the
   `r` fish alias runs it).

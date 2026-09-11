@@ -36,6 +36,7 @@ Rebased onto `origin/main` (`2dad2c3`, Sep 11 09:07) before any phase work.
 5. **`ChecklistReminders` uses the plan's bare `logger`** (not `Self.logger`); the only `Self.logger` left in the repo is `ChecklistStore.swift:74`, which is the plan's own Phase 2 code — the Phase 3 grep criterion as literally written in the plan is unreachable post-Phase 2, but its intent (no leftovers from the moved logic) is satisfied.
 6. **`ChecklistWidth` is now unused** — its only caller was the old `GeometryReader` body the list screen replaced. Kept per -972 shipped code; a later ticket may delete it.
 7. pbxproj test-target hand-edit landed with the plan's fixed object IDs and no plist-load problems; the committed shared scheme makes `xcodebuild test` deterministic.
+8. **Review decision — the test target + gate change was kept and retro-documented**, not reverted: `AGENTS.md` (gate + Layout), `conventions.md` (Test-suite inventory) and `design.md` ("What We're NOT Doing") now record that the repo has a `CheckStitchTests` suite and the gate is `make build` + `make test` + shellcheck. This is a deliberate, documented widening of the gate's contract (VAR-969 review, option 1).
 
 ## Manual Verification Items (from the plan)
 
