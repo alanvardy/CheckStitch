@@ -909,7 +909,13 @@ struct ChecklistCreatorTests {
 
 ---
 
-## Phase 5: Environment + ChecklistViewModel
+## Phase 5: AppEnvironment + ChecklistViewModel
+
+> **Deviation (supersedes plan naming)**: the DI container is named `AppEnvironment`,
+> not `Environment` — SwiftUI exports its own public `Environment<Value>` property
+> wrapper, so a container named `Environment` makes the bare name ambiguous in every
+> app file importing both SwiftUI and CheckStitchCore (ContentView's `@Environment(\\.dismiss)`,
+> SettingsView's `.constant(...)`). Approved by supervisor; behavior-neutral rename.
 
 ### Changes
 
@@ -917,7 +923,10 @@ struct ChecklistCreatorTests {
 
 ```swift
 /// Minimal dependency container: a small struct of services, not a framework.
-public struct Environment: Sendable {
+/// `AppEnvironment` (not `Environment`) — SwiftUI exports its own public
+/// `Environment<Value>` property-wrapper type, so the bare name is ambiguous
+/// in any module importing both SwiftUI and this package (approved rename).
+public struct AppEnvironment: Sendable {
     public init(reminderCreator: ReminderCreating) {
         self.reminderCreator = reminderCreator
     }
@@ -940,7 +949,7 @@ import os
 public final class ChecklistViewModel {
     /// `spinnerDuration` is the minimum time the spinner stays visible once
     /// creation finishes; suites inject `.zero` to keep tests instant.
-    public init(environment: Environment, spinnerDuration: Duration = .seconds(1)) {
+    public init(environment: AppEnvironment, spinnerDuration: Duration = .seconds(1)) {
         creator = ChecklistCreator(reminders: environment.reminderCreator)
         self.spinnerDuration = spinnerDuration
     }
@@ -1003,7 +1012,7 @@ import Testing
 struct ChecklistViewModelTests {
     private func makeViewModel(_ spy: SpyReminderCreator) -> ChecklistViewModel {
         ChecklistViewModel(
-            environment: Environment(reminderCreator: spy), spinnerDuration: .zero)
+            environment: AppEnvironment(reminderCreator: spy), spinnerDuration: .zero)
     }
 
     @Test
@@ -1066,8 +1075,8 @@ struct ChecklistViewModelTests {
 ### Verification
 
 #### Automated
-- [ ] macOS `-only-testing:CheckStitchTests` run green; total suite wall time stays well under ~10 s (no real sleeps)
-- [ ] `rg -n "spinnerDuration" CheckStitchTests/` shows only `.zero` injections
+- [x] macOS `-only-testing:CheckStitchTests` run green; total suite wall time stays well under ~10 s (no real sleeps)
+- [x] `rg -n "spinnerDuration" CheckStitchTests/` shows only `.zero` injections
 
 #### Manual
 - [ ] None
@@ -1093,7 +1102,7 @@ struct ContentView: View {
     @AppStorage(AppearanceModePreference.defaultsKey)
     var appearanceMode = AppearanceMode.system
 
-    init(environment: Environment) {
+    init(environment: AppEnvironment) {
         _viewModel = State(initialValue: ChecklistViewModel(environment: environment))
     }
 ```
@@ -1165,7 +1174,7 @@ struct ContentView: View {
 - `EditChecklistView` stays in this file unchanged except that it now uses the package's
   `ChecklistItem`; the `+` button constructs `ChecklistItem(title: "New item")` (same call,
   now the package initializer).
-- `#Preview { ContentView() }` → `#Preview { ContentView(environment: Environment(reminderCreator: EventKitReminderCreator(eventStore: EKEventStore()))) }`
+- `#Preview { ContentView() }` → `#Preview { ContentView(environment: AppEnvironment(reminderCreator: EventKitReminderCreator(eventStore: EKEventStore()))) }`
   (a preview-only store; never saved through).
 
 #### 2. `CheckStitch/MyApp.swift` — **modify**
@@ -1184,7 +1193,7 @@ import SwiftUI
 struct MyApp: App {
     // One long-lived store for the app: EKReminder weakly references it, and a
     // fresh store per creation would be deallocated underneath the reminders.
-    private let environment = Environment(
+    private let environment = AppEnvironment(
         reminderCreator: EventKitReminderCreator(eventStore: EKEventStore()))
 
     #if os(iOS)
@@ -1223,8 +1232,8 @@ import Testing
 
 @MainActor
 struct ViewRenderTests {
-    private func makeEnvironment() -> Environment {
-        Environment(reminderCreator: SpyReminderCreator())
+    private func makeEnvironment() -> AppEnvironment {
+        AppEnvironment(reminderCreator: SpyReminderCreator())
     }
 
     @Test
