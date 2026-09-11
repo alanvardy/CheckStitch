@@ -65,10 +65,7 @@ struct ContentView: View {
         }
         .accessibilityLabel("Settings")
         .accessibilityIdentifier("settingsButton")
-        // macOS's default bordered button style draws an opaque bezel over
-        // icon-only labels, hiding the gear icon; `.borderless` removes that
-        // chrome and is a no-op on iOS.
-        .buttonStyle(.borderless)
+        .checkStitchButton()
     }
 
     private var createChecklistButton: some View {
@@ -108,6 +105,7 @@ struct ContentView: View {
         }
         .accessibilityLabel("Create checklist named \(checklistName)")
         .accessibilityIdentifier("checklistButton")
+        .checkStitchButton()
     }
 
     private var editChecklistButton: some View {
@@ -125,6 +123,7 @@ struct ContentView: View {
         }
         .accessibilityLabel("Edit checklist")
         .accessibilityIdentifier("editChecklistButton")
+        .checkStitchButton()
     }
 
     func createChecklistReminders() async {
@@ -193,6 +192,7 @@ struct EditChecklistView: View {
                         Label("Add Item", systemImage: "plus.circle.fill")
                     }
                     .accessibilityIdentifier("addItemButton")
+                    .checkStitchButton()
 
                     Button {
                         dismiss()
@@ -200,6 +200,7 @@ struct EditChecklistView: View {
                         Label("Remove Checklist", systemImage: "trash")
                     }
                     .accessibilityIdentifier("removeChecklistButton")
+                    .checkStitchButton()
                 }
             }
             .navigationTitle("Edit checklist")
@@ -207,6 +208,7 @@ struct EditChecklistView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .checkStitchButton()
                 }
             }
         }
