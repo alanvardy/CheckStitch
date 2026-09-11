@@ -12,8 +12,12 @@ struct ContentView: View {
         ChecklistItem(title: "three"),
     ]
     @State private var isShowingEditChecklist = false
+    @State private var isShowingSettings = false
     @State private var isCreatingChecklist = false
     @State private var isChecklistCreated = false
+
+    @AppStorage("appearanceMode")
+    var appearanceMode = AppearanceMode.system
 
     var body: some View {
         HStack(spacing: 16) {
@@ -22,9 +26,37 @@ struct ContentView: View {
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .onChange(of: appearanceMode) { _, new in
+            AppDelegate.applyAppearance(new)
+        }
         .sheet(isPresented: $isShowingEditChecklist) {
             EditChecklistView(name: $checklistName, items: $items)
         }
+        .sheet(isPresented: $isShowingSettings) {
+            SettingsView(appearanceMode: $appearanceMode)
+        }
+        .overlay(alignment: .topLeading) {
+            settingsButton
+                .padding(.top, 8)
+                .padding(.leading, 12)
+        }
+    }
+
+    private var settingsButton: some View {
+        Button {
+            isShowingSettings = true
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.title2.weight(.semibold))
+                .frame(width: 52, height: 52)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(.tint, lineWidth: 2)
+                )
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Settings")
+        .accessibilityIdentifier("settingsButton")
     }
 
     private var createChecklistButton: some View {
