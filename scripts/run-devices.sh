@@ -7,7 +7,7 @@ set -euo pipefail
 #
 #   ./scripts/run-devices.sh
 #
-# Overrides (same env-override pattern as scripts/test.sh):
+# Overrides (same env-override pattern as the Makefile):
 #   SCHEME=… BUNDLE_ID=… CONFIGURATION=… DERIVED_DATA=…
 #   RUN_MAC=0   # skip the macOS build + launch step (default RUN_MAC=1)
 #
