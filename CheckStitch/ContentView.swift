@@ -143,8 +143,6 @@ struct ContentView: View {
     }
 }
 
-/// Editable row model for a checklist item. The ID is stable so rows can be
-/// added, removed, and edited without conflating duplicate titles.
 /// Viewport-relative cap for the checklist content, mirroring SingleThread's
 /// CardWidth. Returns `min(ceiling, fraction)` so the content hugs narrow
 /// screens but never balloons on wide (iPad) screens.
@@ -158,6 +156,8 @@ enum ChecklistWidth {
     }
 }
 
+/// Editable row model for a checklist item. The ID is stable so rows can be
+/// added, removed, and edited without conflating duplicate titles.
 struct ChecklistItem: Identifiable {
     let id = UUID()
     var title: String
