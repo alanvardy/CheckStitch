@@ -755,8 +755,8 @@ accessibility IDs and the spinner/checkmark UI in place for Phase 5 to reuse.
 ### Verification
 
 #### Automated
-- [ ] `./scripts/test.sh` prints `gate: ok` (build + 9 tests)
-- [ ] `grep -rn "createChecklistReminders\|Self.logger" CheckStitch/` → no matches
+- [x] `./scripts/test.sh` prints `gate: ok` (build + 9 tests)
+- [x] `grep -rn "createChecklistReminders\|Self.logger" CheckStitch/` → no matches
 
 #### Manual
 - [ ] `make run`, open a checklist with 3 named items, Create reminders → 3 reminders appear in the Reminders **Inbox**
