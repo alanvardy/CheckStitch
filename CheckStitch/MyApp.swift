@@ -17,11 +17,16 @@ import SwiftUI
     #endif
 
     @State private var store = ChecklistStore()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(store)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Flush coalesced text edits before the app suspends.
+            if phase != .active { store.flushPendingSave() }
         }
     }
 }
