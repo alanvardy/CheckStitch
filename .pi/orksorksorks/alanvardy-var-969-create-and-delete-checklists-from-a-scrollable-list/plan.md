@@ -1019,8 +1019,8 @@ Notes:
 ### Verification
 
 #### Automated
-- [ ] `./scripts/test.sh` prints `gate: ok` (build + 9 tests + shellcheck)
-- [ ] `xcodebuild -list -project CheckStitch.xcodeproj` still shows the `CheckStitch` scheme
+- [x] `./scripts/test.sh` prints `gate: ok` (build + 9 tests + shellcheck)
+- [x] `xcodebuild -list -project CheckStitch.xcodeproj` still shows the `CheckStitch` scheme
 
 #### Manual (the four design scenarios)
 - [ ] (1) Create two checklists with distinct names and items, force-quit (`make run` terminates and relaunches the app), relaunch → both reappear with names and items intact

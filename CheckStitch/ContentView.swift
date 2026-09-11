@@ -1,29 +1,40 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var checklistName = "checklist"
-    @State private var items = [
-        ChecklistItem(title: "one"),
-        ChecklistItem(title: "two"),
-        ChecklistItem(title: "three"),
-    ]
-    @State private var isShowingEditChecklist = false
-    @State private var isShowingSettings = false
-    @State private var isCreatingChecklist = false
-    @State private var isChecklistCreated = false
+    @Environment(ChecklistStore.self) private var store
 
     @AppStorage("appearanceMode")
     var appearanceMode = AppearanceMode.system
 
+    @State private var path: [UUID] = []
+    /// Transient per-checklist reminder feedback, keyed by id — never persisted.
+    @State private var creating: Set<UUID> = []
+    @State private var created: Set<UUID> = []
+    @State private var isShowingSettings = false
+
     var body: some View {
-        GeometryReader { geometry in
-            HStack(spacing: 16) {
-                createChecklistButton
-                editChecklistButton
+        NavigationStack(path: $path) {
+            Group {
+                if store.checklists.isEmpty {
+                    emptyState
+                } else {
+                    checklistList
+                }
             }
-            .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
-            .padding(.horizontal, 32)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .navigationTitle("Checklists")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        createChecklist()
+                    } label: {
+                        Label("Create checklist", systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("createChecklistButton")
+                }
+            }
+            .navigationDestination(for: UUID.self) { id in
+                ChecklistDetailView(checklistID: id)
+            }
         }
         .onChange(of: appearanceMode) { _, new in
             #if os(iOS)
@@ -61,64 +72,69 @@ struct ContentView: View {
         .checkStitchButton()
     }
 
-    private var createChecklistButton: some View {
-        Button {
-            Task {
-                isCreatingChecklist = true
-                // Hold the spinner for at least a second so saving quickly
-                // doesn't flash the progress feedback past the user.
-                async let minimumSpinner: Void = Task.sleep(for: .seconds(1))
-                await ChecklistReminders.create(from: Checklist(name: checklistName, items: items))
-                try? await minimumSpinner
-                isCreatingChecklist = false
-                isChecklistCreated = true
-                try? await Task.sleep(for: .seconds(1))
-                isChecklistCreated = false
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Text(checklistName)
-                    .font(.title2.weight(.semibold))
-                if isCreatingChecklist {
-                    ProgressView()
-                        .controlSize(.small)
-                } else if isChecklistCreated {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.green)
+    private var checklistList: some View {
+        List {
+            ForEach(store.checklists) { checklist in
+                HStack(spacing: 12) {
+                    NavigationLink(checklist.name, value: checklist.id)
+                    createRemindersButton(for: checklist.id)
                 }
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(.tint, lineWidth: 2)
-            )
         }
-        .accessibilityLabel("Create checklist named \(checklistName)")
-        .accessibilityIdentifier("checklistButton")
-        .checkStitchButton()
     }
 
-    private var editChecklistButton: some View {
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label("No checklists", systemImage: "checklist")
+        } description: {
+            Text("Create a checklist to turn its items into reminders.")
+        } actions: {
+            Button("Create checklist") { createChecklist() }
+                .accessibilityIdentifier("emptyStateCreateButton")
+        }
+    }
+
+    @ViewBuilder
+    private func createRemindersButton(for id: UUID) -> some View {
         Button {
-            isShowingEditChecklist = true
+            createReminders(for: id)
         } label: {
-            Image(systemName: "pencil")
-                .font(.title2.weight(.semibold))
-                .frame(width: 52, height: 52)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(.tint, lineWidth: 2)
-                )
-                .contentShape(Rectangle())
+            if creating.contains(id) {
+                ProgressView()
+                    .controlSize(.small)
+            } else if created.contains(id) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Image(systemName: "plus.circle")
+            }
         }
-        .accessibilityLabel("Edit checklist")
-        .accessibilityIdentifier("editChecklistButton")
-        .checkStitchButton()
+        .buttonStyle(.borderless)
+        .disabled(creating.contains(id))
+        .accessibilityLabel("Create reminders from checklist")
+        .accessibilityIdentifier("createRemindersButton")
     }
 
+    private func createChecklist() {
+        let checklist = store.create()
+        path.append(checklist.id)
+    }
+
+    private func createReminders(for id: UUID) {
+        guard let checklist = store.checklist(id: id) else { return }
+        Task {
+            creating.insert(id)
+            // Hold the spinner for at least a second so saving quickly
+            // doesn't flash the progress feedback past the user.
+            async let minimumSpinner: Void = Task.sleep(for: .seconds(1))
+            await ChecklistReminders.create(from: checklist)
+            try? await minimumSpinner
+            creating.remove(id)
+            created.insert(id)
+            try? await Task.sleep(for: .seconds(1))
+            created.remove(id)
+        }
+    }
 }
 
 /// Viewport-relative cap for the checklist content, mirroring SingleThread's
@@ -135,4 +151,5 @@ enum ChecklistWidth {
 
 #Preview {
     ContentView()
+        .environment(ChecklistStore())
 }
