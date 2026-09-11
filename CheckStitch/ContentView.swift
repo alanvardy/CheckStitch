@@ -20,12 +20,15 @@ struct ContentView: View {
     var appearanceMode = AppearanceMode.system
 
     var body: some View {
-        HStack(spacing: 16) {
-            createChecklistButton
-            editChecklistButton
+        GeometryReader { geometry in
+            HStack(spacing: 16) {
+                createChecklistButton
+                editChecklistButton
+            }
+            .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
+            .padding(.horizontal, 32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
-        .padding(.horizontal, 32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .onChange(of: appearanceMode) { _, new in
             #if os(iOS)
                 AppDelegate.applyAppearance(new)
@@ -142,6 +145,19 @@ struct ContentView: View {
 
 /// Editable row model for a checklist item. The ID is stable so rows can be
 /// added, removed, and edited without conflating duplicate titles.
+/// Viewport-relative cap for the checklist content, mirroring SingleThread's
+/// CardWidth. Returns `min(ceiling, fraction)` so the content hugs narrow
+/// screens but never balloons on wide (iPad) screens.
+///
+/// `maxContentWidth` is `nonisolated` so the pure math stays pinnable from
+/// nonisolated test contexts — the app target defaults all declarations to
+/// `MainActor` isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION`).
+enum ChecklistWidth {
+    nonisolated static func maxContentWidth(viewportWidth: CGFloat) -> CGFloat {
+        min(340, viewportWidth * 0.6)
+    }
+}
+
 struct ChecklistItem: Identifiable {
     let id = UUID()
     var title: String
