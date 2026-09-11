@@ -779,9 +779,9 @@ struct EventKitReminderCreatorTests {
 ### Verification
 
 #### Automated
-- [ ] macOS `-only-testing:CheckStitchTests` run green
-- [ ] The run does **not** present a Reminders permission dialog (manual watch of the run)
-- [ ] `rg -n "EKEventStore\(\)" CheckStitchCore/ CheckStitchTests/` shows only
+- [x] macOS `-only-testing:CheckStitchTests` run green
+- [x] The run does **not** present a Reminders permission dialog (manual watch of the run)
+- [x] `rg -n "EKEventStore\(\)" CheckStitchCore/ CheckStitchTests/` shows only
       `sharedTestEventStore` (no per-call store construction)
 
 #### Manual
