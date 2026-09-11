@@ -696,9 +696,9 @@ final class ChecklistStoreTests: XCTestCase {
 ### Verification
 
 #### Automated
-- [ ] `make test 2>&1 | grep -E "Executed 9 tests|error:"` → `Executed 9 tests, with 0 failures` (3 codec + 6 store)
-- [ ] Run `make test` twice in a row — still green (no cross-run suite bleed)
-- [ ] `./scripts/test.sh` prints `gate: ok`
+- [x] `make test 2>&1 | grep -E "Executed 9 tests|error:"` → `Executed 9 tests, with 0 failures` (3 codec + 6 store)
+- [x] Run `make test` twice in a row — still green (no cross-run suite bleed)
+- [x] `./scripts/test.sh` prints `gate: ok`
 
 #### Manual
 - [ ] None for this phase.
@@ -1035,7 +1035,7 @@ Notes:
 ## Testing Checkpoints (mirror of `structure.md`)
 
 - [x] **After Phase 1** — `gate: ok` + codec suite green → model shape frozen for the store.
-- [ ] **After Phase 2** — store suite green against fresh `UserDefaults` domains → persistence proven before any UI relies on it.
+- [x] **After Phase 2** — store suite green against fresh `UserDefaults` domains → persistence proven before any UI relies on it.
 - [ ] **After Phase 3** — gate green + 3 manual Reminders checks → creation flow unchanged from VAR-966.
 - [ ] **After Phase 4** — detail screen manual checks pass → name/item/delete mutations proven through the store.
 - [ ] **After Phase 5** — all four design scenarios pass → feature complete; optional device run confirms the App Group payload is real (not the `.standard` fallback).
