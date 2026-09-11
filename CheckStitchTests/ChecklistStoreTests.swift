@@ -97,4 +97,31 @@ final class ChecklistStoreTests: XCTestCase {
         let store = ChecklistStore(defaults: suite.defaults, key: key)
         XCTAssertTrue(store.checklists.isEmpty)
     }
+
+    func testCorruptPayloadIsRepairedOnSave() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        suite.defaults.set(Data("not json".utf8), forKey: key)
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key)
+        store.create()
+
+        let reloaded = ChecklistStore(defaults: suite.defaults, key: key)
+        XCTAssertEqual(reloaded.checklists.count, 1)
+    }
+
+    func testUnsupportedVersionPayloadIsNotOverwritten() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let newer = Data(#"{"version":99,"checklists":[]}"#.utf8)
+        suite.defaults.set(newer, forKey: key)
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key)
+        XCTAssertTrue(store.checklists.isEmpty)
+        store.create()
+        store.create()
+
+        // The newer payload survives; the in-memory changes are simply not persisted.
+        XCTAssertEqual(suite.defaults.data(forKey: key), newer)
+    }
 }

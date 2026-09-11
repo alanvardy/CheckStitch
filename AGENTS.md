@@ -13,6 +13,9 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   — the sole screen. New files added under `CheckStitch/` need **no**
   `project.pbxproj` edit: the project uses `PBXFileSystemSynchronizedRootGroup`.
 - `CheckStitch/AppGroup.entitlements` — App Group `group.app.alanvardy.CheckStitch`.
+- `CheckStitchTests/` — unit suites (Swift Testing, macOS-hosted, plus the
+  VAR-969 store/codec XCTest suites); the project also carries a committed
+  shared scheme so `xcodebuild test` is deterministic.
 - `linear-project.md` — the Linear project to file tickets in (`CheckStitch`).
 - `.pi/orksorksorks/<branch>/` — step artifacts; these are committed here.
 

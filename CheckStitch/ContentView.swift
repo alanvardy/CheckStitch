@@ -121,9 +121,11 @@ struct ContentView: View {
     }
 
     private func createReminders(for id: UUID) {
-        guard let checklist = store.checklist(id: id) else { return }
+        // Mark the checklist as creating before spawning the task so a second
+        // tap can't enqueue duplicate reminders while the first task starts.
+        guard !creating.contains(id), let checklist = store.checklist(id: id) else { return }
+        creating.insert(id)
         Task {
-            creating.insert(id)
             // Hold the spinner for at least a second so saving quickly
             // doesn't flash the progress feedback past the user.
             async let minimumSpinner: Void = Task.sleep(for: .seconds(1))

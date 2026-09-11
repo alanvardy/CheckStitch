@@ -38,23 +38,39 @@ enum ChecklistCodec {
 
     private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "ChecklistCodec")
 
+    /// How a stored payload relates to the version this build understands. The
+    /// store needs the distinction so it can decline to overwrite data written
+    /// by a newer app sharing the App Group suite.
+    enum Outcome: Equatable {
+        case loaded([Checklist])
+        /// Written by a future version whose shape is unknown.
+        case unsupportedVersion
+        /// Garbage that is safe to replace.
+        case unreadable
+    }
+
     static func encode(_ checklists: [Checklist]) throws -> Data {
         try JSONEncoder().encode(ChecklistEnvelope(version: currentVersion, checklists: checklists))
     }
 
-    /// Corrupt payloads and unknown versions both yield `[]` plus a log line —
-    /// never a crash and never a partial decode.
-    static func decode(_ data: Data) -> [Checklist] {
+    /// Classifies a payload — never a crash, never a partial decode.
+    static func classify(_ data: Data) -> Outcome {
         do {
             let envelope = try JSONDecoder().decode(ChecklistEnvelope.self, from: data)
             guard envelope.version == currentVersion else {
                 logger.error("Unsupported checklist payload version \(envelope.version, privacy: .public); treating as empty")
-                return []
+                return .unsupportedVersion
             }
-            return envelope.checklists
+            return .loaded(envelope.checklists)
         } catch {
             logger.error("Failed to decode checklist payload: \(error.localizedDescription, privacy: .public)")
-            return []
+            return .unreadable
         }
+    }
+
+    /// Convenience for readers that only need the values.
+    static func decode(_ data: Data) -> [Checklist] {
+        if case .loaded(let checklists) = classify(data) { return checklists }
+        return []
     }
 }

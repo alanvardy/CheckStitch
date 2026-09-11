@@ -7,6 +7,7 @@ struct ChecklistDetailView: View {
 
     @Environment(ChecklistStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var isRemoving = false
 
     var body: some View {
         if let checklist = store.checklist(id: checklistID) {
@@ -33,6 +34,7 @@ struct ChecklistDetailView: View {
                     .checkStitchButton()
 
                     Button(role: .destructive) {
+                        isRemoving = true
                         store.delete(id: checklistID)
                         dismiss()
                     } label: {
@@ -50,8 +52,9 @@ struct ChecklistDetailView: View {
                         .checkStitchButton()
                 }
             }
-        } else {
-            // The checklist was deleted while this screen was on the stack.
+        } else if !isRemoving {
+            // Deleted elsewhere while this screen was on the stack. A delete
+            // from this screen skips the message so the pop never flashes it.
             ContentUnavailableView("Checklist not found", systemImage: "trash")
         }
     }
