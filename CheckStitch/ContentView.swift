@@ -1,21 +1,25 @@
-import CheckStitchCore
-import EventKit // required by the `#Preview` environment construction below
+import EventKit
+import os
 import SwiftUI
 
 struct ContentView: View {
-    @State private var viewModel: ChecklistViewModel
+    private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "Checklist")
+
+    @State private var checklistName = "checklist"
+    @State private var items = [
+        ChecklistItem(title: "one"),
+        ChecklistItem(title: "two"),
+        ChecklistItem(title: "three"),
+    ]
     @State private var isShowingEditChecklist = false
     @State private var isShowingSettings = false
+    @State private var isCreatingChecklist = false
+    @State private var isChecklistCreated = false
 
-    @AppStorage(AppearanceModePreference.defaultsKey)
+    @AppStorage("appearanceMode")
     var appearanceMode = AppearanceMode.system
 
-    init(environment: AppEnvironment) {
-        _viewModel = State(initialValue: ChecklistViewModel(environment: environment))
-    }
-
     var body: some View {
-        @Bindable var viewModel = viewModel
         GeometryReader { geometry in
             HStack(spacing: 16) {
                 createChecklistButton
@@ -37,7 +41,7 @@ struct ContentView: View {
         .preferredColorScheme(appearanceMode.colorScheme)
         #endif
         .sheet(isPresented: $isShowingEditChecklist) {
-            EditChecklistView(name: $viewModel.checklistName, items: $viewModel.items)
+            EditChecklistView(name: $checklistName, items: $items)
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(appearanceMode: $appearanceMode)
@@ -70,21 +74,25 @@ struct ContentView: View {
     private var createChecklistButton: some View {
         Button {
             Task {
-                await viewModel.createChecklist()
-                if viewModel.isChecklistCreated {
-                    // Flash the checkmark for a beat.
-                    try? await Task.sleep(for: .seconds(1))
-                    viewModel.dismissCreatedFeedback()
-                }
+                isCreatingChecklist = true
+                // Hold the spinner for at least a second so saving quickly
+                // doesn't flash the progress feedback past the user.
+                async let minimumSpinner: Void = Task.sleep(for: .seconds(1))
+                await createChecklistReminders()
+                try? await minimumSpinner
+                isCreatingChecklist = false
+                isChecklistCreated = true
+                try? await Task.sleep(for: .seconds(1))
+                isChecklistCreated = false
             }
         } label: {
             HStack(spacing: 8) {
-                Text(viewModel.checklistName)
+                Text(checklistName)
                     .font(.title2.weight(.semibold))
-                if viewModel.isCreatingChecklist {
+                if isCreatingChecklist {
                     ProgressView()
                         .controlSize(.small)
-                } else if viewModel.isChecklistCreated {
+                } else if isChecklistCreated {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.green)
@@ -98,7 +106,7 @@ struct ContentView: View {
                     .stroke(.tint, lineWidth: 2)
             )
         }
-        .accessibilityLabel("Create checklist named \(viewModel.checklistName)")
+        .accessibilityLabel("Create checklist named \(checklistName)")
         .accessibilityIdentifier("checklistButton")
         .checkStitchButton()
     }
@@ -119,6 +127,37 @@ struct ContentView: View {
         .accessibilityLabel("Edit checklist")
         .accessibilityIdentifier("editChecklistButton")
         .checkStitchButton()
+    }
+
+    func createChecklistReminders() async {
+        let eventStore = EKEventStore()
+        do {
+            let granted = try await eventStore.requestFullAccessToReminders()
+            if !granted { return }
+            // One reminder per checklist item, in the Reminders Inbox.
+            for item in items {
+                // Skip blank titles so an emptied row can't produce a meaningless reminder.
+                guard !item.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                let reminder = EKReminder(eventStore: eventStore)
+                reminder.title = item.title
+                reminder.calendar = eventStore.defaultCalendarForNewReminders()
+                try eventStore.save(reminder, commit: true)
+            }
+        } catch {
+            Self.logger.error("Failed to create checklist reminders: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
+
+/// Viewport-relative cap for the checklist content, mirroring SingleThread's
+/// CardWidth. Returns `min(ceiling, fraction)` so the content hugs narrow
+/// screens but never balloons on wide (iPad) screens.
+///
+/// `maxContentWidth` is `nonisolated` so the pure math stays callable outside
+/// the app target's `MainActor` isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION`).
+enum ChecklistWidth {
+    nonisolated static func maxContentWidth(viewportWidth: CGFloat) -> CGFloat {
+        min(340, viewportWidth * 0.6)
     }
 }
 
@@ -177,6 +216,5 @@ struct EditChecklistView: View {
 }
 
 #Preview {
-    ContentView(environment: AppEnvironment(
-        reminderCreator: EventKitReminderCreator(eventStore: EKEventStore())))
+    ContentView()
 }

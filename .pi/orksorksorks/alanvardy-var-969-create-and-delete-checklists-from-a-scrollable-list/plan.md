@@ -481,11 +481,11 @@ if command -v shellcheck >/dev/null 2>&1; then
 ### Verification
 
 #### Automated
-- [ ] `plutil -lint CheckStitch.xcodeproj/project.pbxproj` → `OK`
-- [ ] `xcodebuild -list -project CheckStitch.xcodeproj` lists targets `CheckStitch` **and** `CheckStitchTests`, and the `CheckStitch` scheme
-- [ ] `make test 2>&1 | grep -E "Executed 3 tests|error:"` → `Executed 3 tests, with 0 failures`
-- [ ] `./scripts/test.sh` prints `gate: ok`
-- [ ] `shellcheck scripts/*.sh` clean
+- [x] `plutil -lint CheckStitch.xcodeproj/project.pbxproj` → `OK`
+- [x] `xcodebuild -list -project CheckStitch.xcodeproj` lists targets `CheckStitch` **and** `CheckStitchTests`, and the `CheckStitch` scheme
+- [x] `make test 2>&1 | grep -E "Executed 3 tests|error:"` → `Executed 3 tests, with 0 failures`
+- [x] `./scripts/test.sh` prints `gate: ok`
+- [x] `shellcheck scripts/*.sh` clean
 
 #### Manual
 - [ ] None for this phase.
@@ -1034,7 +1034,7 @@ Notes:
 
 ## Testing Checkpoints (mirror of `structure.md`)
 
-- [ ] **After Phase 1** — `gate: ok` + codec suite green → model shape frozen for the store.
+- [x] **After Phase 1** — `gate: ok` + codec suite green → model shape frozen for the store.
 - [ ] **After Phase 2** — store suite green against fresh `UserDefaults` domains → persistence proven before any UI relies on it.
 - [ ] **After Phase 3** — gate green + 3 manual Reminders checks → creation flow unchanged from VAR-966.
 - [ ] **After Phase 4** — detail screen manual checks pass → name/item/delete mutations proven through the store.
