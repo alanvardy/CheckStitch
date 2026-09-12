@@ -256,8 +256,8 @@ private `Int.clamped(to:)` extension.
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` green
-- [ ] `make test FILTER=CheckStitchTests/BackgroundFadeTests` green
+- [x] `bash scripts/test.sh` green
+- [x] `make test FILTER=CheckStitchTests/BackgroundFadeTests` green
 
 #### Manual
 - [ ] None — pure math.
