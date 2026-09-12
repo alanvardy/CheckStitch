@@ -202,5 +202,67 @@ gate_never_requests_a_window() {
 run_case run_path_requests_window_for_resolved_udid run_path_requests_window_for_resolved_udid
 run_case gate_never_requests_a_window gate_never_requests_a_window
 
+# --- run-watch.sh ----------------------------------------------------------
+
+WATCH_FIXTURE=""
+
+# Stub xcrun so `devicectl list devices -j <file>` writes a fixture, while any
+# install/launch subcommand is only logged. xcodebuild is a no-op (the built
+# app is pre-created by the caller).
+stub_watch_command() {
+    new_stubs xcrun xcodebuild
+    WATCH_FIXTURE="$STUB_ROOT/devices.json"
+    cat >"$WATCH_FIXTURE" <<'JSON'
+{"result":{"devices":[{"identifier":"WATCH-UDID-1","deviceProperties":{"name":"Test Watch"},"connectionProperties":{"transportType":"wifi","tunnelState":"connected"}}]}}
+JSON
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+if [[ "\$1" == "devicectl" && "\$2" == "list" && "\$3" == "devices" ]]; then
+    cp "$WATCH_FIXTURE" "\$5"
+    exit 0
+fi
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+}
+
+run_watch_installs_and_launches_resolved_device() {
+    stub_watch_command
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-watchos/CheckStitchWatch.app"
+    DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-watch.sh >/dev/null 2>&1 || return 1
+    grep -q 'device install app --device WATCH-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'process launch.*app.alanvardy.CheckStitch.watchkitapp' "$STUB_ROOT/xcrun.log"
+}
+
+run_watch_errors_on_unreachable_device() {
+    stub_watch_command
+    cat >"$WATCH_FIXTURE" <<'JSON'
+{"result":{"devices":[{"identifier":"WATCH-UDID-1","deviceProperties":{"name":"Test Watch"},"connectionProperties":{"transportType":null}}]}}
+JSON
+    local out status
+    set +e
+    out="$(DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-watch.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"Could not resolve"* ]]
+}
+
+run_watch_errors_on_unknown_device() {
+    stub_watch_command
+    local out status
+    set +e
+    out="$(DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="No Such Watch" bash scripts/run-watch.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"Could not resolve"* ]]
+}
+
+run_case run_watch_installs_and_launches_resolved_device run_watch_installs_and_launches_resolved_device
+run_case run_watch_errors_on_unreachable_device run_watch_errors_on_unreachable_device
+run_case run_watch_errors_on_unknown_device run_watch_errors_on_unknown_device
+
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

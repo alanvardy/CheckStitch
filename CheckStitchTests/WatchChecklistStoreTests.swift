@@ -58,4 +58,26 @@ struct WatchChecklistStoreTests {
 
         #expect(transport.sentMessages == [.requestChecklists])
     }
+
+    @Test
+    func activationRequestsRefreshAfterTheColdStartDrop() {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+
+        store.start()
+        transport.completeActivation()
+
+        #expect(transport.sentMessages == [.requestChecklists])
+    }
+
+    @Test
+    func rejectedRunIsNotRecordedAsPending() {
+        let transport = FakeChecklistSyncTransport()
+        transport.acceptsSends = false
+        let store = WatchChecklistStore(transport: transport)
+        let checklist = Checklist(name: "Groceries")
+
+        #expect(store.run(checklist) == false)
+        #expect(store.pendingRunID == nil)
+    }
 }
