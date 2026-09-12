@@ -77,7 +77,14 @@
         private func clampWindowsToScreen() {
             let screenFrames = NSScreen.screens.map(\.frame)
             for window in NSApp.windows {
-                let target = Self.onScreenFrame(window.frame, screenFrames: screenFrames)
+                // Without any screen geometry (window server still settling at
+                // launch) fall back to a conservative top-left placement rather
+                // than leaving an off-screen window unreachable.
+                let target = if screenFrames.isEmpty {
+                    NSRect(x: 0, y: 0, width: min(window.frame.width, 1512), height: min(window.frame.height, 982))
+                } else {
+                    Self.onScreenFrame(window.frame, screenFrames: screenFrames)
+                }
                 if target != window.frame {
                     window.setFrame(target, display: false)
                 }
@@ -93,6 +100,15 @@
             clampWindowsToScreen()
         }
 
+        /// Heals the persisted frame just before SwiftUI writes it back at window
+        /// teardown. SwiftUI only persists each window's frame when it closes, so an
+        /// off-screen frame that a launch restore replays keeps re-persisting
+        /// itself; re-framing on the way out makes the next launch restore a
+        /// reachable window instead.
+        @objc private func windowWillClose(_: Notification) {
+            clampWindowsToScreen()
+        }
+
         func applicationDidFinishLaunching(_: Notification) {
             Self.applyAppearance(AppearanceMode.load())
             clampWindowsToScreen()
@@ -100,6 +116,11 @@
                 self,
                 selector: #selector(windowDidMove(_:)),
                 name: NSWindow.didMoveNotification,
+                object: nil)
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(windowWillClose(_:)),
+                name: NSWindow.willCloseNotification,
                 object: nil)
         }
 
