@@ -28,7 +28,7 @@ public final class ChecklistSyncCoordinator {
     }
 
     private func pushContext() {
-        guard let data = try? ChecklistCodec.encode(snapshot()) else { return }
+        guard let data = try? ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: snapshot())) else { return }
         transport.sendContext(data)
     }
 

@@ -12,10 +12,28 @@ final class ChecklistCodecTests: XCTestCase {
             ]),
             Checklist(name: "Chores"),
         ]
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: checklists)
 
-        let data = try ChecklistCodec.encode(checklists)
+        let data = try ChecklistCodec.encode(envelope)
 
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
         XCTAssertEqual(ChecklistCodec.decode(data), checklists)
+    }
+
+    /// A true v1 payload: no `deviceID`, `tombstones`, `modifiedAt`, or
+    /// `revision` keys anywhere — exactly what the old encoder wrote.
+    func testLegacyV1PayloadIsClassifiedMigratable() {
+        let legacy = Data(#"{"version":1,"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk"}]}]}"#.utf8)
+
+        let outcome = ChecklistCodec.classify(legacy)
+        guard case .migratable(from: let version, checklists: let checklists) = outcome else {
+            XCTFail("expected migratable outcome, got \(outcome)")
+            return
+        }
+        XCTAssertEqual(version, 1)
+        XCTAssertEqual(checklists.count, 1)
+        XCTAssertEqual(checklists.first?.name, "Groceries")
+        XCTAssertEqual(checklists.first?.items.first?.title, "Milk")
     }
 
     func testUnknownVersionDecodesAsEmpty() {
@@ -25,7 +43,7 @@ final class ChecklistCodecTests: XCTestCase {
     }
 
     func testEmptyEnvelopeDecodes() throws {
-        XCTAssertEqual(ChecklistCodec.decode(try ChecklistCodec.encode([])), [])
+        XCTAssertEqual(ChecklistCodec.decode(try ChecklistCodec.encode(ChecklistEnvelope(deviceID: "", checklists: []))), [])
     }
 
     func testClassifyDistinguishesUnsupportedFromUnreadable() {

@@ -19,7 +19,7 @@ struct WatchChecklistStoreTests {
         store.start()
 
         let expected = [Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])]
-        transport.deliver(.context(try ChecklistCodec.encode(expected)))
+        transport.deliver(.context(try ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: expected))))
 
         #expect(store.checklists == expected)
     }
@@ -31,7 +31,7 @@ struct WatchChecklistStoreTests {
         store.start()
 
         let expected = [Checklist(name: "Groceries")]
-        transport.deliver(.context(try ChecklistCodec.encode(expected)))
+        transport.deliver(.context(try ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: expected))))
         transport.deliver(.context(Data("not json".utf8)))
 
         #expect(store.checklists == expected)
