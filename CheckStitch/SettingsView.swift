@@ -1,10 +1,13 @@
 import SwiftUI
 
-/// Modal settings screen presented from the gear button. Currently holds a
-/// single entry — the appearance (theme) picker — bound back to the
-/// `@AppStorage`-backed property on `ContentView`.
+/// Modal settings screen presented from the gear button. Holds the
+/// appearance (theme) picker, bound back to the `@AppStorage`-backed property
+/// on `ContentView`, plus the row that pushes the Background subscreen over a
+/// staged `SettingsBindings` bag.
 struct SettingsView: View {
     @Binding var appearanceMode: AppearanceMode
+    @Bindable var bindings: SettingsBindings
+    var backgroundImage: BackgroundImageStore
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -24,6 +27,19 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("appearancePicker")
                 }
+
+                Section {
+                    NavigationLink {
+                        BackgroundSettingsView(
+                            backgroundEnabled: $bindings.backgroundEnabled,
+                            backgroundFadePercent: $bindings.backgroundFadePercent,
+                            backgroundPinned: $bindings.backgroundPinned,
+                            backgroundImage: backgroundImage)
+                    } label: {
+                        Label("Background", systemImage: "photo.on.rectangle")
+                    }
+                    .accessibilityIdentifier("settingsBackgroundRow")
+                }
             }
             .navigationTitle("Settings")
             .toolbarTitleDisplayMode(.inline)
@@ -41,10 +57,16 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(appearanceMode: .constant(AppearanceMode.system))
+    SettingsView(
+        appearanceMode: .constant(AppearanceMode.system),
+        bindings: SettingsBindings(),
+        backgroundImage: BackgroundImageStore())
 }
 
 #Preview("Dark") {
-    SettingsView(appearanceMode: .constant(AppearanceMode.dark))
+    SettingsView(
+        appearanceMode: .constant(AppearanceMode.dark),
+        bindings: SettingsBindings(),
+        backgroundImage: BackgroundImageStore())
         .preferredColorScheme(AppearanceMode.dark.colorScheme)
 }

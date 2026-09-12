@@ -14,69 +14,92 @@ struct ContentView: View {
     @State private var creating: Set<UUID> = []
     @State private var created: Set<UUID> = []
     @State private var isShowingSettings = false
+    @State private var backgroundImage = BackgroundImageStore()
+    @State private var settingsBag: SettingsBindings?
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                if store.checklists.isEmpty {
-                    emptyState
-                } else {
-                    checklistList
+        ZStack {
+            Color.systemBackground.ignoresSafeArea()
+            BackgroundPhotoLayer(
+                imageData: backgroundImage.imageData,
+                isEnabled: backgroundEnabled,
+                opacity: BackgroundFade.opacity(for: backgroundFadePercent))
+            NavigationStack(path: $path) {
+                Group {
+                    if store.checklists.isEmpty {
+                        emptyState
+                    } else {
+                        checklistList
+                    }
+                }
+                .navigationTitle("Checklists")
+                .toolbar {
+                    ToolbarItem(placement: createButtonPlacement) {
+                        Button {
+                            createChecklist()
+                        } label: {
+                            Label("Create checklist", systemImage: "plus")
+                        }
+                        .accessibilityIdentifier("createChecklistButton")
+                    }
+                    #if os(macOS)
+                        // macOS window actions belong in the title bar, and a
+                        // view-level overlay there drifts into the content area.
+                        // Trailing keeps the gear in the corner beside create.
+                        ToolbarItem(placement: .primaryAction) {
+                            settingsButton
+                        }
+                    #endif
+                }
+                .navigationDestination(for: UUID.self) { id in
+                    ChecklistDetailView(checklistID: id)
                 }
             }
-            .navigationTitle("Checklists")
-            .toolbar {
-                ToolbarItem(placement: createButtonPlacement) {
-                    Button {
-                        createChecklist()
-                    } label: {
-                        Label("Create checklist", systemImage: "plus")
-                    }
-                    .accessibilityIdentifier("createChecklistButton")
-                }
+            .onChange(of: appearanceMode) { _, new in
+                #if os(iOS)
+                    AppDelegate.applyAppearance(new)
+                #endif
                 #if os(macOS)
-                    // macOS window actions belong in the title bar, and a
-                    // view-level overlay there drifts into the content area.
-                    // Trailing keeps the gear in the corner beside create.
-                    ToolbarItem(placement: .primaryAction) {
-                        settingsButton
-                    }
+                    MacAppDelegate.applyAppearance(new)
                 #endif
             }
-            .navigationDestination(for: UUID.self) { id in
-                ChecklistDetailView(checklistID: id)
-            }
-        }
-        .onChange(of: appearanceMode) { _, new in
-            #if os(iOS)
-                AppDelegate.applyAppearance(new)
-            #endif
             #if os(macOS)
-                MacAppDelegate.applyAppearance(new)
+                // The canvas does not pick up the window-level NSWindow.appearance,
+                // so thread the scheme through SwiftUI content as well
+                // (mirrors the 974 macOS-canvas fix).
+                .preferredColorScheme(appearanceMode.colorScheme)
             #endif
-        }
-        #if os(macOS)
-            // The canvas does not pick up the window-level NSWindow.appearance,
-            // so thread the scheme through SwiftUI content as well
-            // (mirrors the 974 macOS-canvas fix).
-            .preferredColorScheme(appearanceMode.colorScheme)
-        #endif
-        .sheet(isPresented: $isShowingSettings) {
-            SettingsView(appearanceMode: $appearanceMode)
-        }
-        #if os(iOS)
-            // The overlay hangs off the whole `NavigationStack`, so without
-            // the empty-path guard it floats over every pushed screen too —
-            // on the detail screen it lands on top of the Done button. Only
-            // the root list screen owns this gear.
-            .overlay(alignment: .topTrailing) {
-                if path.isEmpty {
-                    settingsButton
-                        .padding(.top, 8)
-                        .padding(.trailing, 12)
+            .sheet(isPresented: $isShowingSettings) {
+                if let bag = settingsBag {
+                    settingsSheetWritebacks(bag)
                 }
             }
-        #endif
+            .onChange(of: isShowingSettings) { _, showing in
+                if !showing { settingsBag = nil }
+            }
+            #if os(iOS)
+                // The overlay hangs off the whole `NavigationStack`, so without
+                // the empty-path guard it floats over every pushed screen too —
+                // on the detail screen it lands on top of the Done button. Only
+                // the root list screen owns this gear.
+                .overlay(alignment: .topTrailing) {
+                    if path.isEmpty {
+                        settingsButton
+                            .padding(.top, 8)
+                            .padding(.trailing, 12)
+                    }
+                }
+            #endif
+        }
+        .task {
+            // Pin BEFORE the first refresh so a pinned cold launch never
+            // refetches a stale stored image (mirrors SingleThread's ordering).
+            await backgroundImage.setPinned(backgroundPinned)
+            await backgroundImage.refreshIfNeeded()
+        }
+        .onChange(of: backgroundPinned) { _, pin in
+            Task { await backgroundImage.setPinned(pin) }
+        }
     }
 
     /// `topBarLeading` is iOS-only; on macOS the leading navigation slot is
@@ -96,6 +119,7 @@ struct ContentView: View {
     private var settingsButton: some View {
         #if os(iOS)
             Button {
+                settingsBag = makeSettingsBag()
                 isShowingSettings = true
             } label: {
                 Image(systemName: "gearshape")
@@ -112,6 +136,7 @@ struct ContentView: View {
             .checkStitchButton()
         #else
             Button {
+                settingsBag = makeSettingsBag()
                 isShowingSettings = true
             } label: {
                 Label("Settings", systemImage: "gearshape")
@@ -213,6 +238,18 @@ struct ContentView: View {
 }
 
 extension ContentView {
+    /// Renders the Settings sheet over the staged bag and writes each staged
+    /// change back to the `@AppStorage`-backed property so it survives relaunch.
+    func settingsSheetWritebacks(_ bag: SettingsBindings) -> some View {
+        SettingsView(
+            appearanceMode: $appearanceMode,
+            bindings: bag,
+            backgroundImage: backgroundImage)
+            .onChange(of: bag.backgroundEnabled) { _, _ in writeBack(bag) }
+            .onChange(of: bag.backgroundFadePercent) { _, _ in writeBack(bag) }
+            .onChange(of: bag.backgroundPinned) { _, _ in writeBack(bag) }
+    }
+
     /// Persists every staged background preference. Extracted so it is
     /// exercisable without a live SwiftUI hierarchy (see SettingsBindingsTests).
     func writeBack(_ bag: SettingsBindings) {
