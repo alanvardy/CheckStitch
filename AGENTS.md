@@ -23,6 +23,16 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 
 - `make build` — simulator build (`xcodebuild`, scheme `CheckStitch`).
 - `make run` — build, then boot/install/launch on a simulator.
+- The gate pre-boots this worktree's `.simulator_id` device headlessly before
+  `make test` and shuts it down on exit (scoped to that UDID only — never
+  `all`/`booted`). If `.simulator_id` is missing it skips pre-boot entirely and
+  never selects a shared device.
+- A running `Simulator.app` attaches a window to every booted device, and the
+  `AutoOpenDevice` preference proved ineffective on this toolchain (Xcode 26.6,
+  spike in Phase 1 of the implement plan). The gate therefore takes a bounded
+  host lock (`${TMPDIR:-/tmp}/checkstitch-simulator.lock`) and quits
+  `Simulator.app` around the simulator-touching part. Shell-level regression
+  tests live in `scripts/tests/run.sh` and run as part of the gate.
 - **The gate is `./scripts/test.sh`** — `make build` (simulator) → `make test` →
   `shellcheck scripts/*.sh`, printing `gate: ok`.
 - `make test-unit` runs `CheckStitchTests` on `platform=macOS` with
@@ -32,11 +42,6 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 - Unit tests import `@testable import CheckStitchCore`; the UI smoke stays XCTest.
   Test targets deliberately do **not** set `SWIFT_DEFAULT_ACTOR_ISOLATION`, so
   suites opt in with `@MainActor` — never restore the app's default there.
-- One-time host setup: `bash scripts/sim-windowless.sh fix` asserts
-  `com.apple.iphonesimulator AutoOpenDevice=false` so a running `Simulator.app`
-  does not attach a window to every booted device. The gate checks this and warns
-  (it does not write host preferences). Shell-level regression tests live in
-  `scripts/tests/run.sh` and run as part of the gate.
 - `bash scripts/run-devices.sh` — install + launch on a real device
   (requires Developer Mode; prefers an iPhone). Honours `SCHEME`,
   `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA` overrides.

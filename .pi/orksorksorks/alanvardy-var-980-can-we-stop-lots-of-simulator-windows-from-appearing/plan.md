@@ -505,10 +505,16 @@ Add to "Build, run, gate":
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/tests/run.sh` → `tests: 8 passed, 0 failed`
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
+- [x] `bash scripts/tests/run.sh` → `tests: 7 passed, 0 failed` (Phase 4b substitution)
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
 - [ ] `bash scripts/test.sh` prints `gate: ok` (real gate)
 - [ ] `xcrun simctl list devices booted` shows **no** device whose UDID equals `.simulator_id` after the gate exits
+
+> Implemented with the **Phase 4b substitution** (spike failed): the host-scoped
+> lock + quit-Simulator.app block replaces the `sim-windowless.sh check` line;
+> `scripts/sim-windowless.sh` and its Phase 1 runner cases were dropped. The
+> Phase 3 shutdown trap and the Phase 4b lock release share ONE `gate_cleanup`
+> EXIT trap (a second `trap … EXIT` would replace the first).
 
 #### Manual
 - [ ] With `Simulator.app` open and the Phase 1 pref applied: run `bash scripts/test.sh`; window count (`osascript` above) stays flat from start to finish
@@ -672,8 +678,8 @@ run_case lock_times_out_instead_of_blocking lock_times_out_instead_of_blocking
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/tests/run.sh` → all cases pass, including `lock_times_out_instead_of_blocking`
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
+- [x] `bash scripts/tests/run.sh` → all cases pass, including `lock_times_out_instead_of_blocking`
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
 - [ ] `bash scripts/test.sh` prints `gate: ok`
 
 #### Manual
