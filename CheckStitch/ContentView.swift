@@ -52,6 +52,12 @@ struct ContentView: View {
                 MacAppDelegate.applyAppearance(new)
             #endif
         }
+        #if os(macOS)
+            // The canvas does not pick up the window-level NSWindow.appearance,
+            // so thread the scheme through SwiftUI content as well
+            // (mirrors the 974 macOS-canvas fix).
+            .preferredColorScheme(appearanceMode.colorScheme)
+        #endif
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(appearanceMode: $appearanceMode)
         }
