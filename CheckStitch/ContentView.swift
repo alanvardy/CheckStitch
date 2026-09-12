@@ -5,6 +5,9 @@ struct ContentView: View {
 
     @AppStorage("appearanceMode")
     var appearanceMode = AppearanceMode.system
+    @AppStorage("backgroundEnabled") var backgroundEnabled = true
+    @AppStorage("backgroundFadePercent") var backgroundFadePercent = BackgroundFade.defaultValue
+    @AppStorage("backgroundPinned") var backgroundPinned = false
 
     @State private var path: [UUID] = []
     /// Transient per-checklist reminder feedback, keyed by id — never persisted.
@@ -206,6 +209,24 @@ struct ContentView: View {
             try? await Task.sleep(for: .seconds(1))
             created.remove(id)
         }
+    }
+}
+
+extension ContentView {
+    /// Persists every staged background preference. Extracted so it is
+    /// exercisable without a live SwiftUI hierarchy (see SettingsBindingsTests).
+    func writeBack(_ bag: SettingsBindings) {
+        backgroundEnabled = bag.backgroundEnabled
+        backgroundFadePercent = bag.backgroundFadePercent
+        backgroundPinned = bag.backgroundPinned
+    }
+
+    /// Fresh bag snapshotted from the current stored preferences on sheet open.
+    func makeSettingsBag() -> SettingsBindings {
+        SettingsBindings(
+            backgroundEnabled: backgroundEnabled,
+            backgroundFadePercent: backgroundFadePercent,
+            backgroundPinned: backgroundPinned)
     }
 }
 

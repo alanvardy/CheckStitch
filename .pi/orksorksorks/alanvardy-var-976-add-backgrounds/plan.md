@@ -522,8 +522,8 @@ struct SettingsBindingsTests {
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` green
-- [ ] `make test FILTER=CheckStitchTests/SettingsBindingsTests` green
+- [x] `bash scripts/test.sh` green
+- [x] `make test FILTER=CheckStitchTests/SettingsBindingsTests` green
 
 #### Manual
 - [ ] None.
