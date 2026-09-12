@@ -1,9 +1,10 @@
-@testable import CheckStitch
-import CoreGraphics
-import Foundation
-import Testing
+#if os(macOS)
+    @testable import CheckStitch
+    import CoreGraphics
+    import Foundation
+    import Testing
 
-struct MacWindowFrameTests {
+    struct MacWindowFrameTests {
     private let primary = NSRect(x: 0, y: 0, width: 1512, height: 982)
 
     private func isWithin(_ outer: NSRect, contains inner: NSRect) -> Bool {
@@ -54,3 +55,5 @@ struct MacWindowFrameTests {
         #expect(MacAppDelegate.onScreenFrame(frame, screenFrames: [primary]) == frame)
     }
 }
+#endif
+
