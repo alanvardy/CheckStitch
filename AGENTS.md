@@ -23,8 +23,10 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 
 - `make build` — simulator build (`xcodebuild`, scheme `CheckStitch`).
 - `make run` — build, then boot/install/launch on a simulator.
-- **The gate is `./scripts/test.sh`** — `make build` (simulator) → `make test` →
-  `shellcheck scripts/*.sh`, printing `gate: ok`.
+- **The gate is `./scripts/test.sh`** — `make build` (simulator) → headless
+  pre-boot of this worktree's simulator → `make test` → `make build-mac` →
+  `scripts/tests/run.sh` → `shellcheck scripts/*.sh scripts/tests/*.sh`,
+  printing `gate: ok`.
 - `make test-unit` runs `CheckStitchTests` on `platform=macOS` with
   `CODE_SIGNING_ALLOWED=NO` (no sim, no signing). `make test-ui` runs exactly one
   `CheckStitchUITests` smoke case via `build-for-testing` →
@@ -39,6 +41,29 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   this worktree's `.simulator_id` > shared default. Never leave a bare
   `name=` destination in a script — it selects a shared device and wedges
   parallel agents.
+
+## Simulator windows
+
+- **Why windows appear**: a running `Simulator.app` attaches a window to every
+  device booted while it is alive, from any worktree. No `simctl`/`xcodebuild`
+  headless flag exists on this toolchain; the GUI is the only lever.
+- **The gate** takes a bounded host lock (`${TMPDIR:-/tmp}/checkstitch-simulator.lock`)
+  and quits `Simulator.app` around the simulator-touching part, pre-boots this
+  worktree's `.simulator_id` UDID headlessly between `make build` and `make
+  test`, and trap-shuts-down that UDID on exit. Missing `.simulator_id` →
+  skip; the shutdown is scoped to the resolved UDID only — never
+  `all`/`booted`. `LOCK_TIMEOUT` (default 60) bounds the lock wait; on
+  timeout the gate degrades to a warning and runs without the lock.
+- **`make run`** requests its window explicitly, pinned to the resolved UDID
+  (`open -a Simulator --args -CurrentDeviceUDID <udid>`).
+- **Shell tests**: `bash scripts/tests/run.sh`, also run by the gate; stubs
+  `xcrun`/`defaults`/`make`/`open`/`osascript` on `PATH`.
+- **Spike result (Phase 1)**: the `com.apple.iphonesimulator AutoOpenDevice`
+  preference is **ineffective** on this toolchain (Xcode 26.6 / iOS 27.0).
+  Booting a device still opened a window with the pref set to `0` — even
+  after relaunching `Simulator.app` with the pref already applied — so the
+  preference approach was dropped (`scripts/sim-windowless.sh` was deleted
+  during implementation) and the host lock above is used instead.
 
 ## Signing
 
