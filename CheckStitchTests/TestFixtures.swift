@@ -50,3 +50,19 @@ final class SpyReminderCreator: ReminderCreating {
 enum TestError: Error, Equatable {
     case boom
 }
+
+/// Records everything the store/coordinator sends and lets tests inject inbound
+/// messages, standing in for `WCSession`.
+@MainActor
+final class FakeChecklistSyncTransport: ChecklistSyncTransport {
+    var onMessage: ((ChecklistSyncMessage) -> Void)?
+    private(set) var activateCount = 0
+    private(set) var sentContexts: [Data] = []
+    private(set) var sentMessages: [ChecklistSyncMessage] = []
+
+    func activate() { activateCount += 1 }
+    func sendContext(_ data: Data) { sentContexts.append(data) }
+    func sendUserInfo(_ message: ChecklistSyncMessage) { sentMessages.append(message) }
+
+    func deliver(_ message: ChecklistSyncMessage) { onMessage?(message) }
+}
