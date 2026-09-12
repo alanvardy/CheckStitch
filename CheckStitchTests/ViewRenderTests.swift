@@ -6,7 +6,10 @@ import Testing
 struct ViewRenderTests {
     @Test
     func settingsViewListsAllAppearanceModes() {
-        let view = SettingsView(appearanceMode: .constant(.system))
+        let view = SettingsView(
+            appearanceMode: .constant(.system),
+            bindings: SettingsBindings(),
+            backgroundImage: BackgroundImageStore())
         #expect(String(describing: view.body).isEmpty == false)
         // The app target carries its own `AppearanceMode` alongside the
         // core package's, so qualify explicitly to avoid ambiguity.
