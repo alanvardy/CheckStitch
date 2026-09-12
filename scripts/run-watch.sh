@@ -42,15 +42,27 @@ fi
 WATCH_ID="$(
     python3 - "$DEVICES_JSON" "$WATCH_NAME" <<'PY'
 import json
+import re
 import sys
+import unicodedata
+
+
+def normalize_device_name(name):
+    # Hardware names carry typographic apostrophes and non-breaking spaces
+    # (e.g. "Alan\u2019s Apple\u00a0Watch"); fold both sides to plain ASCII so the
+    # CLI's ASCII default still matches.
+    name = unicodedata.normalize("NFKC", name)
+    name = name.replace("\u2018", "'").replace("\u2019", "'")
+    return re.sub(r"\s+", " ", name).strip().casefold()
+
 
 with open(sys.argv[1], encoding="utf-8") as fh:
     payload = json.load(fh)
 
-wanted = sys.argv[2]
+wanted = normalize_device_name(sys.argv[2])
 for device in payload["result"]["devices"]:
     props = device.get("deviceProperties", {})
-    if props.get("name") != wanted:
+    if normalize_device_name(props.get("name", "")) != wanted:
         continue
     conn = device.get("connectionProperties", {}) or {}
     if conn.get("transportType") is None or conn.get("tunnelState") == "unavailable":
