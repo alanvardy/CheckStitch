@@ -260,9 +260,21 @@ run_watch_errors_on_unknown_device() {
     [[ "$out" == *"Could not resolve"* ]]
 }
 
+run_watch_matches_typographic_device_name() {
+    stub_watch_command
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-watchos/CheckStitchWatch.app"
+    # The real watch name carries a typographic apostrophe and a non-breaking
+    # space; the CLI's ASCII default must still resolve it. JSON \u escapes
+    # keep the fixture readable on disk.
+    printf '%s\n' '{"result":{"devices":[{"identifier":"WATCH-UDID-CURLY","deviceProperties":{"name":"Alan\u2019s Apple\u00a0Watch"},"connectionProperties":{"transportType":"localNetwork","tunnelState":"disconnected"}}]}}' >"$WATCH_FIXTURE"
+    DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Alan's Apple Watch" bash scripts/run-watch.sh >/dev/null 2>&1 || return 1
+    grep -q 'device install app --device WATCH-UDID-CURLY' "$STUB_ROOT/xcrun.log"
+}
+
 run_case run_watch_installs_and_launches_resolved_device run_watch_installs_and_launches_resolved_device
 run_case run_watch_errors_on_unreachable_device run_watch_errors_on_unreachable_device
 run_case run_watch_errors_on_unknown_device run_watch_errors_on_unknown_device
+run_case run_watch_matches_typographic_device_name run_watch_matches_typographic_device_name
 
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
