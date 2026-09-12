@@ -49,7 +49,13 @@ struct ChecklistDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .checkStitchButton()
+                        // iOS 26 wraps bar items in a system glass container.
+                        // `fixedSize()` stops it collapsing that container to
+                        // a circle that clips the title, so "Done" keeps its
+                        // natural width. Deliberately no `checkStitchButton()`:
+                        // that modifier drops form-button chrome, but in a bar
+                        // the native styling owns the shape.
+                        .fixedSize()
                 }
             }
             .onDisappear { store.flushPendingSave() }
