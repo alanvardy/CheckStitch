@@ -43,36 +43,6 @@ run_case() {
     fi
 }
 
-# --- Phase 1 ---------------------------------------------------------------
-
-check_reports_ok_when_pref_false() {
-    new_stubs defaults
-    cat >"$STUB_ROOT/defaults" <<STUB
-#!/bin/bash
-echo 0
-STUB
-    chmod +x "$STUB_ROOT/defaults"
-    bash scripts/sim-windowless.sh check
-}
-
-check_reports_fix_when_pref_missing_or_true() {
-    local out status
-    for value in "" 1; do
-        new_stubs defaults
-        printf '#!/bin/bash\necho "%s"\n' "$value" >"$STUB_ROOT/defaults"
-        chmod +x "$STUB_ROOT/defaults"
-        set +e
-        out="$(bash scripts/sim-windowless.sh check 2>&1)"
-        status=$?
-        set -e
-        [[ $status -ne 0 ]] || return 1
-        [[ "$out" == *"sim-windowless.sh fix"* ]] || return 1
-    done
-}
-
-run_case check_reports_ok_when_pref_false check_reports_ok_when_pref_false
-run_case check_reports_fix_when_pref_missing_or_true check_reports_fix_when_pref_missing_or_true
-
 # --- Phase 2 ---------------------------------------------------------------
 
 resolves_id_form_directly() {
@@ -116,6 +86,55 @@ run_case resolves_id_form_directly resolves_id_form_directly
 run_case resolves_name_form_from_simctl_list resolves_name_form_from_simctl_list
 run_case errors_on_unknown_name errors_on_unknown_name
 run_case require_id_rejects_name_form require_id_rejects_name_form
+
+# --- Phase 3 ---------------------------------------------------------------
+
+stub_gate_command() {
+    new_stubs make xcrun defaults open osascript
+    cat >"$STUB_ROOT/defaults" <<'STUB'
+#!/bin/bash
+echo 0
+STUB
+    chmod +x "$STUB_ROOT/defaults"
+}
+
+gate_skips_preboot_without_own_udid() {
+    stub_gate_command
+    SIM_ID_FILE="$STUB_ROOT/absent.simulator_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
+    [[ ! -s "$STUB_ROOT/xcrun.log" ]]
+}
+
+gate_shuts_down_only_resolved_udid() {
+    stub_gate_command
+    printf 'GATE-UDID-1\n' >"$STUB_ROOT/sim_id"
+    SIM_ID_FILE="$STUB_ROOT/sim_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
+    grep -q 'boot GATE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'bootstatus GATE-UDID-1 -b' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'shutdown GATE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    # Never a global selector.
+    ! grep -Eq 'shutdown (all|booted)|boot (all|booted)' "$STUB_ROOT/xcrun.log"
+}
+
+run_case gate_skips_preboot_without_own_udid gate_skips_preboot_without_own_udid
+run_case gate_shuts_down_only_resolved_udid gate_shuts_down_only_resolved_udid
+
+# --- Phase 4b (Phase 1 spike proved AutoOpenDevice ineffective; replaces the
+# sim-windowless.sh cases that shipped in the Phase 1 commit) -----------------
+
+lock_times_out_instead_of_blocking() {
+    stub_gate_command
+    printf 'GATE-UDID-3\n' >"$STUB_ROOT/sim_id"
+    mkdir -p "${TMPDIR:-/tmp}/checkstitch-simulator.lock"
+    set +e
+    SIM_ID_FILE="$STUB_ROOT/sim_id" LOCK_TIMEOUT=1 GATE_TESTS_SKIP=1 \
+        bash scripts/test.sh >/dev/null 2>&1
+    status=$?
+    set -e
+    rmdir "${TMPDIR:-/tmp}/checkstitch-simulator.lock" 2>/dev/null || true
+    [[ $status -eq 0 ]]
+}
+
+run_case lock_times_out_instead_of_blocking lock_times_out_instead_of_blocking
 
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
