@@ -18,17 +18,7 @@ BUNDLE_ID="${BUNDLE_ID:-app.alanvardy.CheckStitch}"
 cd "$(dirname "$0")/.."
 
 # Resolve the destination to a concrete UDID.
-if [[ "$SIM" == *",id="* ]]; then
-    UDID="${SIM##*id=}"
-else
-    NAME="${SIM##*name=}"
-    NAME="${NAME%%,*}"
-    UDID="$(xcrun simctl list devices available \
-        | grep -F "$NAME (" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')"
-fi
-
-if [[ -z "$UDID" ]]; then
-    echo "ERROR: could not resolve a simulator for '$SIM'" >&2
+if ! UDID="$(bash "$(dirname "$0")/resolve-sim-udid.sh" "$SIM")"; then
     exit 1
 fi
 if [[ ! -d "$APP" ]]; then

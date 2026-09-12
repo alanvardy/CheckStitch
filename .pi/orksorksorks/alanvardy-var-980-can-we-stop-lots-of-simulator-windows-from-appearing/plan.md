@@ -225,6 +225,19 @@ Add to the "Build, run, gate" section:
 - [ ] Spike outcome recorded — if the pref has **no** effect, **stop and take Phase 4b**; do not proceed to Phase 3 on an unproven guarantee
 - [ ] Clean up: `xcrun simctl shutdown <UDID>`
 
+> **Spike outcome (recorded by the implement step, 2026-09-12, Xcode 26.6 /
+> iOS 27.0): pref INEFFECTIVE — Phase 4b selected.** All preconditions
+> confirmed (pref absent; Simulator.app running; `check` exits 1 and prints the
+> fix command; `fix` writes `0`). But with `AutoOpenDevice` = 0 and
+> Simulator.app running, booting the worktree UDID **still opened a window**
+> (count 1→2; title `sim-alanvardy-var-980-can-we-stop-lots-of-simulator-windows-from-appearing – iOS 27.0`).
+> Repeating after quitting and relaunching Simulator.app with the pref already
+> set had the same result (1→2), so the pref is also not launch-time-only — it
+> is simply ineffective on this toolchain. Per the trigger above, Phase 3
+> implements the **host-scoped lock (Phase 4b)** instead of the
+> `sim-windowless.sh check` line; `scripts/sim-windowless.sh` and its Phase 1
+> runner cases are dropped.
+
 ---
 
 ## Phase 2: Shared UDID resolver
@@ -349,9 +362,9 @@ run_case require_id_rejects_name_form require_id_rejects_name_form
 ### Verification
 
 #### Automated
-- [ ] `chmod +x scripts/resolve-sim-udid.sh`; mode is `100755`
-- [ ] `bash scripts/tests/run.sh` → `tests: 6 passed, 0 failed`
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
+- [x] `chmod +x scripts/resolve-sim-udid.sh`; mode is `100755`
+- [x] `bash scripts/tests/run.sh` → `tests: 6 passed, 0 failed`
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
 - [ ] `bash scripts/test.sh` prints `gate: ok` (gate behaviour unchanged in this phase)
 
 #### Manual
@@ -522,6 +535,11 @@ open -a Simulator --args -CurrentDeviceUDID "$UDID"
 
 echo "==> Installing $APP…"
 ```
+
+> **Confirmed live (2026-09-12):** `open -a Simulator --args
+> -CurrentDeviceUDID <udid>` opens/raises the window for the given UDID and
+> makes it the frontmost window — primary syntax confirmed, no AppleScript
+> fallback needed.
 
 **Spike-dependent syntax.** The Phase 1 spike must confirm
 `open -a Simulator --args -CurrentDeviceUDID <udid>` selects the given device. If
