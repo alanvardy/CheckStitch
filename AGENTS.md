@@ -7,6 +7,16 @@ Swift/SwiftUI. `CheckStitch/` is the thin app target (views + platform delegates
 seam, the checklist creator and the view model; `CheckStitchTests/` (Swift Testing,
 macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 
+## Purpose
+
+- CheckStitch lets a user create "Checklists". Each checklist contains one or
+  more "items". Checklists have a name, and each item has a name.
+- Running a Checklist creates one reminder for each item in the Reminders
+  inbox.
+- The app does not delete or complete reminders. It does not edit reminders
+  after they have been created. It is only for the purpose of bulk creating
+  reminders.
+
 ## Layout
 
 - `CheckStitch/MyApp.swift` — app entry point; `CheckStitch/ContentView.swift`
