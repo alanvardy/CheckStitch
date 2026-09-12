@@ -39,7 +39,19 @@ struct ContentView: View {
                         Button {
                             createChecklist()
                         } label: {
-                            Label("Create checklist", systemImage: "plus")
+                            #if os(iOS)
+                                Image(systemName: "plus")
+                                    .font(.title2.weight(.semibold))
+                                    .foregroundStyle(.black)
+                                    .frame(width: 52, height: 52)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                                            .stroke(.tint, lineWidth: 2)
+                                    )
+                                    .contentShape(Rectangle())
+                            #else
+                                Label("Create checklist", systemImage: "plus")
+                            #endif
                         }
                         .accessibilityIdentifier("createChecklistButton")
                     }
@@ -132,6 +144,7 @@ struct ContentView: View {
             } label: {
                 Image(systemName: "gearshape")
                     .font(.title2.weight(.semibold))
+                    .foregroundStyle(.black)
                     .frame(width: 52, height: 52)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
