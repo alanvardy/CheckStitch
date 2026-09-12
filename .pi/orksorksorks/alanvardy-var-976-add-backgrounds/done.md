@@ -100,3 +100,34 @@ Single bounded fresh-context `reviewer` over the full 1557-line code diff
   (light/dark fill + radius decisions, `ChecklistWidthTests` pattern).
 - Gate re-run green: `bash scripts/test.sh` → `gate: ok` (iOS build + 53
   swift-testing + 14 XCTest + 1 UI smoke + macOS slice build + shellcheck).
+
+## Device follow-up — the scroll-content theory was wrong
+
+The above `.scrollContentBackground(.hidden)` + `.background(Color.clear)` pair
+did **not** fix iPhone/iPad. Reproduced in this worktree's simulator: the photo
+was stored (`background.jpg`, 153 KB) but the drawn pixels were flat
+`systemBackground` — the empty state and the list were both covered. A
+diagnostic (photo moved to the top of the `ZStack`, then the bottom layer
+recoloured red) showed **an opaque layer above the `ZStack`**: on iOS 26 the
+`NavigationStack` paints its own opaque container behind its content, so
+anything placed behind the stack in the `ZStack` is never seen. `ScrollView`
+backgrounds were never the cause.
+
+- **Fix:** `.containerBackground(.clear, for: .navigation)` on the root content
+  inside the `NavigationStack` (iOS only — `ContainerBackgroundPlacement.navigation`
+  is iOS 18+, unavailable on macOS, whose stack is already transparent). The
+  existing `ZStack` photo now shows through, unchanged and stationary, on both
+  iPhone and iPad. The misdiagnosed `scrollContentBackground`/`background` pair
+  is removed; `CardPlate` and the row stroke stay.
+- **Verified by simulator pixels** (not just the gate): screenshot on iPhone
+  (light + dark) and on an iPad Pro 11-inch, each showing the full-bleed photo
+  with the tinted card floating over it. The earlier "simctl launch does not
+  present the window" note was a stale-device artefact — `make run` presents
+  fine on a freshly booted simulator.
+- **Out of scope (unchanged):** pushed `ChecklistDetailView` remains an opaque
+  `Form` — the ticket scopes the photo to the screen holding the checklist card.
+- **No unit test can pin this.** The bug is iOS-runtime-only SwiftUI container
+  behaviour; the unit suites run macOS-hosted, where the stack is transparent
+  and the defect never reproduces. Covered instead by the simulator screenshots
+  above plus the UI smoke.
+- Gate re-run green after the change: `bash scripts/test.sh` → `gate: ok`.
