@@ -60,6 +60,15 @@ struct ChecklistDetailView: View {
                 }
             }
             .onDisappear { store.flushPendingSave() }
+            .alert("Name already in use", isPresented: Binding(
+                get: { store.nameConflict != nil },
+                set: { _ in store.nameConflict = nil }
+            )) {
+                Button("OK") { store.nameConflict = nil }
+                    .accessibilityIdentifier("renameNameConflictButton")
+            } message: {
+                Text("Another checklist already uses \(store.nameConflict ?? "") — choose a different name.")
+            }
         } else if !isRemoving {
             // Deleted elsewhere while this screen was on the stack. A delete
             // from this screen skips the message so the pop never flashes it.
