@@ -53,6 +53,7 @@ struct ContentView: View {
                                 Label("Create checklist", systemImage: "plus")
                             #endif
                         }
+                        .accessibilityLabel("Create checklist")
                         .accessibilityIdentifier("createChecklistButton")
                     }
                     #if os(macOS)
