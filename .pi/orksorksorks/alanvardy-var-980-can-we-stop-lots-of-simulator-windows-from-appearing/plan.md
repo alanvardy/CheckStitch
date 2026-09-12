@@ -211,7 +211,7 @@ Add to the "Build, run, gate" section:
 - [x] `bash -n scripts/sim-windowless.sh && bash -n scripts/tests/run.sh` exits 0
 - [x] `bash scripts/tests/run.sh` prints `ok: check_reports_ok_when_pref_false`, `ok: check_reports_fix_when_pref_missing_or_true`, `tests: 2 passed, 0 failed`
 - [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0 (or `bash -n` fallback)
-- [ ] `bash scripts/test.sh` prints `gate: ok`
+- [x] `bash scripts/test.sh` prints `gate: ok` (run by the parent after Phase 5)
 
 #### Manual — the spike (must pass before Phase 3; record the result in this file)
 - [ ] Confirm the pref is currently absent: `defaults read com.apple.iphonesimulator AutoOpenDevice` → `does not exist` (observed on this host at plan time)
@@ -365,7 +365,7 @@ run_case require_id_rejects_name_form require_id_rejects_name_form
 - [x] `chmod +x scripts/resolve-sim-udid.sh`; mode is `100755`
 - [x] `bash scripts/tests/run.sh` → `tests: 6 passed, 0 failed`
 - [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
-- [ ] `bash scripts/test.sh` prints `gate: ok` (gate behaviour unchanged in this phase)
+- [x] `bash scripts/test.sh` prints `gate: ok` (gate behaviour unchanged in this phase; verified by the parent's post-Phase-5 gate run)
 
 #### Manual
 - [ ] `bash scripts/run-simulator.sh 'platform=iOS Simulator,id=<UDID from .simulator_id>' DerivedData/Build/Products/Debug-iphonesimulator/CheckStitch.app` still boots/installs/launches (or `make run`)
@@ -507,8 +507,8 @@ Add to "Build, run, gate":
 #### Automated
 - [x] `bash scripts/tests/run.sh` → `tests: 7 passed, 0 failed` (Phase 4b substitution)
 - [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
-- [ ] `bash scripts/test.sh` prints `gate: ok` (real gate)
-- [ ] `xcrun simctl list devices booted` shows **no** device whose UDID equals `.simulator_id` after the gate exits
+- [x] `bash scripts/test.sh` prints `gate: ok` (real gate; parent run after Phase 5)
+- [x] `xcrun simctl list devices booted` shows **no** device whose UDID equals `.simulator_id` after the gate exits (pre-boot line present in the run, booted list empty after — scoped trap shutdown fired)
 
 > Implemented with the **Phase 4b substitution** (spike failed): the host-scoped
 > lock + quit-Simulator.app block replaces the `sim-windowless.sh check` line;
@@ -602,7 +602,7 @@ run_case gate_never_requests_a_window gate_never_requests_a_window
 #### Automated
 - [x] `bash scripts/tests/run.sh` → `tests: 9 passed, 0 failed` (Phase 4b substitution)
 - [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
-- [ ] `bash scripts/test.sh` prints `gate: ok` and no window appears
+- [x] `bash scripts/test.sh` prints `gate: ok` and no window appears (gate quit Simulator.app; it stayed quit — neither xcodebuild nor the runner relaunched it)
 
 #### Manual
 - [ ] `make run` finishes with `✅ Launched app.alanvardy.CheckStitch on <UDID>`, and **exactly one** window is open on the device whose UDID is in `.simulator_id` (verify via `xcrun simctl list devices booted` and the window title)
@@ -680,7 +680,7 @@ run_case lock_times_out_instead_of_blocking lock_times_out_instead_of_blocking
 #### Automated
 - [x] `bash scripts/tests/run.sh` → all cases pass, including `lock_times_out_instead_of_blocking`
 - [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
-- [ ] `bash scripts/test.sh` prints `gate: ok`
+- [x] `bash scripts/test.sh` prints `gate: ok` (parent run after Phase 5)
 
 #### Manual
 - [ ] Hold the lock (run the gate in one terminal while it sleeps) and start a second gate: the second emits the timeout warning and finishes within `LOCK_TIMEOUT`, windows stay flat
@@ -730,7 +730,7 @@ Also update the "Build, run, gate" line that says the gate is
 
 #### Automated
 - [x] `bash scripts/tests/run.sh` → all cases pass (9 passed, 0 failed)
-- [ ] `bash scripts/test.sh` prints `gate: ok`
+- [x] `bash scripts/test.sh` prints `gate: ok` (parent run after Phase 5)
 - [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
 
 #### Manual
