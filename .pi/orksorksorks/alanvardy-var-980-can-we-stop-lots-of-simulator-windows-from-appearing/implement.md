@@ -42,6 +42,18 @@ The Phase 1 live spike **failed**: `com.apple.iphonesimulator AutoOpenDevice=fal
 
 ## Notes for review
 
+- **Xcode 27 lead investigated and rejected (user-confirmed, keep Xcode 26.6):**
+  `Xcode-beta.app` 27.0 (27A5252f) is installed but is an incomplete payload —
+  it has no `Contents/Developer/Applications` directory, hence **no
+  `Simulator.app` at all**. `AutoOpenDevice` is also absent as a string from
+  Xcode 26.6's `Simulator.app`, `SimulatorKit.framework` and
+  `CoreSimulator.framework` (and from the beta's frameworks), so the preference
+  was never read by either installed toolchain — the spike failure is not a
+  version issue. The beta's `xcodebuild`/`simctl` do work (`iphonesimulator27.0`
+  SDK), but using it is a separate Xcode-27-readiness concern (beta SDK,
+  signing, host-wide `xcode-select`) and cannot restore the preference approach.
+  Decision: keep Xcode 26.6 + the Phase 4b lock; a readiness spike would be a
+  new ticket.
 - `DELETEME` (worktree placeholder: "git rm before merging") is deleted in the working tree but deliberately **not** committed by any phase — it should go into the merge/cleanup commit.
 - The remaining step artifacts in `.pi/orksorksorks/alanvardy-var-980-can-we-stop-lots-of-simulator-windows-from-appearing/` (conventions/design/research/structure/etc.) were committed as `plan.md`/`implement.md` only during implementation — the review step may sweep the rest in as the final artifact commit, per precedent.
 
