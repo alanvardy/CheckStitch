@@ -931,8 +931,8 @@ because queued `transferUserInfo` is not proof of execution.
 ### Verification
 
 #### Automated
-- [ ] `make watch-build` passes
-- [ ] `make build` passes
+- [x] `make watch-build` passes
+- [x] `make build` passes
 
 #### Manual
 - [ ] On the watch simulator: launch shows the empty state ("Open CheckStitch on your iPhone."); with the phone not running there is no data, which is the expected cold state

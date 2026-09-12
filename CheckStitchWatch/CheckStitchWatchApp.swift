@@ -1,10 +1,14 @@
+import CheckStitchCore
 import SwiftUI
 
 @main
 struct CheckStitchWatchApp: App {
+    @State private var store = WatchChecklistStore(transport: WatchSyncAdapter())
+
     var body: some Scene {
         WindowGroup {
-            Text("CheckStitch")
+            WatchChecklistListView()
+                .environment(store)
         }
     }
 }
