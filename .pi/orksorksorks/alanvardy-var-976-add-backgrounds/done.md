@@ -82,3 +82,21 @@ Single bounded fresh-context `reviewer` over the full 1557-line code diff
 - macOS (out of gate): pushed Background subscreen is top-aligned, not
   vertically centered.
 - Live `vardy.cc/unsplash` endpoint (ATS, reachability) remains ungated.
+
+## Post-review fix (user device feedback)
+
+- **iOS background invisible on iPhone/iPad (macOS fine).** iPadOS gives
+  `ScrollView`/`List` an opaque scroll-content background by default, which
+  covered the ZStack photo — the exact behaviour SingleThread's list guards
+  with `.scrollContentBackground(.hidden)` + `.background(Color.clear)`
+  (its own source comment names iPadOS). CheckStitch's port had dropped that
+  pair; re-applied it to the checklist `ScrollView`. Sim note: `simctl launch`
+  does not present the SwiftUI window on this simulator (display shows the
+  home screen), so the iOS fix is verified by the single-thread reference
+  port + `make test-ui` smoke, not by simulator pixels.
+- **Card behind the checklists.** Ported `CardPlate` (adaptive off-white/black
+  rounded fill) at the app's existing 14pt radius, drawn behind the rows;
+  rows keep their `.tint` stroke. Added `CardPlateTests`
+  (light/dark fill + radius decisions, `ChecklistWidthTests` pattern).
+- Gate re-run green: `bash scripts/test.sh` → `gate: ok` (iOS build + 53
+  swift-testing + 14 XCTest + 1 UI smoke + macOS slice build + shellcheck).
