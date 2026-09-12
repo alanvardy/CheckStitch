@@ -66,3 +66,11 @@ final class FakeChecklistSyncTransport: ChecklistSyncTransport {
 
     func deliver(_ message: ChecklistSyncMessage) { onMessage?(message) }
 }
+
+/// Spy for the coordinator's `createReminders` closure: records every checklist
+/// the coordinator hands over for reminder creation.
+@MainActor
+final class SpyChecklistRunner {
+    private(set) var created: [Checklist] = []
+    func run(_ checklist: Checklist) async { created.append(checklist) }
+}

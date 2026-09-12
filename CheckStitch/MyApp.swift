@@ -18,6 +18,9 @@ import SwiftUI
     #endif
 
     @State private var store = ChecklistStore()
+    #if os(iOS)
+        @State private var coordinator: ChecklistSyncCoordinator?
+    #endif
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -40,6 +43,21 @@ import SwiftUI
             WindowGroup {
                 ContentView()
                     .environment(store)
+                    #if os(iOS)
+                        .task {
+                            if coordinator == nil {
+                                let coordinator = ChecklistSyncCoordinator(
+                                    transport: PhoneSyncAdapter(),
+                                    snapshot: { store.checklists },
+                                    createReminders: { await ChecklistReminders.create(from: $0) })
+                                self.coordinator = coordinator
+                                coordinator.start()
+                            }
+                        }
+                        .onChange(of: store.checklists) { _, _ in
+                            coordinator?.checklistsDidChange()
+                        }
+                    #endif
             }
             .onChange(of: scenePhase) { _, phase in
                 // Flush coalesced text edits before the app suspends.
