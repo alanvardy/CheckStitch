@@ -103,6 +103,10 @@ release_lock
 # iOS-only API compiles green in the gate and only breaks in run-devices.sh.
 make build-mac
 
+# The watch target compiles the same package for watchOS and catches a broken
+# pbxproj/watch-scheme edit that the iOS and macOS slices would miss.
+make watch-build
+
 if [[ "${GATE_TESTS_SKIP:-}" != "1" ]]; then
   bash scripts/tests/run.sh
 fi

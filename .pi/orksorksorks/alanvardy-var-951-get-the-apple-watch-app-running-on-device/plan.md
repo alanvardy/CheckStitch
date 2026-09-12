@@ -1349,9 +1349,9 @@ watch tooling: `./scripts/test.sh` = `make build` → `make test` →
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` prints `gate: ok` (build + `make test` + build-mac + watch-build + shellcheck)
-- [ ] `shellcheck scripts/run-watch.sh` is clean
-- [ ] `bash -n scripts/run-watch.sh` is clean
+- [x] `bash scripts/test.sh` prints `gate: ok` (build + `make test` + build-mac + watch-build + shellcheck)
+- [x] `shellcheck scripts/run-watch.sh` is clean
+- [x] `bash -n scripts/run-watch.sh` is clean
 
 #### Manual
 - [ ] `bash scripts/run-watch.sh` installs and launches `CheckStitchWatch` on `Alan's Apple Watch` (`00008301-209B793C010BC02E`)

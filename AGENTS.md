@@ -23,9 +23,16 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 
 - `make build` — simulator build (`xcodebuild`, scheme `CheckStitch`).
 - `make run` — build, then boot/install/launch on a simulator.
+- `make watch-build` — watchOS simulator compile of the `CheckStitchWatch`
+  target (same `CheckStitchCore` package against the watchOS SDK), unsigned
+  and sim-free.
+- `bash scripts/run-watch.sh` — build `CheckStitchWatch` for watchOS, then
+  install + launch it on the paired Apple Watch via `devicectl` (the watch is
+  resolved by name to an identifier — never a bare name in a destination).
 - **The gate is `./scripts/test.sh`** — `make build` (simulator) → headless
   pre-boot of this worktree's simulator → `make test` → `make build-mac` →
-  `scripts/tests/run.sh` → `shellcheck scripts/*.sh scripts/tests/*.sh`,
+  `make watch-build` → `scripts/tests/run.sh` →
+  `shellcheck scripts/*.sh scripts/tests/*.sh`,
   printing `gate: ok`.
 - `make test-unit` runs `CheckStitchTests` on `platform=macOS` with
   `CODE_SIGNING_ALLOWED=NO` (no sim, no signing). `make test-ui` runs exactly one
