@@ -6,5 +6,7 @@
 	<array>
 		<string>group.app.alanvardy.CheckStitch</string>
 	</array>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)app.alanvardy.CheckStitch</string>
 </dict>
 </plist>
