@@ -7,6 +7,11 @@ cd "$(dirname "$0")/.."
 make build
 make test
 
+# `make build` only compiles for the iOS Simulator; the macOS slice is the
+# same sources against a different platform, so build it here too — otherwise
+# iOS-only API compiles green in the gate and only breaks in run-devices.sh.
+make build-mac
+
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck scripts/*.sh
 else
