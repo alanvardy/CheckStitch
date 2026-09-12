@@ -392,8 +392,8 @@ import to `@testable import CheckStitch`: `imageFromValidJPEGDataIsNonNil`,
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` green
-- [ ] `make test FILTER=CheckStitchTests/BackgroundPhotoLayerTests` green
+- [x] `bash scripts/test.sh` green
+- [x] `make test FILTER=CheckStitchTests/BackgroundPhotoLayerTests` green
 
 #### Manual
 - [ ] In the Stage 6 `make run` check, confirm the centered buttons do **not**
