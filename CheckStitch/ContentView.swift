@@ -74,22 +74,36 @@ struct ContentView: View {
         #endif
     }
 
+    /// iOS floats the gear as its own 52×52 plate over the content area. A
+    /// macOS title bar is about that tall and draws its own button chrome, so
+    /// macOS shows the plain glyph and keeps the native style — mirroring how
+    /// the create button is built above.
     private var settingsButton: some View {
-        Button {
-            isShowingSettings = true
-        } label: {
-            Image(systemName: "gearshape")
-                .font(.title2.weight(.semibold))
-                .frame(width: 52, height: 52)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(.tint, lineWidth: 2)
-                )
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel("Settings")
-        .accessibilityIdentifier("settingsButton")
-        .checkStitchButton()
+        #if os(iOS)
+            Button {
+                isShowingSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.title2.weight(.semibold))
+                    .frame(width: 52, height: 52)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(.tint, lineWidth: 2)
+                    )
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Settings")
+            .accessibilityIdentifier("settingsButton")
+            .checkStitchButton()
+        #else
+            Button {
+                isShowingSettings = true
+            } label: {
+                Label("Settings", systemImage: "gearshape")
+            }
+            .accessibilityLabel("Settings")
+            .accessibilityIdentifier("settingsButton")
+        #endif
     }
 
     private var checklistList: some View {
