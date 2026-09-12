@@ -47,15 +47,20 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 - **Why windows appear**: a running `Simulator.app` attaches a window to every
   device booted while it is alive, from any worktree. No `simctl`/`xcodebuild`
   headless flag exists on this toolchain; the GUI is the only lever.
-- **The gate** takes a bounded host lock (`${TMPDIR:-/tmp}/checkstitch-simulator.lock`)
-  and quits `Simulator.app` around the simulator-touching part, pre-boots this
+- **The gate** takes a bounded host lock (`${TMPDIR:-/tmp}/checkstitch-simulator.lock`),
+  quits `Simulator.app` once before the simulator-touching part, pre-boots this
   worktree's `.simulator_id` UDID headlessly between `make build` and `make
-  test`, and trap-shuts-down that UDID on exit. Missing `.simulator_id` →
-  skip; the shutdown is scoped to the resolved UDID only — never
-  `all`/`booted`. `LOCK_TIMEOUT` (default 60) bounds the lock wait; on
-  timeout the gate degrades to a warning and runs without the lock.
+  test`, then releases the lock after `make test`; the single EXIT trap also
+  releases the lock and shuts down that UDID. A lock whose recorded PID is no
+  longer alive is reaped as stale. Missing `.simulator_id` → skip; a present
+  but unresolvable `.simulator_id` is a hard error; the shutdown is scoped to
+  the resolved UDID only — never `all`/`booted`. `LOCK_TIMEOUT` (default 60)
+  bounds the lock wait so a slow concurrent gate cannot hang this one; on
+  timeout the gate warns and runs without the lock.
 - **`make run`** requests its window explicitly, pinned to the resolved UDID
-  (`open -a Simulator --args -CurrentDeviceUDID <udid>`).
+  (`open -a Simulator --args -CurrentDeviceUDID <udid>`). The `--args` are
+  honoured on a fresh `Simulator.app` launch; if it is already running, the
+  device boot attaches that device's window instead.
 - **Shell tests**: `bash scripts/tests/run.sh`, also run by the gate; stubs
   `xcrun`/`defaults`/`make`/`open`/`osascript` on `PATH`.
 - **Spike result (Phase 1)**: the `com.apple.iphonesimulator AutoOpenDevice`

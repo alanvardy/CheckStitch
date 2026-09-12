@@ -31,4 +31,11 @@ if [[ -z "$UDID" ]]; then
     exit 1
 fi
 
+# A pinned destination must name a real UDID (this is what keeps the gate off
+# shared devices); a corrupt .simulator_id would otherwise reach simctl raw.
+if [[ "$require_id" -eq 1 && ! "$UDID" =~ ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$ ]]; then
+    echo "ERROR: '$UDID' is not a valid simulator UDID" >&2
+    exit 1
+fi
+
 printf '%s\n' "$UDID"
