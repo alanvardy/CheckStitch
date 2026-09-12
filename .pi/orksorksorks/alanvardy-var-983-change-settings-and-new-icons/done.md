@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Restyled the two iOS-only chrome icons in `CheckStitch/ContentView.swift` — the Settings gear and the Create plus now render as a solid **black** glyph inside the blue (`.tint`) 52×52 plate (14pt radius, 2pt stroke), reusing `CardPlate.cornerRadius` for the new create plate. macOS arms untouched; both Mac apps' identifiers and `.checkStitchButton()` kept. Also kept the create button's accessible name on iOS with `accessibilityLabel("Create checklist")`.
+- **Commit SHA(s)**: `303552b` (style: solid-black gear and plus plates on iOS chrome), `fe49fa2` (fix: keep accessible name for iOS create plate button)
+- **Verification**: `make build` (iOS arm) BUILD SUCCEEDED; `make test-unit` (macOS slice + unit suites) TEST SUCCEEDED — 62 tests / 16 suites green. Full `bash scripts/test.sh` gate and `make test-ui` (simulator smoke) not run per the small-task scope.
+- **Reviewer findings**: no blockers. One P2 nit — iOS create button lost its accessible name once the label became icon-only — fixed in `fe49fa2` and re-verified. No nits deferred.
+- **Remaining manual items**: visual confirmation on a simulator/device is the only way to see the paint (no visual tests exist; the UI smoke asserts identifiers only). The worker-run `make build`/`make test-unit` were clean, but a full `bash scripts/test.sh` gate run before merge is advisable. Pre-existing worktree state (`deleted: DELETEME`, untracked `.pi/` dir) was left untouched by this ticket.
