@@ -25,21 +25,38 @@ final class ChecklistStore {
     /// right after a mutation).
     private let textEditDelay: Duration?
     @ObservationIgnored private var pendingSave: Task<Void, Never>?
+    /// Stable per-install identifier stamped into every encoded envelope, so a
+    /// merge can tell two producers apart (see `ChecklistMerge`).
+    let deviceID: String
+    @ObservationIgnored private let now: () -> Date
 
     init(
         defaults: UserDefaults = AppGroup.defaults,
         key: String = "checklists.v1",
-        textEditDelay: Duration? = .milliseconds(300)
+        textEditDelay: Duration? = .milliseconds(300),
+        now: @escaping () -> Date = Date.init
     ) {
         self.defaults = defaults
         self.key = key
         self.textEditDelay = textEditDelay
+        self.now = now
+
+        if let existing = defaults.string(forKey: Self.deviceIDKey) {
+            self.deviceID = existing
+        } else {
+            let created = UUID().uuidString
+            defaults.set(created, forKey: Self.deviceIDKey)
+            self.deviceID = created
+        }
 
         if let data = defaults.data(forKey: key) {
             switch ChecklistCodec.classify(data) {
             case .loaded(let stored):
-                self.checklists = stored
+                self.checklists = stored.checklists
                 self.canOverwriteStoredPayload = true
+            case .migratable(_, let legacy):
+                self.checklists = legacy.map { $0.migrated(at: now()) }
+                self.canOverwriteStoredPayload = true   // never stall migration
             case .unsupportedVersion:
                 self.checklists = []
                 self.canOverwriteStoredPayload = false
@@ -52,6 +69,20 @@ final class ChecklistStore {
             self.canOverwriteStoredPayload = true
         }
     }
+
+    /// The current payload as a versioned envelope: the only thing the store
+    /// ever encodes, keeping "store is the only encoder" literally true.
+    var envelope: ChecklistEnvelope {
+        ChecklistEnvelope(version: ChecklistCodec.currentVersion,
+                          deviceID: deviceID,
+                          checklists: checklists)
+    }
+
+    /// Whether remote sync state may be folded into the local payload. False
+    /// only when the stored payload came from a newer app version.
+    var canAcceptRemoteChanges: Bool { canOverwriteStoredPayload }
+
+    private static let deviceIDKey = "checklist.deviceID"
 
     func checklist(id: UUID) -> Checklist? {
         checklists.first { $0.id == id }
@@ -173,7 +204,7 @@ final class ChecklistStore {
             return
         }
         do {
-            defaults.set(try ChecklistCodec.encode(checklists), forKey: key)
+            defaults.set(try ChecklistCodec.encode(envelope), forKey: key)
         } catch {
             Self.logger.error("Failed to save checklists: \(error.localizedDescription, privacy: .public)")
         }
