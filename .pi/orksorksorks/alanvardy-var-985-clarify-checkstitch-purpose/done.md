@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Added a `## Purpose` section to the repo-root `AGENTS.md` documenting what CheckStitch is (user creates named Checklists with named items; running one creates a reminder per item in the Reminders inbox) and its deliberate non-goals (no deleting, completing, or editing reminders — bulk creation only), verbatim per the ticket. Documentation-only; 10 lines added, nothing else touched; existing opening description kept intact.
+- **Commit SHA(s)**: `84aca23a567d63ad1d6de69e07c7de3da54dfd7f` (`docs: state CheckStitch's purpose and non-goals`), pushed to `origin/alanvardy-var-985-clarify-checkstitch-purpose` (PR #25, draft).
+- **Verification**: Documentation-only — no build/test gate applies (none run). Worker re-read the changed region and confirmed the verbatim purpose text, untouched surrounding content, and consistent `##` heading style; `git show --stat HEAD` confirms a single-file, +10 insertion.
+- **Reviewer findings**: No blockers, no nits — clean bill. Verbatim wording present at AGENTS.md:12–18, placement near the top, conventions consistent, no trailing whitespace.
+- **Remaining manual items**: None for the change. Pre-existing working-tree noise left alone: unstaged `DELETEME` deletion and untracked `.pi/orksorksorks/` artifacts. PR #25 is draft and awaiting review/merge if desired.
