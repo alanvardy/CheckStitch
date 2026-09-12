@@ -1208,10 +1208,10 @@ struct ChecklistSyncCoordinatorTests {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (all five coordinator cases)
-- [ ] `make build` passes — the adapter compiles against `WatchConnectivity`
-- [ ] `make build-mac` passes — `#if os(iOS)` keeps `WatchConnectivity` out of the macOS slice
-- [ ] `bash -c 'grep -rn "EKEventStore()" CheckStitch CheckStitchCore/Sources'` shows exactly one construction site outside tests
+- [x] `make test-unit` passes (all five coordinator cases)
+- [x] `make build` passes — the adapter compiles against `WatchConnectivity`
+- [x] `make build-mac` passes — `#if os(iOS)` keeps `WatchConnectivity` out of the macOS slice
+- [x] `bash -c 'grep -rn "EKEventStore()" CheckStitch CheckStitchCore/Sources'` shows exactly one construction site outside tests
 
 #### Manual
 - [ ] Phone app on the simulator starts without a crash with no watch paired (`WCSession.isSupported()`/activation no-ops)
