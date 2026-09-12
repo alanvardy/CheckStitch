@@ -44,6 +44,16 @@ struct ChecklistCreatorTests {
     }
 
     @Test
+    func accessErrorReturnsFailedWithoutCreating() async {
+        let spy = SpyReminderCreator()
+        spy.accessError = TestError.boom
+        let creator = ChecklistCreator(reminders: spy)
+        let outcome = await creator.create(from: [makeItem("one")])
+        #expect(outcome == .failed(TestError.boom.localizedDescription))
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    @Test
     func createStopsAndReportsFailureWhenSaveThrows() async {
         let spy = SpyReminderCreator()
         spy.createError = TestError.boom

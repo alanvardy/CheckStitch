@@ -10,7 +10,7 @@ struct ViewRenderTests {
     }
 
     @Test
-    func contentViewBodyEvaluates() {
+    func contentViewBodyRendersNonEmpty() {
         let view = ContentView(environment: makeEnvironment())
         #expect(String(describing: view.body).isEmpty == false)
     }
