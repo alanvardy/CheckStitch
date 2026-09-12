@@ -34,41 +34,19 @@ struct ContentView: View {
                     }
                 }
                 .navigationTitle("Checklists")
-                .toolbar {
-                    ToolbarItem(placement: createButtonPlacement) {
-                        Button {
-                            createChecklist()
-                        } label: {
-                            #if os(iOS)
-                                Image(systemName: "plus")
-                                    .font(.title2.weight(.semibold))
-                                    .foregroundStyle(CardPlate.iconForeground(for: colorScheme))
-                                    .frame(width: 52, height: 52)
-                                    .background {
-                                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                                            .fill(CardPlate.iconPlateFill(for: colorScheme))
-                                    }
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                                            .stroke(.tint, lineWidth: 2)
-                                    )
-                                    .contentShape(Rectangle())
-                            #else
-                                Label("Create checklist", systemImage: "plus")
-                            #endif
+                #if os(macOS)
+                    .toolbar {
+                        ToolbarItem(placement: createButtonPlacement) {
+                            createButton
                         }
-                        .accessibilityLabel("Create checklist")
-                        .accessibilityIdentifier("createChecklistButton")
-                    }
-                    #if os(macOS)
                         // macOS window actions belong in the title bar, and a
                         // view-level overlay there drifts into the content area.
                         // Trailing keeps the gear in the corner beside create.
                         ToolbarItem(placement: .primaryAction) {
                             settingsButton
                         }
-                    #endif
-                }
+                    }
+                #endif
                 .navigationDestination(for: UUID.self) { id in
                     ChecklistDetailView(checklistID: id)
                 }
@@ -103,10 +81,20 @@ struct ContentView: View {
                 if !showing { settingsBag = nil }
             }
             #if os(iOS)
-                // The overlay hangs off the whole `NavigationStack`, so without
-                // the empty-path guard it floats over every pushed screen too —
-                // on the detail screen it lands on top of the Done button. Only
-                // the root list screen owns this gear.
+                // Both chrome plates float as overlays instead of toolbar
+                // items: iOS 26's navigation toolbar paints a translucent
+                // chip plate behind its buttons (visible on device), and an
+                // overlay button does not. The equal top padding locks the
+                // two 52×52 plates to the same row; the empty-path guard
+                // keeps them off pushed screens, whose own toolbars own the
+                // top bar.
+                .overlay(alignment: .topLeading) {
+                    if path.isEmpty {
+                        createButton
+                            .padding(.top, 8)
+                            .padding(.leading, 34)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if path.isEmpty {
                         settingsButton
@@ -134,6 +122,42 @@ struct ContentView: View {
             .topBarLeading
         #else
             .navigation
+        #endif
+    }
+
+    /// iOS floats both plates over the content area as matched overlays
+    /// (see the overlay comment in `body`). A macOS title bar is about that
+    /// tall and draws its own button chrome, so macOS shows the plain glyph
+    /// and keeps the native style.
+    private var createButton: some View {
+        #if os(iOS)
+            Button {
+                createChecklist()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(CardPlate.iconForeground(for: colorScheme))
+                    .frame(width: 52, height: 52)
+                    .background {
+                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                            .fill(CardPlate.iconPlateFill(for: colorScheme))
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                            .stroke(.tint, lineWidth: 2)
+                    )
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Create checklist")
+            .accessibilityIdentifier("createChecklistButton")
+            .checkStitchButton()
+        #else
+            Button {
+                createChecklist()
+            } label: {
+                Label("Create checklist", systemImage: "plus")
+            }
+            .accessibilityIdentifier("createChecklistButton")
         #endif
     }
 
