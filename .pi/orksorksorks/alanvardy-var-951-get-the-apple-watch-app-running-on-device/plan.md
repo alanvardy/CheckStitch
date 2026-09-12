@@ -502,8 +502,8 @@ struct WatchChecklistStoreTests {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes — the whole sync contract is proven on the macOS host before any watch target exists
-- [ ] `make build-mac` passes (Core compiles off-iOS with the new file)
+- [x] `make test-unit` passes — the whole sync contract is proven on the macOS host before any watch target exists
+- [x] `make build-mac` passes (Core compiles off-iOS with the new file)
 
 #### Manual
 - [ ] None — pure host-tested logic
