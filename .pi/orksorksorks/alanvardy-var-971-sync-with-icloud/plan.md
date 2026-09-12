@@ -603,8 +603,8 @@ Key assertions:
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `xcodebuild -scheme CheckStitch -destination platform=macOS -configuration Debug -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO -only-testing:CheckStitchTests/ChecklistMergeTests test` passes
+- [x] `make test-unit` passes
+- [x] `xcodebuild -scheme CheckStitch -destination platform=macOS -configuration Debug -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO -only-testing:CheckStitchTests/ChecklistMergeTests test` passes
 
 #### Manual
 - [ ] Confirm `ChecklistMerge.swift` imports only `Foundation` (no store, no seam, no I/O)
@@ -1092,7 +1092,7 @@ After **each** stage, `make test-unit` must be green before starting the next.
 
 - [x] After Stage 1 → codec/store suites green; a v1 payload loads, migrates, and can be saved over.
 - [x] After Stage 2 → seam fake + adapter canary green; `make build-mac` green.
-- [ ] After Stage 3 → merge suite green (pure, no I/O).
+- [x] After Stage 3 → merge suite green (pure, no I/O).
 - [ ] After Stage 4 → store suite green, including all unchanged legacy cases.
 - [ ] After Stage 5 → service suite green and the app builds with the service wired in `MyApp`.
 - [ ] After Stage 6 → `bash scripts/test.sh` prints `gate: ok`; two-device round-trip verified manually.
