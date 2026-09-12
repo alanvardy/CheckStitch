@@ -31,6 +31,14 @@ struct ContentView: View {
                     }
                     .accessibilityIdentifier("createChecklistButton")
                 }
+                #if os(macOS)
+                    // macOS window actions belong in the title bar, and a
+                    // view-level overlay there drifts into the content area.
+                    // Trailing keeps the gear in the corner beside create.
+                    ToolbarItem(placement: .primaryAction) {
+                        settingsButton
+                    }
+                #endif
             }
             .navigationDestination(for: UUID.self) { id in
                 ChecklistDetailView(checklistID: id)
@@ -47,11 +55,13 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(appearanceMode: $appearanceMode)
         }
-        .overlay(alignment: .topTrailing) {
-            settingsButton
-                .padding(.top, 8)
-                .padding(.trailing, 12)
-        }
+        #if os(iOS)
+            .overlay(alignment: .topTrailing) {
+                settingsButton
+                    .padding(.top, 8)
+                    .padding(.trailing, 12)
+            }
+        #endif
     }
 
     /// `topBarLeading` is iOS-only; on macOS the leading navigation slot is
