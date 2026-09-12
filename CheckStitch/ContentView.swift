@@ -1,3 +1,4 @@
+import CheckStitchCore
 import SwiftUI
 
 struct ContentView: View {

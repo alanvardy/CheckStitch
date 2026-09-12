@@ -1,5 +1,6 @@
 import XCTest
 @testable import CheckStitch
+import CheckStitchCore
 
 @MainActor
 final class ChecklistCodecTests: XCTestCase {
@@ -32,5 +33,14 @@ final class ChecklistCodecTests: XCTestCase {
 
         let newer = Data(#"{"version":99,"checklists":[]}"#.utf8)
         XCTAssertEqual(ChecklistCodec.classify(newer), .unsupportedVersion)
+    }
+
+    func testV1PayloadWithoutIsBlankStillDecodes() {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":1,"checklists":[{"id":"\#(UUID().uuidString)","name":"x","items":[{"id":"\#(id)","title":"Milk"}]}]}"#.utf8)
+
+        let decoded = ChecklistCodec.decode(data)
+        XCTAssertEqual(decoded.first?.items.first?.title, "Milk")
+        XCTAssertFalse(decoded.first?.items.first?.isBlank ?? true)
     }
 }

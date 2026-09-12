@@ -1,3 +1,4 @@
+import CheckStitchCore
 import EventKit
 import os
 

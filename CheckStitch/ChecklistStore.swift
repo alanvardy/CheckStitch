@@ -1,3 +1,4 @@
+import CheckStitchCore
 import Foundation
 import os
 

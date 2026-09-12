@@ -8,6 +8,7 @@ let package = Package(
     platforms: [
         .iOS("18.7"),
         .macOS("27.0"),
+        .watchOS("27.0"),
     ],
     products: [
         .library(name: "CheckStitchCore", targets: ["CheckStitchCore"])

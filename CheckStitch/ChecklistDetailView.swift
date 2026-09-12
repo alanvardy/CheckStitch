@@ -1,3 +1,4 @@
+import CheckStitchCore
 import SwiftUI
 
 /// Detail screen for one checklist, keyed by id rather than a `@Binding` into a
