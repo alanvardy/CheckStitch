@@ -10,6 +10,8 @@
 		000000000000000000000060 /* CheckStitchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000031 /* CheckStitchCore */; };
 		000000000000000000000061 /* CheckStitchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000031 /* CheckStitchCore */; };
 		000000000000000000000062 /* CheckStitchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000031 /* CheckStitchCore */; };
+		000000000000000000000063 /* CheckStitchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000031 /* CheckStitchCore */; };
+		000000000000000000000064 /* CheckStitchWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 000000000000000000000071 /* CheckStitchWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,12 +29,34 @@
 			remoteGlobalIDString = 000000000000000100000000;
 			remoteInfo = CheckStitch;
 		};
+		000000000000000400000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000400000000;
+			remoteInfo = CheckStitchWatch;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		000000000000000150000000 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				000000000000000000000064 /* CheckStitchWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* CheckStitch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CheckStitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000000000041 /* CheckStitchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CheckStitchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000000000051 /* CheckStitchUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CheckStitchUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000071 /* CheckStitchWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CheckStitchWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -49,6 +73,11 @@
 		000000000000000000000050 /* CheckStitchUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CheckStitchUITests;
+			sourceTree = "<group>";
+		};
+		000000000000000000000070 /* CheckStitchWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CheckStitchWatch;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -72,6 +101,12 @@
 				000000000000000000000062 /* CheckStitchCore in Frameworks */,
 			);
 		};
+		000000000000000421000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				000000000000000000000063 /* CheckStitchCore in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -81,6 +116,7 @@
 				000000000000000000000010 /* CheckStitch */,
 				000000000000000000000040 /* CheckStitchTests */,
 				000000000000000000000050 /* CheckStitchUITests */,
+				000000000000000000000070 /* CheckStitchWatch */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -91,6 +127,7 @@
 				000000000000000000000120 /* CheckStitch.app */,
 				000000000000000000000041 /* CheckStitchTests.xctest */,
 				000000000000000000000051 /* CheckStitchUITests.xctest */,
+				000000000000000000000071 /* CheckStitchWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -100,11 +137,15 @@
 /* Begin PBXNativeTarget section */
 		000000000000000100000000 /* CheckStitch */ = {
 			isa = PBXNativeTarget;
+			dependencies = (
+				000000000000000400000001 /* PBXTargetDependency */,
+			);
 			buildConfigurationList = 000000000000000110000000 /* Build configuration list for PBXNativeTarget "CheckStitch" */;
 			buildPhases = (
 				000000000000000120000000 /* Sources */,
 				000000000000000130000000 /* Frameworks */,
 				000000000000000140000000 /* Resources */,
+				000000000000000150000000 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
@@ -167,6 +208,27 @@
 			productReference = 000000000000000000000051 /* CheckStitchUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		000000000000000400000000 /* CheckStitchWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 000000000000000410000000 /* Build configuration list for PBXNativeTarget "CheckStitchWatch" */;
+			buildPhases = (
+				000000000000000420000000 /* Sources */,
+				000000000000000421000000 /* Frameworks */,
+				000000000000000422000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				000000000000000000000070 /* CheckStitchWatch */,
+			);
+			name = CheckStitchWatch;
+			packageProductDependencies = (
+				000000000000000000000031 /* CheckStitchCore */,
+			);
+			productName = CheckStitchWatch;
+			productReference = 000000000000000000000071 /* CheckStitchWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -185,6 +247,9 @@
 						TestTargetID = 000000000000000100000000;
 					};
 					000000000000000300000000 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					000000000000000400000000 = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -209,6 +274,7 @@
 				000000000000000100000000 /* CheckStitch */,
 				000000000000000200000000 /* CheckStitchTests */,
 				000000000000000300000000 /* CheckStitchUITests */,
+				000000000000000400000000 /* CheckStitchWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -225,6 +291,11 @@
 			);
 		};
 		000000000000000322000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		000000000000000422000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -247,6 +318,11 @@
 			files = (
 			);
 		};
+		000000000000000420000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -259,6 +335,12 @@
 			isa = PBXTargetDependency;
 			target = 000000000000000100000000 /* CheckStitch */;
 			targetProxy = 000000000000000300000002 /* PBXContainerItemProxy */;
+		};
+		000000000000000400000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = 000000000000000400000000 /* CheckStitchWatch */;
+			targetProxy = 000000000000000400000002 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -579,6 +661,62 @@
 			};
 			name = Release;
 		};
+		000000000000000411000000 /* Debug configuration for PBXNativeTarget "CheckStitchWatch" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6NWX2DHB9Q;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = CheckStitch;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.alanvardy.CheckStitch;
+				INFOPLIST_KEY_WKWatchOnly = NO;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.alanvardy.CheckStitch.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		000000000000000412000000 /* Release configuration for PBXNativeTarget "CheckStitchWatch" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6NWX2DHB9Q;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = CheckStitch;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.alanvardy.CheckStitch;
+				INFOPLIST_KEY_WKWatchOnly = NO;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.alanvardy.CheckStitch.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -611,6 +749,14 @@
 			buildConfigurations = (
 				000000000000000311000000 /* Debug configuration for PBXNativeTarget "CheckStitchUITests" */,
 				000000000000000312000000 /* Release configuration for PBXNativeTarget "CheckStitchUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		000000000000000410000000 /* Build configuration list for PBXNativeTarget "CheckStitchWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000411000000 /* Debug configuration for PBXNativeTarget "CheckStitchWatch" */,
+				000000000000000412000000 /* Release configuration for PBXNativeTarget "CheckStitchWatch" */,
 			);
 			defaultConfigurationName = Release;
 		};

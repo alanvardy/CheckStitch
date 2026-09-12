@@ -759,11 +759,11 @@ watch-build:
 ### Verification
 
 #### Automated
-- [ ] `make watch-build` passes
-- [ ] `make build` passes (the iOS scheme now builds + embeds the watch)
-- [ ] `make build-mac` passes (the `platformFilter = ios` guard keeps the watch out)
-- [ ] `make test-unit` passes
-- [ ] `plutil -lint CheckStitch.xcodeproj/project.pbxproj` reports `OK`
+- [x] `make watch-build` passes
+- [x] `make build` passes (the iOS scheme now builds + embeds the watch)
+- [x] `make build-mac` passes (the `platformFilter = ios` guard keeps the watch out)
+- [x] `make test-unit` passes
+- [x] `plutil -lint CheckStitch.xcodeproj/project.pbxproj` reports `OK`
 
 #### Manual
 - [ ] `xcrun simctl list devices available | grep "Apple Watch Series 11"`, boot one, `xcrun simctl install <UDID> DerivedData/Build/Products/Debug-watchsimulator/CheckStitchWatch.app`, `xcrun simctl launch <UDID> app.alanvardy.CheckStitch.watchkitapp`, confirm it launches showing "CheckStitch"
