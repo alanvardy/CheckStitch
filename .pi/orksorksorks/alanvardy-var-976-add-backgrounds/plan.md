@@ -330,9 +330,9 @@ payload, and non-image bytes. No network: all fetchers are injected fakes.
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` green
-- [ ] `make test FILTER=CheckStitchTests/BackgroundImageStoreTests` green
-- [ ] No network in the gate — the suite runs against injected fakes only.
+- [x] `bash scripts/test.sh` green
+- [x] `make test FILTER=CheckStitchTests/BackgroundImageStoreTests` green
+- [x] No network in the gate — the suite runs against injected fakes only.
 
 #### Manual
 - [ ] None — the live endpoint is exercised in Stage 6's `make run` checklist.
