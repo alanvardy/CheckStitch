@@ -20,4 +20,19 @@ enum CardPlate {
     nonisolated static func plateFill(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color.black : Color(red: 0.96, green: 0.95, blue: 0.94)
     }
+
+    /// Fill for the 52×52 plates behind the floating chrome icons (the
+    /// Settings gear and the create plus). Clear in light mode so the
+    /// wallpaper photo keeps showing through behind the glyph; solid black
+    /// in dark mode so a blue glyph and the tint ring stay crisp over a dark
+    /// background or photo.
+    nonisolated static func iconPlateFill(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.black : Color.clear
+    }
+
+    /// Glyph color for the floating chrome icons: black over the clear plate
+    /// in light mode, blue over the black plate in dark mode.
+    nonisolated static func iconForeground(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.blue : Color.black
+    }
 }

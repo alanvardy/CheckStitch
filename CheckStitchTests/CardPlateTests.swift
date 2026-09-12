@@ -25,4 +25,30 @@ struct CardPlateTests {
     func plateCornerRadiusIsFourteenPoints() {
         #expect(CardPlate.cornerRadius == 14)
     }
+
+    /// The chrome icon plates stay clear in light mode — the wallpaper photo
+    /// keeps showing through, and the black glyph carries the contrast.
+    @Test
+    func iconPlateFillIsClearInLightMode() {
+        #expect(CardPlate.iconPlateFill(for: .light) == Color.clear)
+    }
+
+    /// Dark mode gives the chrome icons a solid black plate so the blue
+    /// glyph and tint ring stay crisp over a dark background or photo.
+    @Test
+    func iconPlateFillIsBlackInDarkMode() {
+        #expect(CardPlate.iconPlateFill(for: .dark) == Color.black)
+    }
+
+    /// The chrome icons stay black on the clear light plate.
+    @Test
+    func iconForegroundIsBlackInLightMode() {
+        #expect(CardPlate.iconForeground(for: .light) == Color.black)
+    }
+
+    /// The chrome icons turn blue on the black dark-mode plate.
+    @Test
+    func iconForegroundIsBlueInDarkMode() {
+        #expect(CardPlate.iconForeground(for: .dark) == Color.blue)
+    }
 }

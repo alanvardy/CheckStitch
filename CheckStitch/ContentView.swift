@@ -42,8 +42,12 @@ struct ContentView: View {
                             #if os(iOS)
                                 Image(systemName: "plus")
                                     .font(.title2.weight(.semibold))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(CardPlate.iconForeground(for: colorScheme))
                                     .frame(width: 52, height: 52)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                                            .fill(CardPlate.iconPlateFill(for: colorScheme))
+                                    }
                                     .overlay(
                                         RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
                                             .stroke(.tint, lineWidth: 2)
@@ -145,10 +149,14 @@ struct ContentView: View {
             } label: {
                 Image(systemName: "gearshape")
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(CardPlate.iconForeground(for: colorScheme))
                     .frame(width: 52, height: 52)
+                    .background {
+                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                            .fill(CardPlate.iconPlateFill(for: colorScheme))
+                    }
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14)
+                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
                             .stroke(.tint, lineWidth: 2)
                     )
                     .contentShape(Rectangle())
