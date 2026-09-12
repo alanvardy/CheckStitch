@@ -1,8 +1,8 @@
 # Done
 
-- **Branch / head SHA**: `alanvardy-var-976-add-backgrounds` @ `9a04fba`
-  (reviewed code head; rebased onto `origin/main` `224c875`, 0 behind / 11
-  ahead). Pushed with `--force-with-lease` after the rebase.
+- **Branch / head SHA**: `alanvardy-var-976-add-backgrounds` @ `32808a9`
+  (rebased onto `origin/main` `224c875`, 0 behind). Pushed with
+  `--force-with-lease` after the rebase; review-artifact commits follow.
 
 ## Rebase performed during review (user-authorised)
 
@@ -58,12 +58,16 @@ Single bounded fresh-context `reviewer` over the full 1557-line code diff
      Stage 6 manual contract explicitly requires "toggle Background off → on →
      photo returns without a refetch", and nothing triggers a fetch on
      re-enable. Gating `.task` on `backgroundEnabled` would break that.
-- **Optional improvements (not applied):** missing trailing newline in
-  `BackgroundPhotoLayer.swift`, `BackgroundSettingsView.swift`,
-  `SettingsBindings.swift`, `SettingsSubscreenLayout.swift` (documented
-  deviation); `FakeBackgroundFetcher` force-unwraps unstubbed URLs in tests;
-  synchronous main-actor file I/O in `commit`/`loadStoredImage`; settings sheet
-  has no cancel/discard semantics (matches ticket design).
+- **Optional improvements applied (user-approved, commit `32808a9`):** added
+  trailing newlines to `BackgroundPhotoLayer.swift`,
+  `BackgroundSettingsView.swift`, `SettingsBindings.swift`,
+  `SettingsSubscreenLayout.swift`; `FakeBackgroundFetcher` now throws a
+  descriptive `unstubbedURL` error instead of force-unwrapping; documented the
+  deliberate synchronous main-actor file I/O in
+  `BackgroundImageStore.loadStoredImage`/`persist`. `bash scripts/test.sh`
+  re-run green after these edits (53 swift-testing + 14 XCTest + 1 UI, 0
+  failures). The settings sheet's live-writeback (no cancel/discard) was left
+  as the ticket's designed behaviour.
 
 ## Remaining manual items (from `plan.md` / `implement.md`)
 
