@@ -30,6 +30,9 @@ echo "==> Booting simulator ${UDID}…"
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b
 
+echo "==> Opening Simulator window for ${UDID}…"
+open -a Simulator --args -CurrentDeviceUDID "$UDID"
+
 echo "==> Installing ${APP}…"
 xcrun simctl install "$UDID" "$APP"
 

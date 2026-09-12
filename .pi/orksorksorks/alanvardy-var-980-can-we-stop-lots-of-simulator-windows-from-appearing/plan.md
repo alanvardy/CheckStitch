@@ -600,8 +600,8 @@ run_case gate_never_requests_a_window gate_never_requests_a_window
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/tests/run.sh` → `tests: 10 passed, 0 failed`
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
+- [x] `bash scripts/tests/run.sh` → `tests: 9 passed, 0 failed` (Phase 4b substitution)
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
 - [ ] `bash scripts/test.sh` prints `gate: ok` and no window appears
 
 #### Manual
