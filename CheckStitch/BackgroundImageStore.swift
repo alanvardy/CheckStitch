@@ -146,6 +146,8 @@ final class BackgroundImageStore {
     }
 
     /// Missing/corrupt sidecar ⇒ treated as "no valid stored image".
+    /// The synchronous read is deliberate main-actor I/O: the wallpaper is
+    /// sub-MB, so it is negligible next to the network fetch it gates.
     func loadStoredImage() {
         guard let metadataData = try? Data(contentsOf: metadataURL),
               let metadata = try? decodeMetadata(from: metadataData),
@@ -247,6 +249,8 @@ final class BackgroundImageStore {
     }
 
     /// Creates the directory if needed and writes both files atomically.
+    /// Synchronous main-actor I/O is deliberate: the wallpaper is sub-MB, and
+    /// keeping the write on the actor preserves the disk-before-state ordering.
     private func persist(imageData: Data, metadata: BackgroundMetadata) throws {
         try FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true)
