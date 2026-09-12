@@ -156,12 +156,10 @@ fi
 if [[ "$RUN_MAC" -eq 1 ]]; then
     echo ""
     echo "==> Building $SCHEME ($CONFIGURATION) for macOS…"
-    if ! xcodebuild -scheme "$SCHEME" \
-      -destination 'platform=macOS' \
-      -configuration "$CONFIGURATION" \
-      -derivedDataPath "$DERIVED_DATA" \
-      CODE_SIGNING_ALLOWED=NO \
-      build; then
+    if ! make build-mac \
+      SCHEME="$SCHEME" \
+      CONFIGURATION="$CONFIGURATION" \
+      DERIVED_DATA="$DERIVED_DATA"; then
         echo "❌ macOS build failed." >&2
         failures=$((failures + 1))
     elif [[ ! -d "$MAC_APP_PATH" ]]; then

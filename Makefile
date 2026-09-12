@@ -8,14 +8,26 @@ SCHEME := CheckStitch
 CONFIGURATION := Debug
 DERIVED_DATA := DerivedData
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
+MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
 
-.PHONY: build run clean test test-unit test-ui
+.PHONY: build build-mac run clean test test-unit test-ui
 
 build:
 	xcodebuild -scheme '$(SCHEME)' \
 	  -destination '$(SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
+	  build
+
+# The macOS slice shares the source files with iOS but not the available API,
+# so it needs its own compile even though nothing here launches it. Unsigned:
+# signing would need the Mac profile to carry the App Group entitlement.
+build-mac:
+	xcodebuild -scheme '$(SCHEME)' \
+	  -destination 'platform=macOS' \
+	  -configuration '$(CONFIGURATION)' \
+	  -derivedDataPath '$(DERIVED_DATA)' \
+	  CODE_SIGNING_ALLOWED=NO \
 	  build
 
 run: build

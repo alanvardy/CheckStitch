@@ -23,7 +23,7 @@ struct ContentView: View {
             }
             .navigationTitle("Checklists")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: createButtonPlacement) {
                     Button {
                         createChecklist()
                     } label: {
@@ -52,6 +52,16 @@ struct ContentView: View {
                 .padding(.top, 8)
                 .padding(.trailing, 12)
         }
+    }
+
+    /// `topBarLeading` is iOS-only; on macOS the leading navigation slot is
+    /// the same visual position.
+    private var createButtonPlacement: ToolbarItemPlacement {
+        #if os(iOS)
+            .topBarLeading
+        #else
+            .navigation
+        #endif
     }
 
     private var settingsButton: some View {
