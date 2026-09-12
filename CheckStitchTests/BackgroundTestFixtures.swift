@@ -23,13 +23,29 @@ enum BackgroundTestFixtures {
 
 // MARK: - Background-fetcher fakes
 
+/// Surfaced when a test exercises a URL it forgot to stub, so the failure is a
+/// clear test error rather than a force-unwrap crash.
+enum FakeBackgroundFetcherError: Error, CustomStringConvertible {
+    case unstubbedURL(URL)
+
+    var description: String {
+        switch self {
+        case let .unstubbedURL(url):
+            "FakeBackgroundFetcher has no stubbed data for \(url)"
+        }
+    }
+}
+
 final class FakeBackgroundFetcher: BackgroundImageFetching, @unchecked Sendable {
     private(set) var requestedURLs: [URL] = []
     var stubbedData: [URL: Result<Data, Error>] = [:]
 
     func fetchData(from url: URL) async throws -> Data {
         requestedURLs.append(url)
-        return try stubbedData[url]!.get()
+        guard let result = stubbedData[url] else {
+            throw FakeBackgroundFetcherError.unstubbedURL(url)
+        }
+        return try result.get()
     }
 }
 
