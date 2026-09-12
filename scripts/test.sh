@@ -9,15 +9,25 @@ GATE_UDID=""
 
 # Resolve this worktree's own simulator, if it has one. Absent .simulator_id
 # degrades to the Makefile's shared name= fallback: skip pre-boot entirely
-# rather than ever touching a shared device.
+# rather than ever touching a shared device. A .simulator_id that exists but
+# does not resolve to a UDID is a real error — fail with a clear message
+# rather than limping on to a raw xcodebuild failure.
 GATE_DEST=""
+GATE_DEST_FROM_FILE=0
 if [[ -n "${SIM:-}" ]]; then
   GATE_DEST="$SIM"
 elif [[ -f "$SIM_ID_FILE" ]]; then
   GATE_DEST="platform=iOS Simulator,id=$(cat "$SIM_ID_FILE")"
+  GATE_DEST_FROM_FILE=1
 fi
 if [[ -n "$GATE_DEST" ]]; then
-  GATE_UDID="$(bash scripts/resolve-sim-udid.sh --require-id "$GATE_DEST" 2>/dev/null || true)"
+  if ! GATE_UDID="$(bash scripts/resolve-sim-udid.sh --require-id "$GATE_DEST" 2>/dev/null)"; then
+    if [[ "$GATE_DEST_FROM_FILE" -eq 1 ]]; then
+      echo "ERROR: .simulator_id does not name a valid simulator UDID: $(cat "$SIM_ID_FILE")" >&2
+      exit 1
+    fi
+    GATE_UDID=""
+  fi
 fi
 
 make build
@@ -34,6 +44,16 @@ LOCK_HELD=0
 acquire_lock() {
   local waited=0
   while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    # Reap a lock left behind by a killed gate: if the recorded holder PID is
+    # gone, the lock is stale and can be reclaimed immediately.
+    if [[ -f "$LOCK_DIR/pid" ]]; then
+      local holder
+      holder="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+      if [[ -n "$holder" ]] && ! kill -0 "$holder" 2>/dev/null; then
+        rm -rf "$LOCK_DIR" 2>/dev/null || true
+        continue
+      fi
+    fi
     if [[ $waited -ge $LOCK_TIMEOUT ]]; then
       echo "warning: simulator lock busy after ${LOCK_TIMEOUT}s — running without it" >&2
       return 0
@@ -42,10 +62,15 @@ acquire_lock() {
     waited=$((waited + 1))
   done
   LOCK_HELD=1
+  printf '%s\n' "$$" >"$LOCK_DIR/pid" 2>/dev/null || true
 }
 
 release_lock() {
-  [[ "${LOCK_HELD:-0}" == "1" ]] && rmdir "$LOCK_DIR" 2>/dev/null || true
+  if [[ "${LOCK_HELD:-0}" == "1" ]]; then
+    rm -f "$LOCK_DIR/pid" 2>/dev/null || true
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+    LOCK_HELD=0
+  fi
 }
 
 # ONE EXIT trap only: bash replaces a previous `trap … EXIT`, so the lock
@@ -71,6 +96,7 @@ else
 fi
 
 make test
+release_lock
 
 # `make build` only compiles for the iOS Simulator; the macOS slice is the
 # same sources against a different platform, so build it here too — otherwise

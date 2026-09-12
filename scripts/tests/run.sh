@@ -17,6 +17,8 @@ trap cleanup EXIT
 # Create a temp dir of stub executables and prepend it to PATH.
 # Each stub appends its argv to "$STUB_ROOT/<name>.log".
 new_stubs() {
+    # Reap the previous stub tree so long runs do not accumulate temp dirs.
+    [[ -n "$STUB_ROOT" && -d "$STUB_ROOT" ]] && rm -rf "$STUB_ROOT"
     STUB_ROOT="$(mktemp -d)"
     local name
     for name in "$@"; do
@@ -82,10 +84,21 @@ require_id_rejects_name_form() {
     [[ "$out" == *"not pinned"* ]]
 }
 
+require_id_rejects_non_uuid() {
+    new_stubs xcrun
+    set +e
+    out="$(bash scripts/resolve-sim-udid.sh --require-id 'platform=iOS Simulator,id=not-a-udid' 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"not a valid simulator UDID"* ]]
+}
+
 run_case resolves_id_form_directly resolves_id_form_directly
 run_case resolves_name_form_from_simctl_list resolves_name_form_from_simctl_list
 run_case errors_on_unknown_name errors_on_unknown_name
 run_case require_id_rejects_name_form require_id_rejects_name_form
+run_case require_id_rejects_non_uuid require_id_rejects_non_uuid
 
 # --- Phase 3 ---------------------------------------------------------------
 
@@ -100,17 +113,19 @@ STUB
 
 gate_skips_preboot_without_own_udid() {
     stub_gate_command
-    SIM_ID_FILE="$STUB_ROOT/absent.simulator_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
+    env -u SIM SIM_ID_FILE="$STUB_ROOT/absent.simulator_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
     [[ ! -s "$STUB_ROOT/xcrun.log" ]]
 }
 
 gate_shuts_down_only_resolved_udid() {
     stub_gate_command
-    printf 'GATE-UDID-1\n' >"$STUB_ROOT/sim_id"
-    SIM_ID_FILE="$STUB_ROOT/sim_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
-    grep -q 'boot GATE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
-    grep -q 'bootstatus GATE-UDID-1 -b' "$STUB_ROOT/xcrun.log" || return 1
-    grep -q 'shutdown GATE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    printf '11111111-1111-1111-1111-111111111111\n' >"$STUB_ROOT/sim_id"
+    env -u SIM SIM_ID_FILE="$STUB_ROOT/sim_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
+    grep -q 'boot 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'bootstatus 11111111-1111-1111-1111-111111111111 -b' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'shutdown 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
+    # The window-suppression lever itself must have fired.
+    grep -q 'tell application "Simulator" to quit' "$STUB_ROOT/osascript.log" || return 1
     # Never a global selector.
     ! grep -Eq 'shutdown (all|booted)|boot (all|booted)' "$STUB_ROOT/xcrun.log"
 }
@@ -123,18 +138,49 @@ run_case gate_shuts_down_only_resolved_udid gate_shuts_down_only_resolved_udid
 
 lock_times_out_instead_of_blocking() {
     stub_gate_command
-    printf 'GATE-UDID-3\n' >"$STUB_ROOT/sim_id"
-    mkdir -p "${TMPDIR:-/tmp}/checkstitch-simulator.lock"
+    printf '33333333-3333-3333-3333-333333333333\n' >"$STUB_ROOT/sim_id"
+    # Private TMPDIR: never poke the live host lock a concurrent gate may hold.
+    local lock_tmp="$STUB_ROOT/gate-tmp"
+    mkdir -p "$lock_tmp/checkstitch-simulator.lock"
+    local out status
     set +e
-    SIM_ID_FILE="$STUB_ROOT/sim_id" LOCK_TIMEOUT=1 GATE_TESTS_SKIP=1 \
-        bash scripts/test.sh >/dev/null 2>&1
+    out="$(env -u SIM SIM_ID_FILE="$STUB_ROOT/sim_id" LOCK_TIMEOUT=1 GATE_TESTS_SKIP=1 TMPDIR="$lock_tmp" \
+        bash scripts/test.sh 2>&1)"
     status=$?
     set -e
-    rmdir "${TMPDIR:-/tmp}/checkstitch-simulator.lock" 2>/dev/null || true
-    [[ $status -eq 0 ]]
+    [[ $status -eq 0 ]] || return 1
+    [[ "$out" == *"simulator lock busy after 1s"* ]]
+}
+
+gate_errors_on_invalid_simulator_id() {
+    stub_gate_command
+    printf 'not-a-udid\n' >"$STUB_ROOT/sim_id"
+    local out status
+    set +e
+    out="$(env -u SIM SIM_ID_FILE="$STUB_ROOT/sim_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"does not name a valid simulator UDID"* ]]
+}
+
+stale_lock_is_reaped() {
+    stub_gate_command
+    printf '44444444-4444-4444-4444-444444444444\n' >"$STUB_ROOT/sim_id"
+    local lock_tmp="$STUB_ROOT/gate-tmp"
+    mkdir -p "$lock_tmp/checkstitch-simulator.lock"
+    # A dead holder PID marks the lock stale, so the gate must not wait it out.
+    printf '999999\n' >"$lock_tmp/checkstitch-simulator.lock/pid"
+    local out
+    out="$(env -u SIM SIM_ID_FILE="$STUB_ROOT/sim_id" LOCK_TIMEOUT=1 GATE_TESTS_SKIP=1 TMPDIR="$lock_tmp" \
+        bash scripts/test.sh 2>&1)" || return 1
+    [[ "$out" != *"simulator lock busy"* ]] || return 1
+    [[ "$out" == *"Pre-booting gate simulator 44444444-4444-4444-4444-444444444444"* ]]
 }
 
 run_case lock_times_out_instead_of_blocking lock_times_out_instead_of_blocking
+run_case gate_errors_on_invalid_simulator_id gate_errors_on_invalid_simulator_id
+run_case stale_lock_is_reaped stale_lock_is_reaped
 
 # --- Phase 4 ---------------------------------------------------------------
 
@@ -148,8 +194,8 @@ run_path_requests_window_for_resolved_udid() {
 
 gate_never_requests_a_window() {
     stub_gate_command
-    printf 'GATE-UDID-2\n' >"$STUB_ROOT/sim_id"
-    SIM_ID_FILE="$STUB_ROOT/sim_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
+    printf '22222222-2222-2222-2222-222222222222\n' >"$STUB_ROOT/sim_id"
+    env -u SIM SIM_ID_FILE="$STUB_ROOT/sim_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
     [[ ! -s "$STUB_ROOT/open.log" ]]
 }
 
