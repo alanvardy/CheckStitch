@@ -136,5 +136,25 @@ lock_times_out_instead_of_blocking() {
 
 run_case lock_times_out_instead_of_blocking lock_times_out_instead_of_blocking
 
+# --- Phase 4 ---------------------------------------------------------------
+
+run_path_requests_window_for_resolved_udid() {
+    new_stubs make xcrun defaults open
+    local app="$STUB_ROOT/CheckStitch.app"
+    mkdir -p "$app"
+    bash scripts/run-simulator.sh 'platform=iOS Simulator,id=RUN-UDID-1' "$app" >/dev/null 2>&1 || return 1
+    grep -q 'RUN-UDID-1' "$STUB_ROOT/open.log"
+}
+
+gate_never_requests_a_window() {
+    stub_gate_command
+    printf 'GATE-UDID-2\n' >"$STUB_ROOT/sim_id"
+    SIM_ID_FILE="$STUB_ROOT/sim_id" GATE_TESTS_SKIP=1 LOCK_TIMEOUT=2 bash scripts/test.sh >/dev/null 2>&1 || return 1
+    [[ ! -s "$STUB_ROOT/open.log" ]]
+}
+
+run_case run_path_requests_window_for_resolved_udid run_path_requests_window_for_resolved_udid
+run_case gate_never_requests_a_window gate_never_requests_a_window
+
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
