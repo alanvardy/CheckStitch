@@ -33,6 +33,9 @@ struct ContentView: View {
                 MacAppDelegate.applyAppearance(new)
             #endif
         }
+        #if os(macOS)
+        .preferredColorScheme(appearanceMode.colorScheme)
+        #endif
         .sheet(isPresented: $isShowingEditChecklist) {
             EditChecklistView(name: $viewModel.checklistName, items: $viewModel.items)
         }
