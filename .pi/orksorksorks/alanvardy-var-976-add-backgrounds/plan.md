@@ -778,8 +778,8 @@ extension ContentView {
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` green (all suites; no new suite)
-- [ ] `make build` green for the iOS simulator destination
+- [x] `bash scripts/test.sh` green (all suites; no new suite)
+- [x] `make build` green for the iOS simulator destination
 
 #### Manual
 - [ ] `make run`: gear opens Settings; a **Background** row is present and
