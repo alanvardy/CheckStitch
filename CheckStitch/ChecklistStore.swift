@@ -14,6 +14,11 @@ final class ChecklistStore {
     }
 
     private(set) var checklists: [Checklist]
+    private(set) var tombstones: [ChecklistTombstone] = []
+    /// Invoked after every persisted save, except saves that are applying remote
+    /// state (the coordinator pushes those itself).
+    @ObservationIgnored var onChange: (() -> Void)?
+    @ObservationIgnored private var isApplyingRemote = false
 
     private let defaults: UserDefaults
     private let key: String
@@ -53,6 +58,7 @@ final class ChecklistStore {
             switch ChecklistCodec.classify(data) {
             case .loaded(let stored):
                 self.checklists = stored.checklists
+                self.tombstones = stored.tombstones
                 self.canOverwriteStoredPayload = true
             case .migratable(_, let legacy):
                 self.checklists = legacy.map { $0.migrated(at: now()) }
@@ -75,7 +81,8 @@ final class ChecklistStore {
     var envelope: ChecklistEnvelope {
         ChecklistEnvelope(version: ChecklistCodec.currentVersion,
                           deviceID: deviceID,
-                          checklists: checklists)
+                          checklists: checklists,
+                          tombstones: tombstones)
     }
 
     /// Whether remote sync state may be folded into the local payload. False
@@ -94,7 +101,7 @@ final class ChecklistStore {
     /// the checklist to open.
     @discardableResult
     func create(name: String = "New checklist") -> Checklist {
-        let checklist = Checklist(name: Self.uniqueName(basedOn: name, taken: checklists.map(\.name)))
+        let checklist = Checklist(name: Self.uniqueName(basedOn: name, taken: checklists.map(\.name)), modifiedAt: now(), revision: 1)
         checklists.append(checklist)
         save()
         return checklist
@@ -112,6 +119,8 @@ final class ChecklistStore {
             return .nameTaken
         }
         checklists[index].name = name
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
         scheduleSave()
         return .renamed
     }
@@ -140,7 +149,7 @@ final class ChecklistStore {
 
     func addItem(to id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
-        checklists[index].items.append(ChecklistItem(title: "New item"))
+        checklists[index].items.append(ChecklistItem(title: "New item", modifiedAt: now(), revision: 1))
         save()
     }
 
@@ -149,6 +158,8 @@ final class ChecklistStore {
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
         checklists[checklistIndex].items[itemIndex].title = title
+        checklists[checklistIndex].items[itemIndex].revision += 1
+        checklists[checklistIndex].items[itemIndex].modifiedAt = now()
         scheduleSave()
     }
 
@@ -156,7 +167,9 @@ final class ChecklistStore {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
         for offset in offsets.sorted(by: >) {
             guard checklists[index].items.indices.contains(offset) else { continue }
-            checklists[index].items.remove(at: offset)
+            let removed = checklists[index].items.remove(at: offset)
+            tombstones.append(ChecklistTombstone(
+                checklistID: id, itemID: removed.id, deletedAt: now(), revision: removed.revision + 1))
         }
         save()
     }
@@ -164,8 +177,28 @@ final class ChecklistStore {
     /// Local-only: reminders already created in Reminders are never touched.
     func delete(id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
-        checklists.remove(at: index)
+        let removed = checklists.remove(at: index)
+        tombstones.append(ChecklistTombstone(
+            checklistID: id, itemID: nil, deletedAt: now(), revision: removed.revision + 1))
         save()
+    }
+
+    /// Merges a remote payload into local state. Refuses (no save, no state change)
+    /// when the stored payload came from a newer app version, preserving the
+    /// never-overwrite-newer guard. Returns whether visible state changed.
+    @discardableResult
+    func apply(remote: ChecklistEnvelope) -> Bool {
+        guard canOverwriteStoredPayload else { return false }
+        guard remote.version == ChecklistCodec.currentVersion else { return false }
+        let merged = ChecklistMerge.merge(local: envelope, remote: remote)
+        guard merged != envelope else { return false }   // idempotent
+        let visibleChanged = merged.checklists != checklists
+        isApplyingRemote = true
+        checklists = merged.checklists
+        tombstones = merged.tombstones
+        save()
+        isApplyingRemote = false
+        return visibleChanged
     }
 
     /// Persists any coalesced text edit immediately. Called when the screen is
@@ -205,6 +238,7 @@ final class ChecklistStore {
         }
         do {
             defaults.set(try ChecklistCodec.encode(envelope), forKey: key)
+            if !isApplyingRemote { onChange?() }
         } catch {
             Self.logger.error("Failed to save checklists: \(error.localizedDescription, privacy: .public)")
         }
