@@ -4,13 +4,15 @@
 SIM_FROM_WORKTREE := $(shell test -f .simulator_id && printf 'platform=iOS Simulator,id=%s' "$$(cat .simulator_id)")
 SIM ?= $(if $(SIM_FROM_WORKTREE),$(SIM_FROM_WORKTREE),platform=iOS Simulator,name=iPhone 17)
 MAC_SIM := platform=macOS
+WATCH_SIM := generic/platform=watchOS Simulator
+WATCH_SCHEME := CheckStitchWatch
 SCHEME := CheckStitch
 CONFIGURATION := Debug
 DERIVED_DATA := DerivedData
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
 MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
 
-.PHONY: build build-mac run clean test test-unit test-ui
+.PHONY: build build-mac run clean test test-unit test-ui watch-build
 
 build:
 	xcodebuild -scheme '$(SCHEME)' \
@@ -28,6 +30,15 @@ build-mac:
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
 	  CODE_SIGNING_ALLOWED=NO \
+	  build
+
+# The watch target compiles the same package for watchOS. `generic/platform=watchOS
+# Simulator` keeps this unsigned and sim-free; the real-watch build is run-watch.sh.
+watch-build:
+	xcodebuild -scheme '$(WATCH_SCHEME)' \
+	  -destination '$(WATCH_SIM)' \
+	  -configuration '$(CONFIGURATION)' \
+	  -derivedDataPath '$(DERIVED_DATA)' \
 	  build
 
 run: build
