@@ -44,10 +44,11 @@ public enum AppearanceMode: String, CaseIterable, Sendable {
         }
     #endif
 
-    /// The `ColorScheme` to force in a SwiftUI preview (the canvas), or `nil`
-    /// for `.system` to follow the device. Previews have no window to override,
-    /// so they translate the appearance through this property instead of
-    /// `windowOverrideStyle` / `appKitAppearance`.
+    /// The `ColorScheme` to force in SwiftUI content, or `nil` for `.system` to
+    /// follow the device. On macOS the canvas does not pick up the window-level
+    /// `NSWindow.appearance`, so `ContentView`/`SettingsView` thread this via
+    /// `preferredColorScheme`; previews (no window to override) use it the same
+    /// way instead of `windowOverrideStyle` / `appKitAppearance`.
     public var colorScheme: ColorScheme? {
         switch self {
         case .system: nil
