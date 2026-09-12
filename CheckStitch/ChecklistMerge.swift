@@ -1,0 +1,122 @@
+import Foundation
+
+/// Pure, deterministic merge of two checklist envelopes. The winner rule —
+/// higher `revision`, then newer `modifiedAt`, then the lexicographically
+/// smaller device id — is symmetric, so both sides compute the same winner
+/// regardless of which envelope is `local` and which is `remote`. Tombstones
+/// union by `(checklistID, itemID)` and always suppress their live entry, so a
+/// deletion made on one device can never be resurrected by an older copy on
+/// another. No store, no seam, no I/O: fully unit-testable in isolation.
+enum ChecklistMerge {
+    static func merge(local: ChecklistEnvelope, remote: ChecklistEnvelope) -> ChecklistEnvelope {
+        let tombstones = mergedTombstones(local.tombstones, remote.tombstones)
+        let deadChecklists = Set(tombstones.filter { $0.itemID == nil }.map(\.checklistID))
+        let itemTombstones = tombstones.filter { $0.itemID != nil }
+
+        var checklists = mergedChecklists(
+            local.checklists, remote.checklists,
+            localDevice: local.deviceID, remoteDevice: remote.deviceID
+        )
+        checklists.removeAll { deadChecklists.contains($0.id) }
+        for index in checklists.indices {
+            let deadItems = Set(
+                itemTombstones.filter { $0.checklistID == checklists[index].id }.compactMap(\.itemID)
+            )
+            checklists[index].items.removeAll { deadItems.contains($0.id) }
+        }
+
+        return ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: local.deviceID,
+            checklists: checklists,
+            tombstones: tombstones
+        )
+    }
+
+    private struct TombstoneKey: Hashable {
+        let checklistID: UUID
+        let itemID: UUID?
+    }
+
+    private static func mergedTombstones(
+        _ local: [ChecklistTombstone], _ remote: [ChecklistTombstone]
+    ) -> [ChecklistTombstone] {
+        var byKey: [TombstoneKey: ChecklistTombstone] = [:]
+        for tombstone in local + remote {
+            let key = TombstoneKey(checklistID: tombstone.checklistID, itemID: tombstone.itemID)
+            if let existing = byKey[key] {
+                if wins(revision: tombstone.revision, date: tombstone.deletedAt,
+                        overRevision: existing.revision, overDate: existing.deletedAt) {
+                    byKey[key] = tombstone
+                }
+            } else {
+                byKey[key] = tombstone
+            }
+        }
+        // Deterministic order so re-merging an unchanged payload is a no-op.
+        return byKey.values.sorted {
+            ($0.checklistID.uuidString, $0.itemID?.uuidString ?? "")
+                < ($1.checklistID.uuidString, $1.itemID?.uuidString ?? "")
+        }
+    }
+
+    private static func mergedChecklists(
+        _ local: [Checklist], _ remote: [Checklist],
+        localDevice: String, remoteDevice: String
+    ) -> [Checklist] {
+        var result = local
+        var indexByID = Dictionary(uniqueKeysWithValues: result.enumerated().map { ($1.id, $0) })
+        for remoteChecklist in remote {
+            guard let index = indexByID[remoteChecklist.id] else {
+                indexByID[remoteChecklist.id] = result.count
+                result.append(remoteChecklist)
+                continue
+            }
+            let localChecklist = result[index]
+            var merged = localChecklist
+            if wins(revision: remoteChecklist.revision, date: remoteChecklist.modifiedAt,
+                    device: remoteDevice,
+                    overRevision: localChecklist.revision, overDate: localChecklist.modifiedAt,
+                    overDevice: localDevice) {
+                merged.name = remoteChecklist.name
+                merged.revision = remoteChecklist.revision
+                merged.modifiedAt = remoteChecklist.modifiedAt
+            }
+            merged.items = mergedItems(
+                localChecklist.items, remoteChecklist.items,
+                localDevice: localDevice, remoteDevice: remoteDevice
+            )
+            result[index] = merged
+        }
+        return result
+    }
+
+    private static func mergedItems(
+        _ local: [ChecklistItem], _ remote: [ChecklistItem],
+        localDevice: String, remoteDevice: String
+    ) -> [ChecklistItem] {
+        var result = local
+        var indexByID = Dictionary(uniqueKeysWithValues: result.enumerated().map { ($1.id, $0) })
+        for remoteItem in remote {
+            guard let index = indexByID[remoteItem.id] else {
+                indexByID[remoteItem.id] = result.count
+                result.append(remoteItem)
+                continue
+            }
+            let localItem = result[index]
+            if wins(revision: remoteItem.revision, date: remoteItem.modifiedAt, device: remoteDevice,
+                    overRevision: localItem.revision, overDate: localItem.modifiedAt, overDevice: localDevice) {
+                result[index] = remoteItem
+            }
+        }
+        return result
+    }
+
+    private static func wins(revision: Int, date: Date, device: String? = nil,
+                             overRevision: Int, overDate: Date, overDevice: String? = nil) -> Bool {
+        if revision != overRevision { return revision > overRevision }
+        if date != overDate { return date > overDate }
+        guard let device, let overDevice else { return false }
+        return device < overDevice
+    }
+}
