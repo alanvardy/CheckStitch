@@ -55,6 +55,13 @@ struct ContentView: View {
                 .navigationDestination(for: UUID.self) { id in
                     ChecklistDetailView(checklistID: id)
                 }
+                #if os(iOS)
+                    // iOS 26's NavigationStack paints an opaque container behind
+                    // its content, so the ZStack photo is invisible on iPhone/iPad
+                    // (macOS's stack is already transparent). Clearing the
+                    // navigation container background lets the photo show.
+                    .containerBackground(.clear, for: .navigation)
+                #endif
             }
             .onChange(of: appearanceMode) { _, new in
                 #if os(iOS)
@@ -173,12 +180,6 @@ struct ContentView: View {
                 .padding(.vertical, 16)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            // iOS paints an opaque scroll-content background over the ZStack
-            // photo by default (iPadOS ships the same behaviour — SingleThread's
-            // list needs this exact pair). Clear both layers so the card sits
-            // on the photo; macOS scroll views are already transparent.
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
         }
     }
 
