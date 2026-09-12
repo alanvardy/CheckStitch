@@ -17,11 +17,20 @@ import SwiftUI
         private var macAppDelegate
     #endif
 
-    @State private var store = ChecklistStore()
+    @State private var store: ChecklistStore
+    @State private var syncService: ChecklistSyncService
     #if os(iOS)
         @State private var coordinator: ChecklistSyncCoordinator?
     #endif
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let store = ChecklistStore()
+        let syncService = ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store)
+        syncService.start()
+        _store = State(initialValue: store)
+        _syncService = State(initialValue: syncService)
+    }
 
     var body: some Scene {
         #if os(macOS)
@@ -33,16 +42,22 @@ import SwiftUI
             WindowGroup {
                 ContentView()
                     .environment(store)
+                    .environment(syncService)
+                    .task { await syncService.syncOnLaunch() }
             }
             .restorationBehavior(.disabled)
             .onChange(of: scenePhase) { _, phase in
-                // Flush coalesced text edits before the app suspends.
-                if phase != .active { store.flushPendingSave() }
+                // Flush coalesced text edits and push before the app suspends.
+                if phase != .active {
+                    store.flushPendingSave()
+                    syncService.pushNow()
+                }
             }
         #else
             WindowGroup {
                 ContentView()
                     .environment(store)
+                    .environment(syncService)
                     #if os(iOS)
                         .task {
                             if coordinator == nil {
@@ -58,10 +73,14 @@ import SwiftUI
                             coordinator?.checklistsDidChange()
                         }
                     #endif
+                    .task { await syncService.syncOnLaunch() }
             }
             .onChange(of: scenePhase) { _, phase in
-                // Flush coalesced text edits before the app suspends.
-                if phase != .active { store.flushPendingSave() }
+                // Flush coalesced text edits and push before the app suspends.
+                if phase != .active {
+                    store.flushPendingSave()
+                    syncService.pushNow()
+                }
             }
         #endif
     }
