@@ -56,10 +56,16 @@ struct ContentView: View {
             SettingsView(appearanceMode: $appearanceMode)
         }
         #if os(iOS)
+            // The overlay hangs off the whole `NavigationStack`, so without
+            // the empty-path guard it floats over every pushed screen too —
+            // on the detail screen it lands on top of the Done button. Only
+            // the root list screen owns this gear.
             .overlay(alignment: .topTrailing) {
-                settingsButton
-                    .padding(.top, 8)
-                    .padding(.trailing, 12)
+                if path.isEmpty {
+                    settingsButton
+                        .padding(.top, 8)
+                        .padding(.trailing, 12)
+                }
             }
         #endif
     }
