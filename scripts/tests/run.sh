@@ -73,5 +73,49 @@ check_reports_fix_when_pref_missing_or_true() {
 run_case check_reports_ok_when_pref_false check_reports_ok_when_pref_false
 run_case check_reports_fix_when_pref_missing_or_true check_reports_fix_when_pref_missing_or_true
 
+# --- Phase 2 ---------------------------------------------------------------
+
+resolves_id_form_directly() {
+    new_stubs xcrun
+    out="$(bash scripts/resolve-sim-udid.sh 'platform=iOS Simulator,id=ABC-123')"
+    [[ "$out" == "ABC-123" ]]
+}
+
+resolves_name_form_from_simctl_list() {
+    new_stubs xcrun
+    cat >"$STUB_ROOT/xcrun" <<'STUB'
+#!/bin/bash
+echo "    iPhone 17 (ABCD-1234) (Shutdown)"
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+    out="$(bash scripts/resolve-sim-udid.sh 'platform=iOS Simulator,name=iPhone 17')"
+    [[ "$out" == "ABCD-1234" ]]
+}
+
+errors_on_unknown_name() {
+    new_stubs xcrun
+    set +e
+    out="$(bash scripts/resolve-sim-udid.sh 'platform=iOS Simulator,name=No Such Device' 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"could not resolve a simulator"* ]]
+}
+
+require_id_rejects_name_form() {
+    new_stubs xcrun
+    set +e
+    out="$(bash scripts/resolve-sim-udid.sh --require-id 'platform=iOS Simulator,name=iPhone 17' 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"not pinned"* ]]
+}
+
+run_case resolves_id_form_directly resolves_id_form_directly
+run_case resolves_name_form_from_simctl_list resolves_name_form_from_simctl_list
+run_case errors_on_unknown_name errors_on_unknown_name
+run_case require_id_rejects_name_form require_id_rejects_name_form
+
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
