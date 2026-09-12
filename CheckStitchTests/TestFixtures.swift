@@ -56,15 +56,32 @@ enum TestError: Error, Equatable {
 @MainActor
 final class FakeChecklistSyncTransport: ChecklistSyncTransport {
     var onMessage: ((ChecklistSyncMessage) -> Void)?
+    var onActivated: (() -> Void)?
     private(set) var activateCount = 0
     private(set) var sentContexts: [Data] = []
     private(set) var sentMessages: [ChecklistSyncMessage] = []
+    /// Set false to model a session that has not finished activating and so
+    /// drops every send.
+    var acceptsSends = true
 
     func activate() { activateCount += 1 }
-    func sendContext(_ data: Data) { sentContexts.append(data) }
-    func sendUserInfo(_ message: ChecklistSyncMessage) { sentMessages.append(message) }
+
+    @discardableResult
+    func sendContext(_ data: Data) -> Bool {
+        sentContexts.append(data)
+        return acceptsSends
+    }
+
+    @discardableResult
+    func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool {
+        sentMessages.append(message)
+        return acceptsSends
+    }
 
     func deliver(_ message: ChecklistSyncMessage) { onMessage?(message) }
+
+    /// Stands in for `WCSession` finishing activation.
+    func completeActivation() { onActivated?() }
 }
 
 /// Spy for the coordinator's `createReminders` closure: records every checklist

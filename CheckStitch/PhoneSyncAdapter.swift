@@ -1,6 +1,7 @@
 #if os(iOS)
 import CheckStitchCore
 import Foundation
+import os
 import WatchConnectivity
 
 /// Phone half of the sync seam. It owns no EventKit store — reminder creation
@@ -9,6 +10,7 @@ import WatchConnectivity
 @MainActor
 final class PhoneSyncAdapter: NSObject, ChecklistSyncTransport {
     var onMessage: ((ChecklistSyncMessage) -> Void)?
+    var onActivated: (() -> Void)?
 
     init(session: WCSession = .default) {
         self.session = session
@@ -21,21 +23,34 @@ final class PhoneSyncAdapter: NSObject, ChecklistSyncTransport {
         session.activate()
     }
 
-    func sendContext(_ data: Data) {
-        guard session.activationState == .activated else { return }
-        try? session.updateApplicationContext(ChecklistSyncMessage.context(data).userInfo)
+    @discardableResult
+    func sendContext(_ data: Data) -> Bool {
+        guard session.activationState == .activated else { return false }
+        do {
+            try session.updateApplicationContext(ChecklistSyncMessage.context(data).userInfo)
+            return true
+        } catch {
+            Self.logger.error("Failed to push checklist context: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
     }
 
-    func sendUserInfo(_ message: ChecklistSyncMessage) {
-        guard session.activationState == .activated else { return }
+    @discardableResult
+    func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool {
+        guard session.activationState == .activated else { return false }
         session.transferUserInfo(message.userInfo)
+        return true
     }
 
     private let session: WCSession
+    private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "PhoneSyncAdapter")
 }
 
 extension PhoneSyncAdapter: WCSessionDelegate {
-    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {}
+    nonisolated func session(_: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {
+        guard activationState == .activated else { return }
+        Task { @MainActor [weak self] in self?.onActivated?() }
+    }
 
     nonisolated func sessionDidBecomeInactive(_: WCSession) {}
 

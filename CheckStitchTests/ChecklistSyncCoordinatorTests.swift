@@ -79,4 +79,21 @@ struct ChecklistSyncCoordinatorTests {
 
         #expect(transport.sentContexts.count == 2)
     }
+
+    @Test
+    func activationSeedsTheWatchAfterTheColdStartDrop() {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let checklists = [Checklist(name: "Groceries")]
+        let coordinator = makeCoordinator(transport: transport, checklists: checklists, runner: runner)
+
+        // `start()` pushes before the session is usable, then activation completes.
+        transport.acceptsSends = false
+        coordinator.start()
+        transport.acceptsSends = true
+        transport.completeActivation()
+
+        #expect(transport.sentContexts.count == 2)
+        #expect(ChecklistCodec.decode(transport.sentContexts[1]) == checklists)
+    }
 }

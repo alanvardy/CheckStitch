@@ -44,12 +44,18 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
 }
 
 /// The seam both adapters (phone and watch) implement and the tests fake.
+///
+/// `activate()` is asynchronous, so a send issued in the same turn is dropped.
+/// `onActivated` fires once the session is usable and is the signal to re-push
+/// or re-request. The `send…` methods report whether the session accepted the
+/// message, so callers can avoid claiming success for a dropped send.
 @MainActor
 public protocol ChecklistSyncTransport: AnyObject {
     var onMessage: ((ChecklistSyncMessage) -> Void)? { get set }
+    var onActivated: (() -> Void)? { get set }
     func activate()
-    func sendContext(_ data: Data)
-    func sendUserInfo(_ message: ChecklistSyncMessage)
+    @discardableResult func sendContext(_ data: Data) -> Bool
+    @discardableResult func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool
 }
 
 /// The watch's observable state: a mirror of the phone's checklist set, plus
@@ -65,19 +71,28 @@ public final class WatchChecklistStore {
     public private(set) var pendingRunID: UUID?
 
     /// Activates the transport and starts listening. Safe to call repeatedly.
+    /// The refresh is requested from `onActivated` rather than here: a send that
+    /// races `activate()` is dropped, so a cold launch would otherwise never ask
+    /// the phone for its context.
     public func start() {
         transport.onMessage = { [weak self] in self?.receive($0) }
+        transport.onActivated = { [weak self] in self?.requestRefresh() }
         transport.activate()
     }
 
     /// Asks the phone to create reminders for `checklist` and remembers it.
-    public func run(_ checklist: Checklist) {
+    /// Returns whether the transport accepted the request; `false` means nothing
+    /// was sent and the UI must not report success.
+    @discardableResult
+    public func run(_ checklist: Checklist) -> Bool {
+        guard transport.sendUserInfo(.runChecklist(checklist.id)) else { return false }
         pendingRunID = checklist.id
-        transport.sendUserInfo(.runChecklist(checklist.id))
+        return true
     }
 
     /// Cold launch: the phone re-pushes its context on receipt.
-    public func requestRefresh() {
+    @discardableResult
+    public func requestRefresh() -> Bool {
         transport.sendUserInfo(.requestChecklists)
     }
 
