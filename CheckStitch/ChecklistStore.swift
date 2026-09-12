@@ -5,6 +5,12 @@ import os
 @Observable
 final class ChecklistStore {
     private(set) var checklists: [Checklist]
+    /// The name a rejected `create()`/`rename()` refused because another
+    /// checklist already uses it; `nil` while the last mutation was accepted.
+    /// The views present an `.alert` while this is set and clear it on
+    /// dismissal, so the conflict stays store-owned and view-side code never
+    /// re-derives validity.
+    var nameConflict: String? = nil
 
     private let defaults: UserDefaults
     private let key: String
@@ -49,8 +55,13 @@ final class ChecklistStore {
     }
 
     @discardableResult
-    func create() -> Checklist {
-        let checklist = Checklist()
+    func create(name: String = "New checklist") -> Checklist? {
+        guard checklists.first { Self.sameName($0.name, name) } == nil else {
+            nameConflict = name
+            return nil
+        }
+        nameConflict = nil
+        let checklist = Checklist(name: name)
         checklists.append(checklist)
         save()
         return checklist
@@ -58,8 +69,22 @@ final class ChecklistStore {
 
     func rename(id: UUID, to name: String) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
+        // The checklist being renamed is excluded, so keeping (or adopting a
+        // case/whitespace variant of) its own name is always allowed.
+        guard checklists.first { $0.id != id && Self.sameName($0.name, name) } == nil else {
+            nameConflict = name
+            return
+        }
+        nameConflict = nil
         checklists[index].name = name
         scheduleSave()
+    }
+
+    /// Case-insensitive equality on whitespace-trimmed names, so "Groceries",
+    /// "groceries" and " groceries " all name the same checklist.
+    private static func sameName(_ a: String, _ b: String) -> Bool {
+        a.trimmingCharacters(in: CharacterSet.whitespaces)
+            .caseInsensitiveCompare(b.trimmingCharacters(in: CharacterSet.whitespaces)) == .orderedSame
     }
 
     func addItem(to id: UUID) {

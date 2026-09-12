@@ -27,7 +27,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let created = store.create()
+        let created = store.create()!
         store.rename(id: created.id, to: "Groceries")
 
         let reloaded = makeStore(defaults: suite.defaults)
@@ -45,7 +45,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let created = store.create()
+        let created = store.create()!
         store.rename(id: created.id, to: "Chores")
 
         let reloaded = makeStore(defaults: suite.defaults)
@@ -57,7 +57,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let created = store.create()
+        let created = store.create()!
         store.addItem(to: created.id)
         store.addItem(to: created.id)
         let items = try? XCTUnwrap(store.checklist(id: created.id)?.items)
@@ -75,8 +75,8 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let first = store.create()
-        let second = store.create()
+        let first = store.create(name: "Groceries")!
+        let second = store.create(name: "Chores")!
         store.delete(id: first.id)
 
         let reloaded = makeStore(defaults: suite.defaults)
@@ -90,7 +90,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let created = store.create()
+        let created = store.create()!
         store.delete(id: UUID())
 
         let reloaded = makeStore(defaults: suite.defaults)
@@ -126,8 +126,8 @@ final class ChecklistStoreTests: XCTestCase {
 
         let store = makeStore(defaults: suite.defaults)
         XCTAssertTrue(store.checklists.isEmpty)
-        store.create()
-        store.create()
+        store.create(name: "Groceries")!
+        store.create(name: "Chores")!
 
         // The newer payload survives; the in-memory changes are simply not persisted.
         XCTAssertEqual(suite.defaults.data(forKey: key), newer)
@@ -138,7 +138,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: .milliseconds(50))
-        let created = store.create()
+        let created = store.create()!
 
         store.rename(id: created.id, to: "G")
         store.rename(id: created.id, to: "Gr")
@@ -158,7 +158,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: .seconds(30))
-        let created = store.create()
+        let created = store.create()!
         store.rename(id: created.id, to: "Groceries")
         store.addItem(to: created.id)
 
@@ -167,5 +167,97 @@ final class ChecklistStoreTests: XCTestCase {
         let reloaded = makeStore(defaults: suite.defaults)
         XCTAssertEqual(reloaded.checklist(id: created.id)?.name, "Groceries")
         XCTAssertEqual(reloaded.checklist(id: created.id)?.items.count, 1)
+    }
+
+    func testCreateWithDuplicateDefaultNameIsRejected() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let first = store.create()!
+        XCTAssertEqual(store.checklists.count, 1)
+
+        // A second checklist called "New checklist" must be refused and must
+        // leave no partial state behind, in memory or on disk.
+        XCTAssertNil(store.create())
+        XCTAssertEqual(store.checklists.count, 1)
+        XCTAssertEqual(store.nameConflict, "New checklist")
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.count, 1)
+        XCTAssertEqual(reloaded.checklists.first?.id, first.id)
+    }
+
+    func testCreateWithTypedNameSucceeds() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create(name: "Groceries")!
+        XCTAssertEqual(store.checklists.count, 1)
+        XCTAssertEqual(store.checklist(id: created.id)?.name, "Groceries")
+        XCTAssertNil(store.nameConflict)
+    }
+
+    func testCreateWithDuplicateTypedNameIsRejected() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.create(name: "Groceries")!
+
+        // Case- and whitespace-insensitive: both are one and the same name.
+        XCTAssertNil(store.create(name: "groceries"))
+        XCTAssertEqual(store.checklists.count, 1)
+        XCTAssertEqual(store.nameConflict, "groceries")
+        XCTAssertNil(store.create(name: "  GROCERIES  "))
+        XCTAssertEqual(store.checklists.count, 1)
+    }
+
+    func testRenameToUniqueNameSucceeds() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create(name: "Groceries")!
+        store.rename(id: created.id, to: "Errands")
+        XCTAssertEqual(store.checklist(id: created.id)?.name, "Errands")
+        XCTAssertNil(store.nameConflict)
+    }
+
+    func testRenameKeepingOwnNameIsAllowed() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create(name: "Groceries")!
+        // The checklist being renamed is excluded, so keeping its own name —
+        // including a case/whitespace variant of it — is never a conflict.
+        store.rename(id: created.id, to: "Groceries")
+        store.rename(id: created.id, to: "  groceries  ")
+        XCTAssertEqual(store.checklist(id: created.id)?.name, "  groceries  ")
+        XCTAssertNil(store.nameConflict)
+    }
+
+    func testRenameToAnotherChecklistsNameIsRejected() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.create(name: "Groceries")!
+        let chores = store.create(name: "Chores")!
+
+        // A case variant and a trimmed variant of the other name are refused
+        // and change nothing, so a reload still sees the pre-rename state.
+        store.rename(id: chores.id, to: "GROCERIES")
+        XCTAssertEqual(store.checklist(id: chores.id)?.name, "Chores")
+        XCTAssertEqual(store.nameConflict, "GROCERIES")
+
+        store.rename(id: chores.id, to: "  groceries  ")
+        XCTAssertEqual(store.checklist(id: chores.id)?.name, "Chores")
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Chores"])
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.map(\.name), ["Groceries", "Chores"])
     }
 }

@@ -113,6 +113,18 @@ struct ContentView: View {
         .onChange(of: backgroundPinned) { _, pin in
             Task { await backgroundImage.setPinned(pin) }
         }
+        .alert("Name already in use", isPresented: Binding(
+            // Only the root list reaches `createChecklist()`, so gating on the
+            // empty path keeps this alert from firing over a pushed detail
+            // screen for a rename conflict raised there.
+            get: { path.isEmpty && store.nameConflict != nil },
+            set: { _ in store.nameConflict = nil }
+        )) {
+            Button("OK") { store.nameConflict = nil }
+                .accessibilityIdentifier("createNameConflictButton")
+        } message: {
+            Text("Another checklist already uses \(store.nameConflict ?? "") — choose a different name.")
+        }
     }
 
     /// `topBarLeading` is iOS-only; on macOS the leading navigation slot is
@@ -281,7 +293,9 @@ struct ContentView: View {
     }
 
     private func createChecklist() {
-        let checklist = store.create()
+        // A rejected create (name already in use) returns nil and leaves the
+        // store untouched; the alert attached to the root screen explains why.
+        guard let checklist = store.create() else { return }
         path.append(checklist.id)
     }
 
