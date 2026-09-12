@@ -36,14 +36,14 @@ if [[ ! -d "$APP" ]]; then
     exit 1
 fi
 
-echo "==> Booting simulator $UDID…"
+echo "==> Booting simulator ${UDID}…"
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b
 
-echo "==> Installing $APP…"
+echo "==> Installing ${APP}…"
 xcrun simctl install "$UDID" "$APP"
 
-echo "==> Launching $BUNDLE_ID…"
+echo "==> Launching ${BUNDLE_ID}…"
 xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE_ID"
 
 echo ""
