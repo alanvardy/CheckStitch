@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(ChecklistStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
 
     @AppStorage("appearanceMode")
     var appearanceMode = AppearanceMode.system
@@ -158,14 +159,26 @@ struct ContentView: View {
                     }
                 }
                 .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
+                // Off-white/black plate keeps the rows readable over the photo —
+                // SingleThread's card treatment at CheckStitch's 14pt radius.
+                .background {
+                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                        .fill(CardPlate.plateFill(for: colorScheme))
+                }
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
+                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
                         .stroke(.tint, lineWidth: 2)
                 )
                 .padding(.horizontal, 32)
                 .padding(.vertical, 16)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
+            // iOS paints an opaque scroll-content background over the ZStack
+            // photo by default (iPadOS ships the same behaviour — SingleThread's
+            // list needs this exact pair). Clear both layers so the card sits
+            // on the photo; macOS scroll views are already transparent.
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
     }
 

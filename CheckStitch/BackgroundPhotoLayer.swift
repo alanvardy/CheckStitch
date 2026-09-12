@@ -12,6 +12,8 @@ struct BackgroundPhotoLayer: View {
 
     var body: some View {
         if isEnabled, let image = imageData.flatMap(Self.image(from:)) {
+            // The overlay wrapper pins the layer to its parent's size so
+            // `scaledToFill` can never expand the surrounding layout.
             Color.clear
                 .overlay { image.resizable().scaledToFill() }
                 .ignoresSafeArea()
