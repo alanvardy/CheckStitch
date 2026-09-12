@@ -1,8 +1,10 @@
 import CheckStitchCore
 import SwiftUI
+import CheckStitchCore
 
 struct ContentView: View {
     @Environment(ChecklistStore.self) private var store
+    @Environment(ChecklistSyncService.self) private var syncService
     @Environment(\.colorScheme) private var colorScheme
 
     @AppStorage("appearanceMode")
@@ -57,6 +59,9 @@ struct ContentView: View {
                     // navigation container background lets the photo show.
                     .containerBackground(.clear, for: .navigation)
                 #endif
+                .safeAreaInset(edge: .bottom) {
+                    SyncStatusView(outcome: syncService.lastOutcome, isSyncing: syncService.isSyncing)
+                }
             }
             .onChange(of: appearanceMode) { _, new in
                 #if os(iOS)
@@ -233,6 +238,7 @@ struct ContentView: View {
                 .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
+            .refreshable { await syncService.refresh() }
         }
     }
 
@@ -347,7 +353,34 @@ enum ChecklistWidth {
     }
 }
 
+/// Honest sync feedback: nothing when healthy, an activity line while syncing,
+/// and the failure reason otherwise.
+struct SyncStatusView: View {
+    let outcome: SyncOutcome?
+    let isSyncing: Bool
+
+    /// Text shown under the list; `nil` when there is nothing to report.
+    var message: String? {
+        if isSyncing { return "Syncing…" }
+        if case .failed(let reason) = outcome { return reason }
+        return nil
+    }
+
+    var body: some View {
+        if let message {
+            HStack(spacing: 8) {
+                if isSyncing { ProgressView().controlSize(.small) }
+                Text(message).font(.footnote).foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .accessibilityIdentifier("syncStatusView")
+        }
+    }
+}
+
 #Preview {
+    let store = ChecklistStore()
     ContentView()
-        .environment(ChecklistStore())
+        .environment(store)
+        .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
 }

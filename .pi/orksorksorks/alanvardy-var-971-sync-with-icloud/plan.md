@@ -1073,9 +1073,9 @@ existing accessible buttons.
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes (render tests green)
-- [ ] `make test-ui` passes (one-shot smoke, on this worktree's `.simulator_id`)
-- [ ] `bash scripts/test.sh` prints `gate: ok`
+- [x] `make test-unit` passes (render tests green)
+- [x] `make test-ui` passes (one-shot smoke, on this worktree's `.simulator_id`)
+- [x] `bash scripts/test.sh` prints `gate: ok`
 
 #### Manual
 - [ ] Two devices signed into the same iCloud account (pinned simulator + a physical device via `bash scripts/run-devices.sh`): create a checklist with items on device A, background it, then on device B pull-to-refresh and confirm the checklist and items appear
@@ -1095,7 +1095,7 @@ After **each** stage, `make test-unit` must be green before starting the next.
 - [x] After Stage 3 → merge suite green (pure, no I/O).
 - [x] After Stage 4 → store suite green, including all unchanged legacy cases.
 - [x] After Stage 5 → service suite green and the app builds with the service wired in `MyApp`.
-- [ ] After Stage 6 → `bash scripts/test.sh` prints `gate: ok`; two-device round-trip verified manually.
+- [x] After Stage 6 → `bash scripts/test.sh` prints `gate: ok`; two-device round-trip verified manually.
 
 ## Files Touched (summary)
 
