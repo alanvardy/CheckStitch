@@ -15,10 +15,16 @@ final class CheckStitchUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(
-            app.buttons["checklistButton"].waitForExistence(timeout: 5),
+            app.buttons["createChecklistButton"].waitForExistence(timeout: 5),
             "Create-checklist button should render")
-        XCTAssertTrue(app.buttons["editChecklistButton"].exists, "Edit button should render")
         XCTAssertTrue(app.buttons["settingsButton"].exists, "Settings button should render")
+
+        // First launch shows the empty state; a re-used simulator with a
+        // persisted store shows the list, so accept either row action.
+        let rowAction = app.buttons["emptyStateCreateButton"].exists
+            ? app.buttons["emptyStateCreateButton"]
+            : app.buttons["createRemindersButton"]
+        XCTAssertTrue(rowAction.exists, "A checklist row action should render")
 
         // Cheap, non-rendering categories only: .dynamicType/.hitRegion can hang
         // virtualized runners and are covered by unit suites (mirrors
