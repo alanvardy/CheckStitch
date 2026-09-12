@@ -13,7 +13,7 @@ struct ChecklistDetailView: View {
         if let checklist = store.checklist(id: checklistID) {
             Form {
                 Section("Checklist name") {
-                    TextField("Checklist name", text: nameBinding(for: checklistID))
+                    TextField("Name", text: nameBinding(for: checklistID))
                         .accessibilityIdentifier("checklistNameField")
                 }
                 Section("Items") {
