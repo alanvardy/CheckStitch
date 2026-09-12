@@ -32,6 +32,11 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 - Unit tests import `@testable import CheckStitchCore`; the UI smoke stays XCTest.
   Test targets deliberately do **not** set `SWIFT_DEFAULT_ACTOR_ISOLATION`, so
   suites opt in with `@MainActor` — never restore the app's default there.
+- One-time host setup: `bash scripts/sim-windowless.sh fix` asserts
+  `com.apple.iphonesimulator AutoOpenDevice=false` so a running `Simulator.app`
+  does not attach a window to every booted device. The gate checks this and warns
+  (it does not write host preferences). Shell-level regression tests live in
+  `scripts/tests/run.sh` and run as part of the gate.
 - `bash scripts/run-devices.sh` — install + launch on a real device
   (requires Developer Mode; prefers an iPhone). Honours `SCHEME`,
   `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA` overrides.
