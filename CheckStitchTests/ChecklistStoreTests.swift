@@ -1,5 +1,6 @@
 import XCTest
 @testable import CheckStitch
+import CheckStitchCore
 
 @MainActor
 final class ChecklistStoreTests: XCTestCase {

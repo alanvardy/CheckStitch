@@ -30,7 +30,10 @@ public final class EventKitReminderCreator: ReminderCreating {
         let reminder = EKReminder(eventStore: eventStore)
         reminder.title = title
         reminder.calendar = eventStore.defaultCalendarForNewReminders()
-        try eventStore.save(reminder, commit: true)
+        // watchOS EventKit is read-only; the watch never reaches this adapter.
+        #if !os(watchOS)
+            try eventStore.save(reminder, commit: true)
+        #endif
     }
 
     private let eventStore: EKEventStore
