@@ -20,13 +20,30 @@ import SwiftUI
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environment(store)
-        }
-        .onChange(of: scenePhase) { _, phase in
-            // Flush coalesced text edits before the app suspends.
-            if phase != .active { store.flushPendingSave() }
-        }
+        #if os(macOS)
+            // SwiftUI's macOS scene restore blindly replays the persisted window
+            // frame from the preferences — once off-screen it stays unreachable and
+            // the close button can never be clicked. Opting out of scene
+            // restoration gives the window SwiftUI's default on-screen geometry
+            // every launch instead.
+            WindowGroup {
+                ContentView()
+                    .environment(store)
+            }
+            .restorationBehavior(.disabled)
+            .onChange(of: scenePhase) { _, phase in
+                // Flush coalesced text edits before the app suspends.
+                if phase != .active { store.flushPendingSave() }
+            }
+        #else
+            WindowGroup {
+                ContentView()
+                    .environment(store)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // Flush coalesced text edits before the app suspends.
+                if phase != .active { store.flushPendingSave() }
+            }
+        #endif
     }
 }
