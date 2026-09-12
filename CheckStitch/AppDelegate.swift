@@ -44,9 +44,9 @@
             }
         }
 
-        /// Moves an unreachable `windowFrame` back onto the first (primary) screen
-        /// frame, preserving its size when it fits and shrinking it when it does
-        /// not. Only frames that intersect no screen at all are touched — a window
+        /// Moves an unreachable `windowFrame` back onto the first screen in
+        /// `NSScreen.screens` (the "zero" screen), preserving its size when it fits
+        /// and shrinking it when it does not. Only frames that intersect no screen at all are touched — a window
         /// that is even partly visible is left exactly where the user (or the last
         /// session) placed it. An empty screen list returns the window frame
         /// unchanged so a window is never displaced before the window server is
