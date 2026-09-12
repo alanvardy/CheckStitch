@@ -729,14 +729,14 @@ Also update the "Build, run, gate" line that says the gate is
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/tests/run.sh` → all cases pass
+- [x] `bash scripts/tests/run.sh` → all cases pass (9 passed, 0 failed)
 - [ ] `bash scripts/test.sh` prints `gate: ok`
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` exits 0
 
 #### Manual
 - [ ] Read `AGENTS.md`; every statement matches observed behaviour from Phases 1–4
 - [ ] The recorded spike result is filled in (not a placeholder)
-- [ ] `git ls-files --stage scripts` shows `100755` for `scripts/sim-windowless.sh`, `scripts/resolve-sim-udid.sh`, `scripts/tests/run.sh`
+- [x] `git ls-files --stage scripts` shows `100755` for `scripts/resolve-sim-udid.sh` and `scripts/tests/run.sh`; `scripts/sim-windowless.sh` deleted in Phase 3 (Phase 4b)
 
 ---
 
