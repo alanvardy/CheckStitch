@@ -849,9 +849,9 @@ is the same base-layer style used by the reference mount.
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` green (build + all suites; `#Preview` blocks still
+- [x] `bash scripts/test.sh` green (build + all suites; `#Preview` blocks still
       compile)
-- [ ] `make build` green
+- [x] `make build` green
 
 #### Manual
 - [ ] `make run` (cold launch): the wallpaper renders full-bleed behind the
