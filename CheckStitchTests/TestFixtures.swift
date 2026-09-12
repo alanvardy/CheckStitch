@@ -46,6 +46,45 @@ final class SpyReminderCreator: ReminderCreating {
     }
 }
 
+/// Test double for `ChecklistSyncing`: in-memory bytes, recorded writes, and a
+/// manually-fired external-change callback.
+@MainActor
+final class InMemoryChecklistSync: ChecklistSyncing {
+    var stored: Data?
+    var readError: Error?
+    var writeError: Error?
+    private(set) var written: [Data] = []
+    private(set) var synchronizeCount = 0
+    private(set) var readCount = 0
+    private var onChange: (@MainActor () -> Void)?
+
+    init(stored: Data? = nil) { self.stored = stored }
+
+    func read() throws -> Data? {
+        readCount += 1
+        if let readError { throw readError }
+        return stored
+    }
+    func write(_ data: Data) throws {
+        if let writeError { throw writeError }
+        written.append(data)
+        stored = data
+    }
+    func synchronize() { synchronizeCount += 1 }
+    @discardableResult
+    func startObserving(_ onChange: @escaping @MainActor () -> Void) -> any ChecklistSyncObservation {
+        self.onChange = onChange
+        return InMemoryObservation()
+    }
+    func fireExternalChange() { onChange?() }
+}
+
+@MainActor
+final class InMemoryObservation: ChecklistSyncObservation {
+    private(set) var isCancelled = false
+    func cancel() { isCancelled = true }
+}
+
 /// Deterministic error for failure-path assertions.
 enum TestError: Error, Equatable {
     case boom

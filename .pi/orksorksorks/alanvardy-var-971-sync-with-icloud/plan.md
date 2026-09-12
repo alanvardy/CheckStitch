@@ -430,9 +430,9 @@ struct UbiquitousChecklistSyncTests {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes (new canary + existing suites)
-- [ ] `make build-mac` passes (unsigned macOS leg still compiles the Core seam and `NSUbiquitousKeyValueStore` usage)
-- [ ] `xcodebuild -scheme CheckStitch -destination platform=macOS -configuration Debug -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO -only-testing:CheckStitchTests/UbiquitousChecklistSyncTests test` passes
+- [x] `make test-unit` passes (new canary + existing suites)
+- [x] `make build-mac` passes (unsigned macOS leg still compiles the Core seam and `NSUbiquitousKeyValueStore` usage)
+- [x] `xcodebuild -scheme CheckStitch -destination platform=macOS -configuration Debug -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO -only-testing:CheckStitchTests/UbiquitousChecklistSyncTests test` passes
 
 #### Manual
 - [ ] Inspect `CheckStitch/AppGroup.entitlements` and confirm the new key uses `$(TeamIdentifierPrefix)app.alanvardy.CheckStitch`
@@ -1091,7 +1091,7 @@ existing accessible buttons.
 After **each** stage, `make test-unit` must be green before starting the next.
 
 - [x] After Stage 1 → codec/store suites green; a v1 payload loads, migrates, and can be saved over.
-- [ ] After Stage 2 → seam fake + adapter canary green; `make build-mac` green.
+- [x] After Stage 2 → seam fake + adapter canary green; `make build-mac` green.
 - [ ] After Stage 3 → merge suite green (pure, no I/O).
 - [ ] After Stage 4 → store suite green, including all unchanged legacy cases.
 - [ ] After Stage 5 → service suite green and the app builds with the service wired in `MyApp`.
