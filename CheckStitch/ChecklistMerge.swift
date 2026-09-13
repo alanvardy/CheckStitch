@@ -1,3 +1,4 @@
+import CheckStitchCore
 import Foundation
 
 /// Pure, deterministic merge of two checklist envelopes. The winner rule —
