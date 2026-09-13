@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Added an app icon to the watch target — new `CheckStitchWatch/Assets.xcassets/AppIcon.appiconset/` catalog (1024×1024 `AppIcon.png` byte-copied from the iOS master + trimmed `Contents.json` with a single universal `idiom: "watch"` entry, mirroring the iOS recipe) and `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;` on the watch Debug/Release target configs.
+- **Commit SHA(s)**: `298cbb9` — `feat: add app icon to the watch target (VAR-987)` (pushed to `origin/alanvardy-var-987-watch-app-doesnt-have-an-icon`)
+- **Verification**: `make watch-build` → BUILD SUCCEEDED; asset catalog compiler ran on the watch target (generated `GeneratedAssetSymbols.swift`, compiled for arm64 + x86_64). PNG confirmed byte-identical to the iOS master via `cmp`.
+- **Reviewer findings**: Approved — no blockers. Two informational nits: (1) target-level setting is redundant-but-harmless given the identical inherited project-level setting (matches SingleThread reference and Xcode default), (2) byte-identity proof note — closed with `cmp`.
+- **Remaining manual items**: On-device visual confirmation of the icon in the iPhone Watch app (requires `scripts/run-watch.sh` on the paired watch) — compile-level verification only, per task scope.
