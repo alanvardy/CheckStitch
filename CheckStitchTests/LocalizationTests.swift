@@ -43,6 +43,15 @@ struct LocalizationTests {
     }
 
     @Test
+    func watchCatalogCarriesEveryUIKey() throws {
+        let requirements = try #require(
+            LocalizationFixtures.requiredKeys.first { $0.catalog == "Watch" })
+        let keys = Set(try Catalogs.load(
+            contentsOf: try Catalogs.url(forCatalog: "Watch"), catalog: "Watch").map(\.key))
+        #expect(keys.isSuperset(of: requirements.keys))
+    }
+
+    @Test
     func nonEnglishValuesDifferFromEnglish() throws {
         for entry in try Catalogs.loadAll() where LocalizationFixtures.guardedCatalogs.contains(entry.catalog) {
             guard let english = entry.localizations["en"] else { continue }

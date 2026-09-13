@@ -17,7 +17,9 @@ struct WatchChecklistDetailView: View {
         }
         .navigationTitle(checklist.name)
         .safeAreaInset(edge: .bottom) {
-            Button(sent ? "Sent" : "Create reminders") {
+            Button(sent
+                ? String(localized: "Sent", table: "Localizable", bundle: .main)
+                : String(localized: "Create reminders", table: "Localizable", bundle: .main)) {
                 sent = store.run(checklist)
             }
             .disabled(sent || visibleItems.isEmpty)

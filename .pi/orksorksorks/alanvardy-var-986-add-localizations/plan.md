@@ -796,9 +796,9 @@ source-tree catalog.)
 
 ### Verification
 #### Automated
-- [ ] `make watch-build` compiles
-- [ ] `make test-unit` — `watchCatalogCarriesEveryUIKey` passes
-- [ ] After `make watch-build`, `git diff -- CheckStitchWatch/Localizable.xcstrings` shows no unexpected keys
+- [x] `make watch-build` compiles
+- [x] `make test-unit` — `watchCatalogCarriesEveryUIKey` passes
+- [x] After `make watch-build`, `git diff -- CheckStitchWatch/Localizable.xcstrings` shows no unexpected keys
 
 #### Manual
 - [ ] Build the watch scheme and confirm `CheckStitchWatch.app` contains `en.lproj/Localizable.strings`
