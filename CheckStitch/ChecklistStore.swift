@@ -4,13 +4,16 @@ import os
 
 @Observable
 final class ChecklistStore {
+    /// Whether a `rename(id:to:)` call was applied, refused because another
+    /// checklist already owns the requested name, or aimed at an id that no
+    /// longer exists (deleted while its screen was visible).
+    enum RenameOutcome: Equatable {
+        case renamed
+        case nameTaken
+        case notFound
+    }
+
     private(set) var checklists: [Checklist]
-    /// The name a rejected `create()`/`rename()` refused because another
-    /// checklist already uses it; `nil` while the last mutation was accepted.
-    /// The views present an `.alert` while this is set and clear it on
-    /// dismissal, so the conflict stays store-owned and view-side code never
-    /// re-derives validity.
-    var nameConflict: String? = nil
 
     private let defaults: UserDefaults
     private let key: String
@@ -54,30 +57,47 @@ final class ChecklistStore {
         checklists.first { $0.id == id }
     }
 
+    /// Creates a checklist, disambiguating the name when another checklist
+    /// already uses it: `"New checklist"`, `"New checklist 2"`,
+    /// `"New checklist 3"`, … Creation therefore always succeeds and returns
+    /// the checklist to open.
     @discardableResult
-    func create(name: String = "New checklist") -> Checklist? {
-        guard checklists.first { Self.sameName($0.name, name) } == nil else {
-            nameConflict = name
-            return nil
-        }
-        nameConflict = nil
-        let checklist = Checklist(name: name)
+    func create(name: String = "New checklist") -> Checklist {
+        let checklist = Checklist(name: Self.uniqueName(basedOn: name, taken: checklists.map(\.name)))
         checklists.append(checklist)
         save()
         return checklist
     }
 
-    func rename(id: UUID, to name: String) {
-        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
-        // The checklist being renamed is excluded, so keeping (or adopting a
-        // case/whitespace variant of) its own name is always allowed.
+    /// Renames a checklist and reports whether the name was applied. The
+    /// checklist being renamed is excluded from the uniqueness check, so
+    /// keeping (or adopting a case/whitespace variant of) its own name is
+    /// always allowed. Callers commit this on Done rather than per keystroke,
+    /// so the conflict is surfaced once the user confirms the name.
+    @discardableResult
+    func rename(id: UUID, to name: String) -> RenameOutcome {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
         guard checklists.first { $0.id != id && Self.sameName($0.name, name) } == nil else {
-            nameConflict = name
-            return
+            return .nameTaken
         }
-        nameConflict = nil
         checklists[index].name = name
         scheduleSave()
+        return .renamed
+    }
+
+    /// The first free name in the sequence `base`, `base 2`, `base 3`, …, so a
+    /// create never collides. `base` is trimmed first, so a typed
+    /// `"  Groceries  "` disambiguates as `"Groceries 2"`, not
+    /// `"  Groceries   2"`.
+    private static func uniqueName(basedOn rawName: String, taken: [String]) -> String {
+        let base = rawName.trimmingCharacters(in: CharacterSet.whitespaces)
+        guard taken.contains(where: { sameName($0, base) }) else { return base }
+        var suffix = 2
+        while true {
+            let candidate = "\(base) \(suffix)"
+            if !taken.contains(where: { sameName($0, candidate) }) { return candidate }
+            suffix += 1
+        }
     }
 
     /// Case-insensitive equality on whitespace-trimmed names, so "Groceries",
