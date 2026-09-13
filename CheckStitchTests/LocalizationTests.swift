@@ -82,6 +82,33 @@ struct LocalizationTests {
     }
 
     @Test
+    func appCatalogIsEmbeddedInTheMainBundle() throws {
+        let appKeys = try Catalogs.load(
+            contentsOf: try Catalogs.url(forCatalog: "App"), catalog: "App")
+        let settings = try #require(appKeys.first { $0.key == "Settings" })
+        // Same locale-pin limitation as the core bundle: the hosted runner
+        // resolves `String(localized:)` with the process locale, so resolve the
+        // embedded German table directly and compare it against the catalog.
+        let germanURL = try #require(
+            Bundle.main.url(
+                forResource: "Localizable", withExtension: "strings",
+                subdirectory: "", localization: "de"),
+            "Main bundle has no de table at runtime")
+        let germanTable = try #require(
+            try PropertyListSerialization.propertyList(
+                from: Data(contentsOf: germanURL), format: nil)
+                as? [String: String],
+            "Main bundle de table is not a readable key/value plist")
+        #expect(germanTable["Settings"] == settings.localizations["de"],
+            "Main bundle is not carrying the German catalog")
+    }
+
+    @Test
+    func unknownKeyFallsBackToItsOwnText() {
+        #expect(String.en("__missing_key__", bundle: .main) == "__missing_key__")
+    }
+
+    @Test
     func malformedCatalogThrows() {
         #expect(throws: CatalogLoadError.malformed(catalog: "Broken")) {
             try Catalogs.load(data: Data("{ not json".utf8), catalog: "Broken")
