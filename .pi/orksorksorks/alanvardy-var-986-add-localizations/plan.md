@@ -547,10 +547,10 @@ Replace `catalogsParse` and add the content tests:
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` — `catalogsParseAndHaveNonEmptyEnglish`, `catalogsHaveAllSixLanguages`, `everyRequiredKeyIsPresent`, `nonEnglishValuesDifferFromEnglish` all pass
-- [ ] If the canary fails on a `(catalog, key)` pair that is legitimately identical in one language, add that pair to `LocalizationFixtures.excludedIdentities` with a comment naming the language (the failure message names both) and re-run
-- [ ] `make build` then `git diff -- '*Localizable.xcstrings'` — adopt Xcode's canonical rewrite; if Xcode extracted a key that is not in the tables, add all six translations
-- [ ] `make build-mac`, `make watch-build` still compile
+- [x] `make test-unit` — `catalogsParseAndHaveNonEmptyEnglish`, `catalogsHaveAllSixLanguages`, `everyRequiredKeyIsPresent`, `nonEnglishValuesDifferFromEnglish` all pass
+- [x] If the canary fails on a `(catalog, key)` pair that is legitimately identical in one language, add that pair to `LocalizationFixtures.excludedIdentities` with a comment naming the language (the failure message names both) and re-run
+- [x] `make build` then `git diff -- '*Localizable.xcstrings'` — adopt Xcode's canonical rewrite; if Xcode extracted a key that is not in the tables, add all six translations
+- [x] `make build-mac`, `make watch-build` still compile
 
 #### Manual
 - [ ] Open each `.xcstrings` in Xcode (`open CheckStitch/Localizable.xcstrings`) and confirm the six languages appear with no "needs translation" markers
