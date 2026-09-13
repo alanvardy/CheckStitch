@@ -6,14 +6,55 @@ import Testing
 /// `#filePath` resolves to the checkout's source path; no bundle lookup is needed.
 struct LocalizationTests {
     @Test
-    func catalogsParse() throws {
-        // Phase 1 catalogs are empty skeletons, so the proof is that all three
-        // load without throwing (`loadAll` throws on unreadable/malformed
-        // files). The `catalogs.count >= Catalogs.all.count` form in the plan
-        // requires non-empty keys and would fail against the Phase 1 skeletons;
-        // Phase 2 replaces this test with `catalogsParseAndHaveNonEmptyEnglish`.
-        let catalogs = try Catalogs.loadAll()
-        #expect(catalogs.isEmpty)
+    func catalogsParseAndHaveNonEmptyEnglish() throws {
+        for catalog in Catalogs.all {
+            let keys = try Catalogs.load(contentsOf: catalog.url, catalog: catalog.name)
+            #expect(!keys.isEmpty, "\(catalog.name) catalog has no keys")
+        }
+        for entry in try Catalogs.loadAll() {
+            let english = try #require(
+                entry.localizations["en"], "\(entry.catalog)/\(entry.key) missing en")
+            #expect(!english.isEmpty, "\(entry.catalog)/\(entry.key) has empty en value")
+        }
+    }
+
+    @Test
+    func catalogsHaveAllSixLanguages() throws {
+        for entry in try Catalogs.loadAll() {
+            for language in Catalogs.languages {
+                let value = try #require(
+                    entry.localizations[language],
+                    "\(entry.catalog)/\(entry.key) missing \(language)")
+                #expect(!value.isEmpty, "\(entry.catalog)/\(entry.key) has empty \(language) value")
+            }
+        }
+    }
+
+    @Test
+    func everyRequiredKeyIsPresent() throws {
+        for requirement in LocalizationFixtures.requiredKeys {
+            let keys = try Catalogs.load(
+                contentsOf: try Catalogs.url(forCatalog: requirement.catalog),
+                catalog: requirement.catalog)
+            let present = Set(keys.map(\.key))
+            let missing = requirement.keys.filter { !present.contains($0) }
+            #expect(missing.isEmpty, "\(requirement.catalog) catalog missing: \(missing)")
+        }
+    }
+
+    @Test
+    func nonEnglishValuesDifferFromEnglish() throws {
+        for entry in try Catalogs.loadAll() where LocalizationFixtures.guardedCatalogs.contains(entry.catalog) {
+            guard let english = entry.localizations["en"] else { continue }
+            if LocalizationFixtures.excludedIdentities.contains(
+                ExclusionEntry(catalog: entry.catalog, key: entry.key)) { continue }
+            for language in Catalogs.nonEnglishLanguages {
+                guard let value = entry.localizations[language] else { continue }
+                #expect(
+                    value != english,
+                    "\(entry.catalog)/\(entry.key) \(language) is identical to English: \"\(value)\"")
+            }
+        }
     }
 
     @Test
