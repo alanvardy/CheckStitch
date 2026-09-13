@@ -1,0 +1,74 @@
+# Research Findings
+
+## Q1: Checklist data flow end to end
+
+### Findings
+- **Models live only in the app target** — `CheckStitch/Checklist.swift:6-28`: `ChecklistItem` (`let id: UUID`, `var title: String`) and `Checklist` (`let id: UUID`, `var name: String`, `var items: [ChecklistItem]`), both `Identifiable, Codable, Hashable`. No checklist/list-of-lists model exists in CheckStitchCore — `CheckStitchCore/Sources/CheckStitchCore/ChecklistItem.swift:7-20` has only the item (`Identifiable, Equatable, Sendable`, `let id: UUID`, `var title: String`, computed `isBlank`).
+- **Only identifier carried is `UUID`**; the sole revision marker is the wire envelope `version` — no per-list/per-item sync state, revision, or external identifier exists anywhere.
+- **Codec** (`Checklist.swift:36-75`): `ChecklistEnvelope { version, checklists }` (:31-34), `ChecklistCodec.currentVersion = 1` (:38), `encode` via `JSONEncoder` wrapping in the envelope (:52-53); `classify` returns `.loaded` / `.unsupportedVersion` (version mismatch) / `.unreadable` (decode failure), never partial-decodes (:56-69); `decode` returns `[]` unless `.loaded` (:71-75).
+- **Store is the single persistence owner** — `@Observable final class ChecklistStore` (`CheckStitch/ChecklistStore.swift:5`), injectable `defaults: UserDefaults = AppGroup.defaults`, `key = "checklists.v1"`, `textEditDelay: Duration? = .milliseconds(300)` (:16-23).
+  - Load in `init` (:25-41): missing → empty + `canOverwriteStoredPayload = true`; `.loaded` → stored + true; `.unsupportedVersion` → empty + **false** (never overwrite a newer app's payload); `.unreadable` → empty + true.
+  - Mutations: `create` (:47-53), `rename` (:55-59), `addItem` (:61-65), `updateItem` (:67-76), `removeItems` (:78-86), `delete` (:88-92) — structural ops `save()` immediately, text ops `scheduleSave()`.
+  - `scheduleSave` (:103-115) debounces per-keystroke writes over `textEditDelay` in a cancellable `Task`; `flushPendingSave` (:96-101) cancels+persists any pending debounce — called on scene-phase exit (`MyApp.swift:36,45`, `phase != .active`) and detail-view disappear (`ChecklistDetailView.swift:61`).
+  - `save` (:117-133) cancels pending task, refuses overwrite when `canOverwriteStoredPayload == false`, else `defaults.set(ChecklistCodec.encode(checklists), forKey: key)`. Deletion is a full-array re-encode; there is no per-key delete.
+- **Storage medium**: `CheckStitch/AppGroup.swift:6-10` — `suiteName = "group.app.alanvardy.CheckStitch"`, `UserDefaults(suiteName:) ?? .standard`. Only consumer in the data path is `ChecklistStore` (default at `ChecklistStore.swift:20`).
+- **Read sites**: `checklist(id:)` (`ChecklistStore.swift:43-45`); UI reads at `ContentView.swift:18,125,127,158,196` and `ChecklistDetailView.swift:13,71,79`.
+- Tests: `ChecklistCodecTests.swift` (round-trip, unsupported/unreadable/empty, :5-34), `ChecklistStoreTests.swift` (persistence/reload, delete, unknown-id no-ops, newer-version refusal, :5-159).
+
+## Q2: Both Reminders-creation paths
+
+### Findings
+- **Path A (app target, the one production UI calls)** — `CheckStitch/ChecklistReminders.swift:4-28`: `ChecklistReminders.create(from:)` builds a **fresh `EKEventStore()` per call** (:11), `requestFullAccessToReminders()` (:13, silent return if denied), then per non-blank item: `EKReminder(eventStore:)` + `defaultCalendarForNewReminders()` + `try eventStore.save(reminder, commit: true)` (:18-21), failure logged with `logger.error` only. No return value.
+- **Path B (core seam, test-only today)** — `CheckStitchCore/Sources/CheckStitchCore/ReminderCreating.swift:6-38`: `protocol ReminderCreating: Sendable` with `requestAccess() -> Bool` and `create(title:)` (:6-9); `@MainActor final class EventKitReminderCreator` holds one injected long-lived `EKEventStore` — doc comment mandates "never construct a store per call" (:11-13, :20-21, :36); `requestAccess` = `requestFullAccessToReminders()` (:26); `create` = `EKReminder` + title + `defaultCalendarForNewReminders()` + `save(commit: true)` (:31-33).
+- **Outcome types**: `ChecklistCreationOutcome: Equatable, Sendable` = `created(count:)` / `permissionDenied` / `failed(String)` (`ChecklistCreator.swift:5-8`). `ChecklistCreator.create(from:)` (:17-33) maps denial → `.permissionDenied`, skips `.isBlank` items (:26), counts creations, any throw → `.failed`.
+- **Outcome consumption**: core `ChecklistViewModel.createChecklist()` (`ChecklistViewModel.swift:19-40`) drives spinner/`isCreated` flags, log on `.failed`. App `ContentView.createReminders(for:)` (`ContentView.swift:193-210`) guards double-tap via `creating: Set<UUID>`, enforces a ≥1 s spinner, then sets/clears `created` (per-row `ProgressView`/`checkmark.circle.fill`/`play.circle.fill`, :168-185).
+- **Wiring gap**: `AppEnvironment` (`Environment.swift:5-10`) wraps `reminderCreator` and `ChecklistViewModel` consumes it, but **no production code constructs `AppEnvironment`/`EventKitReminderCreator`** — `MyApp.swift:33-46` injects only `store`. The core seam is exercised solely by tests (`TestFixtures.swift:28-51` `SpyReminderCreator`).
+- **No EventKit read surface anywhere**: the only EventKit APIs used repo-wide are `EKEventStore()`, `requestFullAccessToReminders()`, `EKReminder(eventStore:)`, `defaultCalendarForNewReminders()`, `save(commit: true)`. No predicates, no `calendars(for:)`, no `fetchReminders`, no observers. `ChecklistStore.swift:87-88` documents deletes are local-only ("reminders already created in Reminders are never touched").
+
+## Q3: UI layer — state, actions, refresh mechanisms
+
+### Findings
+- **ContentView** (`CheckStitch/ContentView.swift`): `@Environment(ChecklistStore.self)` (:4), `@AppStorage("appearanceMode")` (:7), `@State path: [UUID]` nav stack (:9), `creating: Set<UUID>` (:11), `created: Set<UUID>` (:12), `isShowingSettings` (:13); empty-state vs list branch on `store.checklists.isEmpty` (:18-21). Row is `NavigationLink(checklist.name, value: id)` (:113) → `navigationDestination(for: UUID.self)` → `ChecklistDetailView` (:38-40).
+- **ChecklistDetailView**: `checklistID`, store env, dismiss, `isRemoving` (:5-8); editing via `nameBinding`→`store.rename` (:54-58) and `titleBinding`→`store.updateItem` (:60-66); `.onDelete` → `store.removeItems` (:20); remove → `store.delete` + dismiss (:30-35); `flushPendingSave` on disappear (:48).
+- **MyApp**: one `@State store = ChecklistStore()` created at launch (:15) injected via `.environment` (:30, :40); `scenePhase` flush (:34-36, :43-45); `AppDelegate`/`MacAppDelegate`.
+- **ChecklistViewModel is NOT consumed by the app UI** — only by `ChecklistViewModelTests.swift`. The app operates purely on `ChecklistStore`.
+- **Complete list of existing refresh/reload/state-update mechanisms**: (1) `@Observable` store mutations re-render (`ChecklistStore.swift:4`); (2) `Binding<String>` per-keystroke writes through the store; (3) `flushPendingSave` on detail disappear and scene-phase exit; (4) nav push/pop via `path`/`dismiss`; (5) `.onChange(of: appearanceMode)` → delegate `applyAppearance` (`ContentView.swift:47-53`). Store "reload" exists only in tests as re-instantiation from UserDefaults.
+- **No `.refreshable`, pull-to-refresh, or any refresh UI exists** in app or core sources (grep for `refresh|reload|Refreshable` matches only test names).
+
+## Q4: SingleThread (reference app) EventKit patterns
+
+### Findings
+- **Abstraction seam**: `protocol EventKitStoring` (`SingleThreadCore/Sources/SingleThreadCore/EventKitStoring.swift:8-44`) covering `authorizationStatus(for:)` (:13), `calendars(for:)` (:14), `requestFullAccessToReminders()` (:17), `predicateForIncompleteReminders(...)` (:19-23), `fetchReminders(matching:completion:)` (:26-29), `refreshSourcesIfNecessary()` (iOS-only, :31), `save(_:commit:)` (:33), `remove(_:commit:)` (:36-38), `makeReminder(...)` (:41-44). `extension EKEventStore: EventKitStoring` (:45-72) implements it; **`InMemoryEventStore` (:13-131) is the test-seam implementation** (predicate = `NSPredicate(value: true)`, fetch/save/remove, default-calendar fallback).
+- **Create pattern**: `ReminderStore.addReminder` (`ReminderStore.swift:332-352`) — `makeReminder` → `save(commit: true)` → `await settle()` (production 200 ms) → `reload()`. Same save+settle+reload chain on complete (:219-253), undo (:268-296), delete `remove(_:commit:)` (:305-329), reschedule (:362-389). Writes gated by `canMutate` (IAP/freemium, :123-131).
+- **Read-back machinery** (`ReminderStore.reload` :448-503): `refreshSourcesIfNecessary()` (:455), date-window predicates via `predicateForIncompleteReminders(..., calendars: nil)` (:461-466) and a broad nil/nil fetch (:475-481), `availableLists` from `calendars(for: .reminder)` titles (:485-490); `fetchReminders` private bridge wraps the callback in `withCheckedContinuation` + main-actor resume (:638-650).
+- **Change observation**: `EventStoreChangedObserver.swift:16-38` — `NotificationCenter` observer for `.EKEventStoreChanged` (:26-30), unregister closure (:33-35). `StaleReminderRechecker.swift` — hybrid 60 s poll + observer (`defaultPollInterval = .seconds(60)` :47; start/stop :72-98; runLoop with on-screen gate → coalesced `reload()` :93-115; `live(store:)` factory :134-147). Wired from `ContentViewModel` `.task` (:132-143).
+- **Permission flow**: `ReminderStore.start` (:174-186) reads `authorizationStatus(for: .reminder)`; `.fullAccess` → `reload()`, else `requestAccess()` (:483-495). UI auth gate `authGatedContent` (`SingleThread/ContentView.swift:367-372`). macOS entitlement `com.apple.security.personal-information.calendars` (`SingleThread/SingleThread.entitlements:15`).
+- **Neither project has any CloudKit/ubiquity capability** — "iCloud" appears in SingleThread only as privacy copy text.
+
+## Q5: Test conventions (see conventions.md for the full inventory)
+
+### Findings
+- **EventKit is never mocked**: the real adapter is only a construction canary (`EventKitReminderCreatorTests.swift:13-15`, no EventKit API called); behaviour is exercised through `SpyReminderCreator` (implements `ReminderCreating`: recorded titles, injectable access/create errors, `onCreate` hook — `TestFixtures.swift:29-51`). `sharedTestEventStore` is a real `@MainActor` global `EKEventStore` kept alive for the session (EKReminder holds a weak store ref; dealloc would SIGTRAP — :22-24).
+- **Store tests** isolate UserDefaults with per-test UUID suite names via `makeIsolatedDefaults` (:10-16).
+- **Platform gating**: `MacWindowFrameTests.swift:1,58` `#if os(macOS)`; UI accessibility audit `#if os(iOS)` (`CheckStitchUITests.swift:34-38`); otherwise gating is by Makefile destination. Test targets deliberately do **not** set `SWIFT_DEFAULT_ACTOR_ISOLATION` (Makefile:35-37) — suites opt in with `@MainActor` (eventkit/creator/store suites).
+- **Run commands**: `make build` / `build-mac` (unsigned macOS) / `run` / `test-unit` (macOS host, `CODE_SIGNING_ALLOWED=NO`) / `test-ui` (build-for-testing → test-without-building on this worktree's `.simulator_id`) / `test` / `clean` (Makefile:15-59); gate `scripts/test.sh` = build + test + build-mac + shellcheck (:4-28).
+
+## Q6: Signing and configuration
+
+### Findings
+- CheckStitch has **one entitlements file**: `CheckStitch/AppGroup.entitlements:1-11` — `com.apple.security.application-groups → group.app.alanvardy.CheckStitch` (:7). No macOS/watchOS entitlements, no `[sdk=macosx*]` code-sign entry.
+- `CheckStitch.xcodeproj/project.pbxproj` app target Debug (:397-439)/Release (:441-474): `CODE_SIGN_STYLE = Automatic`, `CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*/iphonesimulator*] = CheckStitch/AppGroup.entitlements` (:402-403, :444-445), `DEVELOPMENT_TEAM = 6NWX2DHB9Q` (:405, :447), `GENERATE_INFOPLIST_FILE = YES` (:409, :451), `INFOPLIST_KEY_NSRemindersUsageDescription` + `INFOPLIST_KEY_NSRemindersFullAccessUsageDescription` = "CheckStitch needs access to create reminders." (:410-411, :452-453), `PRODUCT_BUNDLE_IDENTIFIER = app.alanvardy.CheckStitch` (:425, :467), `REGISTER_APP_GROUPS = YES` (:427, :469). Test/UI-test targets have no entitlements and no `INFOPLIST_KEY_*`.
+- SingleThread mirrors this: `AppGroup.entitlements` (iOS/sim, :740-741, :790-791), `SingleThread.entitlements` (macOS, :742, :792 — sandbox + app group + calendars + audio + IAP), `REGISTER_APP_GROUPS = YES`, `INFOPLIST_KEY_NSRemindersUsageDescription`.
+- **iCloud/CloudKit**: none in either project (no ubiquity/CloudKit entitlements, no container identifiers; SingleThread mentions iCloud only in privacy copy).
+
+## Cross-Cutting Observations
+- **No sync infrastructure exists anywhere**: no iCloud/CloudKit capability, no `NSUbiquitousKeyValueStore`, no server, no external identifier or revision recorded on checklists/items. Sync is entirely greenfield in this repo; SingleThread's EventKit machinery is read-back/observation, not cross-device sync.
+- **Two parallel EventKit seams with contradictory lifecycle doctrine**: app-target `ChecklistReminders` (fresh store per call, what the UI calls) vs core `EventKitReminderCreator` (long-lived injected store, test-only). The core seam's protocol-plus-spy test pattern (`ReminderCreating`/`SpyReminderCreator`) is the established way EventKit behaviour is faked in this repo.
+- **`ChecklistStore` is the single source of truth** for the checklist set, persisted as one versioned JSON payload under the App Group's UserDefaults key `checklists.v1`; the version guard (`canOverwriteStoredPayload`) is the only existing protection for newer-format data.
+- **UI state is reactive-only**: all state updates flow through `@Observable` store mutations; there is no refresh surface, no `.refreshable`, and no place that pulls data from EventKit — the app is write-only to Reminders.
+- SingleThread's read-back idioms that would be reusable references: `predicateForIncompleteReminders` + `fetchReminders` in a `withCheckedContinuation` bridge, `calendars(for: .reminder)` for list discovery, `EventStoreChangedObserver`/`StaleReminderRechecker` for change-driven refresh, and the `EventKitStoring` protocol + `InMemoryEventStore` for testability.
+
+## Open Areas
+- No answer exists in either codebase for: conflict handling between devices, ordering of first-sync migration of existing local checklists, what identifier links a checklist to its Reminders list/calendar, or how a future cloud layer would detect changes made on another device.
+- `scripts/run-simulator.sh` and `scripts/run-devices.sh` were only partially surveyed (line references from Q5); `Makefile` destination precedence uses this worktree's `.simulator_id`.
+- Nothing verifies what happens when Reminders modification access is restricted (limited access) — both apps request full access only.
