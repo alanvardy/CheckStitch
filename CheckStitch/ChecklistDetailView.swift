@@ -9,12 +9,19 @@ struct ChecklistDetailView: View {
     @Environment(ChecklistStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var isRemoving = false
+    /// Buffered copy of the name field. The rename is validated and committed
+    /// from here — on Done, or when the screen is left — instead of per
+    /// keystroke, so typing a name another checklist owns does not raise an
+    /// alert while the user is still editing it.
+    @State private var draftName = ""
+    @State private var didLoadDraft = false
+    @State private var isNameConflictPresented = false
 
     var body: some View {
         if let checklist = store.checklist(id: checklistID) {
             Form {
                 Section("Checklist name") {
-                    TextField("Name", text: nameBinding(for: checklistID))
+                    TextField("Name", text: $draftName)
                         .accessibilityIdentifier("checklistNameField")
                 }
                 Section("Items") {
@@ -49,7 +56,7 @@ struct ChecklistDetailView: View {
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done") { commitRename() }
                         // iOS 26 wraps bar items in a system glass container.
                         // `fixedSize()` stops it collapsing that container to
                         // a circle that clips the title, so "Done" keeps its
@@ -59,15 +66,22 @@ struct ChecklistDetailView: View {
                         .fixedSize()
                 }
             }
-            .onDisappear { store.flushPendingSave() }
-            .alert("Name already in use", isPresented: Binding(
-                get: { store.nameConflict != nil },
-                set: { _ in store.nameConflict = nil }
-            )) {
-                Button("OK") { store.nameConflict = nil }
+            .onAppear {
+                guard !didLoadDraft else { return }
+                draftName = checklist.name
+                didLoadDraft = true
+            }
+            .onDisappear {
+                // Leaving without Done still keeps a valid edit; a conflicting
+                // one is dropped rather than alerted after the screen is gone.
+                commitDraftIfChanged()
+                store.flushPendingSave()
+            }
+            .alert("Name already in use", isPresented: $isNameConflictPresented) {
+                Button("OK", role: .cancel) {}
                     .accessibilityIdentifier("renameNameConflictButton")
             } message: {
-                Text("Another checklist already uses \(store.nameConflict ?? "") — choose a different name.")
+                Text("Another checklist already uses \(draftName) — choose a different name.")
             }
         } else if !isRemoving {
             // Deleted elsewhere while this screen was on the stack. A delete
@@ -76,11 +90,23 @@ struct ChecklistDetailView: View {
         }
     }
 
-    private func nameBinding(for id: UUID) -> Binding<String> {
-        Binding(
-            get: { store.checklist(id: id)?.name ?? "" },
-            set: { store.rename(id: id, to: $0) }
-        )
+    /// Done: apply the buffered name and dismiss, or keep the screen up and
+    /// surface the conflict so the user can pick a different name.
+    private func commitRename() {
+        switch store.rename(id: checklistID, to: draftName) {
+        case .renamed, .notFound:
+            dismiss()
+        case .nameTaken:
+            isNameConflictPresented = true
+        }
+    }
+
+    /// Backing out should not silently drop a valid rename, so commit the draft
+    /// on the way out when it differs from what is stored. Outcomes are
+    /// deliberately ignored here: a conflict has no screen left to explain it.
+    private func commitDraftIfChanged() {
+        guard store.checklist(id: checklistID)?.name != draftName else { return }
+        store.rename(id: checklistID, to: draftName)
     }
 
     private func titleBinding(checklistID: UUID, itemID: UUID) -> Binding<String> {
