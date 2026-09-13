@@ -12,7 +12,7 @@ DERIVED_DATA := DerivedData
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
 MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
 
-.PHONY: build build-mac run clean test test-unit test-ui watch-build
+.PHONY: build build-mac build-mac-signed run clean test test-unit test-ui watch-build
 
 build:
 	xcodebuild -scheme '$(SCHEME)' \
@@ -22,14 +22,27 @@ build:
 	  build
 
 # The macOS slice shares the source files with iOS but not the available API,
-# so it needs its own compile even though nothing here launches it. Unsigned:
-# signing would need the Mac profile to carry the App Group entitlement.
+# so it needs its own compile. `build-mac` is the gate's unsigned compile leg
+# (headless, no signing needed); `build-mac-signed` is the runnable macOS app,
+# team-signed so CheckStitch/AppGroup.entitlements (incl. the KVS
+# `com.apple.developer.ubiquity-kvstore-identifier`) lands in the embedded
+# provisioning profile and the key-value store syncs through iCloud.
 build-mac:
 	xcodebuild -scheme '$(SCHEME)' \
 	  -destination 'platform=macOS' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
 	  CODE_SIGNING_ALLOWED=NO \
+	  build
+
+# Signed macOS leg. Requires the Mac provisioning profile for the development
+# team; `-allowProvisioningUpdates` fetches it when it isn't cached yet.
+build-mac-signed:
+	xcodebuild -scheme '$(SCHEME)' \
+	  -destination 'platform=macOS' \
+	  -configuration '$(CONFIGURATION)' \
+	  -derivedDataPath '$(DERIVED_DATA)' \
+	  -allowProvisioningUpdates \
 	  build
 
 # The watch target compiles the same package for watchOS. `generic/platform=watchOS

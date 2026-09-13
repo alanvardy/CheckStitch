@@ -485,6 +485,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = CheckStitch/AppGroup.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = CheckStitch/AppGroup.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = CheckStitch/AppGroup.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6NWX2DHB9Q;
 				ENABLE_APP_SANDBOX = YES;
@@ -527,6 +529,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = CheckStitch/AppGroup.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = CheckStitch/AppGroup.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = CheckStitch/AppGroup.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6NWX2DHB9Q;
 				ENABLE_APP_SANDBOX = YES;
