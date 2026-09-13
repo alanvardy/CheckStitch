@@ -664,6 +664,7 @@
 		000000000000000411000000 /* Debug configuration for PBXNativeTarget "CheckStitchWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6NWX2DHB9Q;
@@ -692,6 +693,7 @@
 		000000000000000412000000 /* Release configuration for PBXNativeTarget "CheckStitchWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6NWX2DHB9Q;
