@@ -17,10 +17,9 @@ set -euo pipefail
 # — the remaining devices still get built and run; an unreachable device counts
 # as a failed step so the run exits non-zero. If no iOS devices are found and
 # RUN_MAC=1, the script still does the macOS step; set RUN_MAC=0 to keep the
-# old fail-fast behavior. The macOS app is built unsigned (CODE_SIGNING_ALLOWED=NO)
-# because signing it would need the Mac provisioning profile to carry the App
-# Group entitlement (group.app.alanvardy.CheckStitch), which CheckStitch does
-# not configure.
+# old fail-fast behavior. The macOS app is built signed (make build-mac-signed)
+# so the App Group / KVS entitlements from AppGroup.entitlements land in the
+# embedded provisioning profile and the key-value store syncs through iCloud.
 
 # === Configuration (overridable) ===
 SCHEME="${SCHEME:-CheckStitch}"
@@ -155,8 +154,8 @@ fi
 # ── macOS (host) step ──────────────────────────────────────────────────────────
 if [[ "$RUN_MAC" -eq 1 ]]; then
     echo ""
-    echo "==> Building $SCHEME ($CONFIGURATION) for macOS…"
-    if ! make build-mac \
+    echo "==> Building $SCHEME ($CONFIGURATION) for macOS (signed)…"
+    if ! make build-mac-signed \
       SCHEME="$SCHEME" \
       CONFIGURATION="$CONFIGURATION" \
       DERIVED_DATA="$DERIVED_DATA"; then

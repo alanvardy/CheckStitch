@@ -22,6 +22,13 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 ## Build, run, gate
 
 - `make build` — simulator build (`xcodebuild`, scheme `CheckStitch`).
+- `make build-mac` — unsigned macOS compile leg (the gate's platform check;
+  no signing, no provisioning).
+- `make build-mac-signed` — the runnable macOS app, signed with the
+  development team so `CheckStitch/AppGroup.entitlements` (incl. the KVS
+  `com.apple.developer.ubiquity-kvstore-identifier`) is embedded and the
+  key-value store syncs through iCloud. Used by `run-devices.sh`; needs
+  `-allowProvisioningUpdates` (already in the target).
 - `make run` — build, then boot/install/launch on a simulator.
 - `make watch-build` — watchOS simulator compile of the `CheckStitchWatch`
   target (same `CheckStitchCore` package against the watchOS SDK), unsigned
@@ -83,6 +90,12 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 Group `group.app.alanvardy.CheckStitch`. On a machine without the profile,
 add `-allowProvisioningUpdates`. Do not re-derive the team from
 `~/Library/Developer/Xcode` — the values above are the working ones.
+
+The macOS slice signs with the same team (`CODE_SIGN_IDENTITY[sdk=macosx*] =
+"Apple Development"`, `CODE_SIGN_ENTITLEMENTS[sdk=macosx*] =
+CheckStitch/AppGroup.entitlements`) — the KVS entitlement is what lets
+`NSUbiquitousKeyValueStore` sync through iCloud on macOS; the unsigned
+`make build-mac` leg exists only so the gate stays provisioning-free.
 
 ## Conventions
 
