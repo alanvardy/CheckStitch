@@ -33,7 +33,6 @@ struct ContentView: View {
                         checklistList
                     }
                 }
-                .navigationTitle("Checklists")
                 #if os(macOS)
                     .toolbar {
                         ToolbarItem(placement: createButtonPlacement) {
@@ -223,7 +222,14 @@ struct ContentView: View {
                         .stroke(.tint, lineWidth: 2)
                 )
                 .padding(.horizontal, 32)
-                .padding(.vertical, 16)
+                #if os(iOS)
+                    // Start below the floating 52×52 chrome plates (8pt top
+                    // inset + 52pt tall) with extra headroom below them.
+                    .padding(.top, CardPlate.checklistTopMargin)
+                #else
+                    .padding(.top, 16)
+                #endif
+                .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
         }

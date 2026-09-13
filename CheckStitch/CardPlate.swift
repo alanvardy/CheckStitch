@@ -14,6 +14,13 @@ enum CardPlate {
     /// stays pinnable from nonisolated test contexts.
     nonisolated static let cornerRadius: CGFloat = 14
 
+    /// Top margin for the checklist content on iOS: the first row starts
+    /// 100pt down, clearing the 52×52 floating chrome plates (which sit 8pt
+    /// from the top edge) with extra breathing room below them. macOS needs
+    /// no inset — its buttons live in the window title bar, not over the
+    /// content area.
+    nonisolated static let checklistTopMargin: CGFloat = 100
+
     /// Small content-sized high-contrast plate behind the checklist rows:
     /// off-white in light, black in dark, so the rows stay readable over a
     /// photo or wallpaper.
