@@ -26,6 +26,13 @@ struct CardPlateTests {
         #expect(CardPlate.cornerRadius == 14)
     }
 
+    /// The checklist pane starts 100pt down on iOS, clearing the 52pt
+    /// floating chrome plates with headroom below them.
+    @Test
+    func checklistTopMarginClearsThePlateRow() {
+        #expect(CardPlate.checklistTopMargin == 100)
+    }
+
     /// The chrome icon plates are solid white in light mode so the icons
     /// read as chips over the wallpaper or photo.
     @Test
