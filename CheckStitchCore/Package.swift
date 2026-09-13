@@ -14,5 +14,7 @@ let package = Package(
         .library(name: "CheckStitchCore", targets: ["CheckStitchCore"])
     ],
     targets: [
-        .target(name: "CheckStitchCore")
+        .target(
+            name: "CheckStitchCore",
+            resources: [.process("Resources")])
     ])
