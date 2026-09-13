@@ -58,6 +58,30 @@ struct LocalizationTests {
     }
 
     @Test
+    func coreCatalogValuesAreEmbeddedInTheResourceBundle() throws {
+        let coreKeys = try Catalogs.load(
+            contentsOf: try Catalogs.url(forCatalog: "Core"), catalog: "Core")
+        let dark = try #require(coreKeys.first { $0.key == "Dark" })
+        // The compiled core catalog is embedded in the test host as a resource
+        // bundle. The hosted runner resolves `String(localized:)` with the process
+        // locale (English here), so a locale pin cannot observe e.g. German;
+        // instead resolve the embedded `de.lproj` table via Foundation's own
+        // resource lookup and compare it against the source-tree catalog.
+        let germanURL = try #require(
+            Bundle.core.url(
+                forResource: "Localizable", withExtension: "strings",
+                subdirectory: "", localization: "de"),
+            "Core bundle has no de table at runtime")
+        let germanTable = try #require(
+            try PropertyListSerialization.propertyList(
+                from: Data(contentsOf: germanURL), format: nil)
+                as? [String: String],
+            "Core bundle de table is not a readable key/value plist")
+        #expect(germanTable["Dark"] == dark.localizations["de"],
+            "Core bundle is not carrying the German catalog")
+    }
+
+    @Test
     func malformedCatalogThrows() {
         #expect(throws: CatalogLoadError.malformed(catalog: "Broken")) {
             try Catalogs.load(data: Data("{ not json".utf8), catalog: "Broken")

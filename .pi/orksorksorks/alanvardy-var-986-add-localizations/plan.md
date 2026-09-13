@@ -647,8 +647,8 @@ type. Add:
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` — `coreCatalogValuesAreEmbeddedInTheResourceBundle` and the extended `AppearanceModeTests` pass; existing `AppearanceModePreferenceTests` unchanged and green
-- [ ] `make watch-build` compiles (the watch links the package)
+- [x] `make test-unit` — `coreCatalogValuesAreEmbeddedInTheResourceBundle` and the extended `AppearanceModeTests` pass; existing `AppearanceModePreferenceTests` unchanged and green
+- [x] `make watch-build` compiles (the watch links the package)
 
 #### Manual
 - [ ] Run the macOS app and confirm the appearance picker still shows System / Light / Dark in English

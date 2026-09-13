@@ -69,9 +69,9 @@ public enum AppearanceMode: String, CaseIterable, Sendable {
     /// Human-readable label shown in the appearance picker.
     public var title: String {
         switch self {
-        case .system: "System"
-        case .light: "Light"
-        case .dark: "Dark"
+        case .system: SharedStrings.system
+        case .light: SharedStrings.light
+        case .dark: SharedStrings.dark
         }
     }
 
