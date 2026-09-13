@@ -17,4 +17,20 @@ compile-only verification could not catch this.
   - Device slice: `run-watch.sh` built `Debug-watchos/CheckStitchWatch.app` (BUILD SUCCEEDED) with the same 1.1 MB `Assets.car`, `CFBundleIcons`, and 17 renditions.
   - `sips` confirms all 17 PNGs are the expected pixel size with `hasAlpha: no`.
   - `./scripts/test.sh` → `gate: ok` (16/16 shell tests).
-- **Remaining manual item**: on-device visual confirmation. `run-watch.sh` built and signed the device app but the install step failed with a Bluetooth tunnel error (`RemotePairingError 1007/1034`, device unreachable at the time). Unlock the watch, keep it near the Mac, then re-run `bash scripts/run-watch.sh` to install and eyeball the icon.
+- **On-device confirmation: ✅ done.** After a rebuild + reinstall via `./scripts/run-devices.sh` (the `r` alias) the icon is visible in the iPhone Watch app. Closing note for reviewers below.
+
+## Deployment note (why the fix looked "not working" for a while)
+
+`./scripts/run-devices.sh` installs **only the iOS app** — its device filter is
+`if hardware.get("platform") != "iOS": continue`, and it installs
+`…-iphoneos/CheckStitch.app`. The watch app travels only as the embedded
+`CheckStitch.app/Watch/CheckStitchWatch.app`; `devicectl` does not push an
+embedded watch app onto a watch, so the watch keeps whatever build it already had
+until the iPhone Watch sync (or the Watch app's *Show App on Apple Watch* toggle)
+delivers it. `bash scripts/run-watch.sh` is the direct path and needs the
+Mac↔watch developer tunnel (`RemotePairingError 1007/1034` while it was down).
+
+Consequence for verification: a bundle-level check proves the art is correct but
+never that it reached the watch — the same trap the original `2142b06` fell into
+from the other direction (it asserted the catalog compiled, never that it
+contained an icon). On-device eyes are the only real gate for this ticket.
