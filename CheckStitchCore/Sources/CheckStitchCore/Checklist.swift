@@ -26,7 +26,7 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
 
     private enum CodingKeys: String, CodingKey { case id, title, modifiedAt, revision }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
@@ -34,7 +34,7 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(title, forKey: .title)
@@ -66,7 +66,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
 
     private enum CodingKeys: String, CodingKey { case id, name, items, modifiedAt, revision }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
@@ -75,7 +75,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
@@ -140,7 +140,7 @@ public struct ChecklistEnvelope: Codable, Sendable, Equatable {
     private enum CodingKeys: String, CodingKey { case version, deviceID, checklists, tombstones }
 
     // v1 payloads have neither deviceID nor tombstones.
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         version = try container.decode(Int.self, forKey: .version)
         deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? ""
@@ -148,7 +148,7 @@ public struct ChecklistEnvelope: Codable, Sendable, Equatable {
         tombstones = try container.decodeIfPresent([ChecklistTombstone].self, forKey: .tombstones) ?? []
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(version, forKey: .version)
         try container.encode(deviceID, forKey: .deviceID)

@@ -1,4 +1,5 @@
 @testable import CheckStitch
+import CheckStitchCore
 import Foundation
 import Testing
 
