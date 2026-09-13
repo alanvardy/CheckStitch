@@ -23,6 +23,10 @@ struct AppearanceModeTests {
         (.dark, "Dark"),
     ])
     func titlesResolveThroughTheCoreCatalog(_ mode: AppearanceMode, _ key: String) {
-        #expect(mode.title == String.en(key, bundle: .core))
+        // Resolve against the core bundle with the same default-locale semantics
+        // as `SharedStrings`, rather than pinning `en`, so the assertion does not
+        // depend on the test host's locale.
+        #expect(mode.title == String(
+            localized: String.LocalizationValue(key), table: "Localizable", bundle: .core))
     }
 }

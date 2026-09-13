@@ -2,8 +2,10 @@ import Foundation
 
 /// Shared expectations for the localization suites.
 enum LocalizationFixtures {
-    /// Catalogs guarded by the non-English-differs canary.
-    static let guardedCatalogs: Set<String> = ["App", "Core"]
+    /// Catalogs guarded by the non-English-differs canary. Watch is included:
+    /// all five of its current translations differ from English, so it needs no
+    /// exclusion entries, and the canary then catches an English regression there.
+    static let guardedCatalogs: Set<String> = ["App", "Core", "Watch"]
 
     /// Every key each catalog must carry. Guards against a key being dropped
     /// from the catalog (the UI would then render the raw key at runtime).
