@@ -14,6 +14,10 @@ final class ChecklistStore {
     }
 
     private(set) var checklists: [Checklist]
+    /// Persisted deletion records, unioned by `ChecklistMerge`. There is no
+    /// retention/GC yet, so this only grows; it is bounded in practice by human
+    /// deletion volume, but a future ticket should compact tombstones once no
+    /// device can still hold the pre-delete revision.
     private(set) var tombstones: [ChecklistTombstone] = []
     /// Invoked after every persisted save, except saves that are applying remote
     /// state (the coordinator pushes those itself).
@@ -189,6 +193,8 @@ final class ChecklistStore {
     @discardableResult
     func apply(remote: ChecklistEnvelope) -> Bool {
         guard canOverwriteStoredPayload else { return false }
+        // Defensive: the service already rejects non-current versions via
+        // `classify`, but a future caller must never merge a foreign shape.
         guard remote.version == ChecklistCodec.currentVersion else { return false }
         let merged = ChecklistMerge.merge(local: envelope, remote: remote)
         guard merged != envelope else { return false }   // idempotent

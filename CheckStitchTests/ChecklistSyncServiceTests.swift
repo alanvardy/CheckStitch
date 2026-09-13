@@ -21,28 +21,62 @@ struct ChecklistSyncServiceTests {
     }
 
     /// `pushDelay: nil` so the debounce never races a test's assertions.
-    private func makeService(sync: InMemoryChecklistSync, store: ChecklistStore, defaults: UserDefaults) -> ChecklistSyncService {
-        ChecklistSyncService(sync: sync, store: store, defaults: defaults, pushDelay: nil)
+    private func makeService(sync: InMemoryChecklistSync, store: ChecklistStore) -> ChecklistSyncService {
+        ChecklistSyncService(sync: sync, store: store, pushDelay: nil)
     }
 
     @Test
-    func cloudEmptySeedsLocalOnce() async {
+    func emptyCloudSeedsNonEmptyLocal() async {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
+        _ = store.create()
         let sync = InMemoryChecklistSync()
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
 
         _ = await service.syncOnLaunch()
 
         #expect(service.lastOutcome == .seeded)
-        #expect(suite.defaults.bool(forKey: ChecklistSyncService.didSeedKey), "seed flag survives the reconcile")
+        #expect(sync.synchronizeCount >= 1, "a pull is requested before the first read")
         #expect(sync.written.count == 1, "the local envelope is pushed once")
 
         let second = await service.reconcile()
         #expect(second == .synced, "a seeded cloud reconciles cleanly")
         #expect(sync.written.count == 1, "the seeded payload is not written again")
+    }
+
+    @Test
+    func emptyCloudWithEmptyLocalIsNotSeeded() async {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let sync = InMemoryChecklistSync()
+        let service = makeService(sync: sync, store: store)
+
+        let outcome = await service.syncOnLaunch()
+
+        #expect(outcome == .synced, "an empty local payload must never be pushed over unseen cloud data")
+        #expect(sync.written.isEmpty, "nothing is written when there is nothing to seed")
+    }
+
+    @Test
+    func cloudV1PayloadIsMigratedOnReconcile() async {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let legacyID = UUID()
+        let legacy = Data(#"{"version":1,"checklists":[{"id":"\#(legacyID.uuidString)","name":"Groceries","items":[]}]}"#.utf8)
+        let sync = InMemoryChecklistSync(stored: legacy)
+        let service = makeService(sync: sync, store: store)
+
+        let outcome = await service.reconcile()
+
+        #expect(outcome == .synced)
+        #expect(store.checklists.map(\.id) == [legacyID], "a legacy cloud payload is migrated and absorbed")
+        #expect(store.checklists.first?.revision == 1, "migration stamps a revision")
     }
 
     @Test
@@ -56,7 +90,7 @@ struct ChecklistSyncServiceTests {
             remoteChecklist(id: remoteID, name: "from cloud"),
         ])
         let sync = InMemoryChecklistSync(stored: remote)
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
 
         let outcome = await service.reconcile()
 
@@ -78,7 +112,7 @@ struct ChecklistSyncServiceTests {
             remoteChecklist(id: UUID(), name: "remote B"),
         ])
         let sync = InMemoryChecklistSync(stored: remote)
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
 
         let outcome = await service.reconcile()
 
@@ -95,7 +129,7 @@ struct ChecklistSyncServiceTests {
         let store = makeStore(defaults: suite.defaults)
         let sync = InMemoryChecklistSync()
         sync.readError = TestError.boom
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
 
         let outcome = await service.reconcile()
 
@@ -112,7 +146,7 @@ struct ChecklistSyncServiceTests {
         _ = store.create()   // non-empty local so the seed path would write
         let sync = InMemoryChecklistSync()
         sync.writeError = TestError.boom
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
 
         let outcome = await service.reconcile()
 
@@ -127,7 +161,7 @@ struct ChecklistSyncServiceTests {
 
         let store = makeStore(defaults: suite.defaults)
         let sync = InMemoryChecklistSync()
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
 
         async let a = service.refresh()
         async let b = service.refresh()
@@ -146,7 +180,7 @@ struct ChecklistSyncServiceTests {
         store.rename(id: local.id, to: "keep me")
 
         let sync = InMemoryChecklistSync(stored: Data("not json".utf8))
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
 
         let outcome = await service.reconcile()
 
@@ -166,7 +200,7 @@ struct ChecklistSyncServiceTests {
         let sync = InMemoryChecklistSync(stored: envelopeData(device: "device-b", checklists: [
             remoteChecklist(id: remoteID, name: "from cloud"),
         ]))
-        let service = makeService(sync: sync, store: store, defaults: suite.defaults)
+        let service = makeService(sync: sync, store: store)
         service.start()
 
         sync.fireExternalChange()
