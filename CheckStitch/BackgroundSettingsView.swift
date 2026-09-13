@@ -64,7 +64,9 @@ struct BackgroundSettingsView: View {
 
             Section {} footer: {
                 if let photographer = backgroundImage.photographer {
-                    let credit = "Photo by \(photographer) on Unsplash"
+                    let credit = String(
+                        localized: "Photo by \(photographer) on Unsplash",
+                        table: "Localizable", bundle: .main)
                     if let url = backgroundImage.photographerURL {
                         Link(credit, destination: url)
                     } else {

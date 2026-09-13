@@ -734,10 +734,10 @@ Explicitly **not** touched:
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` — `appCatalogIsEmbeddedInTheMainBundle`, `unknownKeyFallsBackToItsOwnText`, and `ViewRenderTests` pass
-- [ ] `make build` compiles
-- [ ] `make build-mac` compiles
-- [ ] After a build, `git diff -- CheckStitch/Localizable.xcstrings` shows no unexpected keys (new keys ⇒ add six translations, Phase 2 step 1)
+- [x] `make test-unit` — `appCatalogIsEmbeddedInTheMainBundle`, `unknownKeyFallsBackToItsOwnText`, and `ViewRenderTests` pass
+- [x] `make build` compiles
+- [x] `make build-mac` compiles
+- [x] After a build, `git diff -- CheckStitch/Localizable.xcstrings` shows no unexpected keys (new keys ⇒ add six translations, Phase 2 step 1)
 
 #### Manual
 - [ ] `make build` then confirm the built `CheckStitch.app` contains `en.lproj/Localizable.strings` (and `de.lproj` etc.) inside the bundle
