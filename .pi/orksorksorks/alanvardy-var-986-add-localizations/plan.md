@@ -883,11 +883,11 @@ provides the base value.
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` — `infoPlistStringsHaveRequiredKeysPerLanguage`, `incompleteInfoPlistIsReportedMissing` pass
-- [ ] `make build` compiles and the built app bundle contains all six `.lproj` directories
-- [ ] `make build-mac` compiles
-- [ ] `make watch-build` compiles
-- [ ] `bash scripts/test.sh` prints `gate: ok`
+- [x] `make test-unit` — `infoPlistStringsHaveRequiredKeysPerLanguage`, `incompleteInfoPlistIsReportedMissing` pass
+- [x] `make build` compiles and the built app bundle contains all six `.lproj` directories
+- [x] `make build-mac` compiles
+- [x] `make watch-build` compiles
+- [x] `bash scripts/test.sh` prints `gate: ok`
 
 #### Manual
 - [ ] Set a simulator/device to German and relaunch from clean (delete app + revoke Reminders access so the prompt reappears):
