@@ -118,6 +118,33 @@ struct LocalizationTests {
     }
 
     @Test
+    func infoPlistStringsHaveRequiredKeysPerLanguage() throws {
+        for target in LocalizationFixtures.infoPlistTargets {
+            for language in Catalogs.languages {
+                let url = Catalogs.repoRoot
+                    .appendingPathComponent(target.path)
+                    .appendingPathComponent("\(language).lproj/InfoPlist.strings")
+                let data = try Data(contentsOf: url)
+                let plist = try #require(
+                    try PropertyListSerialization.propertyList(from: data, format: nil)
+                        as? [String: String],
+                    "\(target.name)/\(language) is not a key-value plist")
+                let missing = LocalizationFixtures.missingInfoPlistKeys(
+                    in: plist, required: target.keys)
+                #expect(missing.isEmpty, "\(target.name)/\(language) missing or empty: \(missing)")
+            }
+        }
+    }
+
+    @Test
+    func incompleteInfoPlistIsReportedMissing() {
+        let missing = LocalizationFixtures.missingInfoPlistKeys(
+            in: ["CFBundleDisplayName": "CheckStitch", "NSRemindersUsageDescription": ""],
+            required: ["NSRemindersFullAccessUsageDescription", "NSRemindersUsageDescription", "CFBundleDisplayName"])
+        #expect(missing == ["NSRemindersFullAccessUsageDescription", "NSRemindersUsageDescription"])
+    }
+
+    @Test
     func malformedCatalogThrows() {
         #expect(throws: CatalogLoadError.malformed(catalog: "Broken")) {
             try Catalogs.load(data: Data("{ not json".utf8), catalog: "Broken")
