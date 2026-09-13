@@ -92,7 +92,7 @@ struct ContentView: View {
                     if path.isEmpty {
                         createButton
                             .padding(.top, 8)
-                            .padding(.leading, 34)
+                            .padding(.leading, 12)
                     }
                 }
                 .overlay(alignment: .topTrailing) {

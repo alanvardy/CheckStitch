@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: One-line cosmetic fix in `CheckStitch/ContentView.swift:95` — the iOS create button's overlay left margin changed from `.padding(.leading, 34)` to `.padding(.leading, 12)`, so it now equals the settings button's right margin (`.padding(.trailing, 12)`). Settings button, its margin, macOS toolbar, labels, and identifiers untouched.
+- **Commit SHA(s)**: `d7bd2bc` (`style: match create button left margin to settings right margin`), pushed to `origin/alanvardy-var-988-adjust-create-button-position`.
+- **Verification**: `make test-unit` PASS (19 suites, 111 cases, 0 failures); `make build` (iOS simulator, compiles the changed `#if os(iOS)` path) BUILD SUCCEEDED. No test changes were needed — nothing asserts these margins. Full `./scripts/test.sh` gate not run (targeted verify only, per SMALL workflow).
+- **Reviewer findings**: No blockers, no nits. Reviewer confirmed correctness (create left margin = settings right margin; settings/macOS/labels/identifiers untouched) and convention compliance (change mirrors the file's matched-overlay symmetric style).
+- **Remaining manual items**: Optional visual sanity check of the toolbar spacing in a booted simulator/device (`make run`) — a cosmetic value change that no automated test covers.
