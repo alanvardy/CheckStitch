@@ -44,6 +44,11 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
 }
 
 /// A named collection of items that can be turned into reminders.
+///
+/// `modifiedAt`/`revision` describe the checklist record itself, not its items:
+/// only a rename bumps them (`ChecklistStore.addItem`/`updateItem`/
+/// `removeItems` do not), so checklist-level last-write-wins decides the name
+/// while items merge independently on their own `modifiedAt`/`revision`.
 public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public init(id: UUID = UUID(), name: String = "New checklist", items: [ChecklistItem] = [], modifiedAt: Date = .distantPast, revision: Int = 0) {
         self.id = id
@@ -174,7 +179,9 @@ public enum ChecklistCodec {
         case migratable(from: Int, checklists: [Checklist])
         /// Written by a future version whose shape is unknown.
         case unsupportedVersion
-        /// Garbage that is safe to replace.
+        /// Garbage that cannot be decoded. Callers choose the response: the
+        /// store replaces it, while the sync service refuses to write over
+        /// remote bytes it could not understand.
         case unreadable
     }
 

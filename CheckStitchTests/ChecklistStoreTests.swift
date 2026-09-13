@@ -325,4 +325,23 @@
         let encoded = try? XCTUnwrap(ChecklistCodec.encode(store.envelope))
         XCTAssertEqual(ChecklistCodec.classify(encoded ?? Data()), .loaded(store.envelope))
     }
+
+    func testOnChangeFiresForLocalSavesButNotWhenApplyingRemote() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        store.create()
+        XCTAssertEqual(changes, 1, "a local save notifies the sync coordinator")
+
+        let remote = ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: "other-device",
+            checklists: [Checklist(id: UUID(), name: "Remote", modifiedAt: Date(timeIntervalSince1970: 5_000), revision: 1)])
+        XCTAssertTrue(store.apply(remote: remote))
+        XCTAssertEqual(changes, 1, "applying remote state must not schedule a push back to the cloud")
+    }
 }

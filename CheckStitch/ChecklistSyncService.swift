@@ -11,19 +11,18 @@ enum SyncOutcome: Equatable, Sendable {
 
 /// Coordinates the offline `ChecklistStore` with the iCloud key-value bytes
 /// behind `ChecklistSyncing`: reconciles on launch, on external change
-/// notifications and on pull-to-refresh, coalesces concurrent reconciles onto
-/// one in-flight pass, and debounces local-edit pushes.
+/// notifications and on pull-to-refresh, coalesces concurrent async reconciles
+/// onto one in-flight pass, and debounces local-edit pushes. `pushNow()` is the
+/// one deliberate synchronous bypass — it must finish before the app suspends,
+/// and the merge's idempotence guard makes an overlapping pass harmless.
 @MainActor
 @Observable
 final class ChecklistSyncService {
-    static let didSeedKey = "checklist.sync.didSeedCloud"
-
     private(set) var isSyncing = false
     private(set) var lastOutcome: SyncOutcome?
 
     private let sync: any ChecklistSyncing
     private let store: ChecklistStore
-    private let defaults: UserDefaults
     private let pushDelay: Duration?
 
     @ObservationIgnored private var observation: (any ChecklistSyncObservation)?
@@ -33,11 +32,9 @@ final class ChecklistSyncService {
 
     init(sync: any ChecklistSyncing,
          store: ChecklistStore,
-         defaults: UserDefaults = AppGroup.defaults,
          pushDelay: Duration? = .milliseconds(500)) {
         self.sync = sync
         self.store = store
-        self.defaults = defaults
         self.pushDelay = pushDelay
     }
 
@@ -51,7 +48,14 @@ final class ChecklistSyncService {
         store.onChange = { [weak self] in self?.schedulePush() }
     }
 
-    func syncOnLaunch() async { _ = await reconcile() }
+    @discardableResult
+    func syncOnLaunch() async -> SyncOutcome {
+        // Nudge KVS to pull before the first read; `read()` only sees the local
+        // cache, so without this a fresh install can read `nil` while the
+        // account's cloud payload already exists.
+        sync.synchronize()
+        return await reconcile()
+    }
 
     /// Coalesces concurrent callers onto a single in-flight reconcile.
     @discardableResult
@@ -75,7 +79,9 @@ final class ChecklistSyncService {
         return await reconcile()
     }
 
-    /// Immediate push for backgrounding — must not wait out the debounce.
+    /// Immediate push for backgrounding — must not wait out the debounce, and
+    /// must complete synchronously before the app suspends, so it runs
+    /// `reconcileNow()` directly instead of the async `reconcile()` gate.
     func pushNow() {
         pushTask?.cancel()
         pushTask = nil
@@ -102,11 +108,17 @@ final class ChecklistSyncService {
         do { remoteData = try sync.read() } catch { return finish(.unavailable) }
 
         guard let remoteData else {
-            guard !defaults.bool(forKey: Self.didSeedKey) else { return finish(.synced) }
-            do { try sync.write(try ChecklistCodec.encode(store.envelope)) }
+            // The cloud holds nothing we can see. Never push an *empty* local
+            // payload: on a freshly installed device KVS may not have pulled the
+            // account's data yet, and an empty write would win last-write-wins
+            // over real remote state. Only seed when there is something to seed.
+            let local = store.envelope
+            guard !local.checklists.isEmpty || !local.tombstones.isEmpty else {
+                return finish(.synced)
+            }
+            do { try sync.write(try ChecklistCodec.encode(local)) }
             catch { return finish(.failed(error.localizedDescription)) }
             sync.synchronize()
-            defaults.set(true, forKey: Self.didSeedKey)
             return finish(.seeded)
         }
 
@@ -127,7 +139,6 @@ final class ChecklistSyncService {
             catch { return finish(.failed(error.localizedDescription)) }
             sync.synchronize()
         }
-        defaults.set(true, forKey: Self.didSeedKey)
         return finish(.synced)
     }
 

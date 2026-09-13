@@ -31,4 +31,9 @@ struct ViewRenderTests {
     func syncStatusShowsActivityWhileSyncing() {
         #expect(SyncStatusView(outcome: nil, isSyncing: true).message != nil)
     }
+
+    @Test
+    func syncStatusSurfacesUnavailable() {
+        #expect(SyncStatusView(outcome: .unavailable, isSyncing: false).message == "iCloud unavailable")
+    }
 }

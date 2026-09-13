@@ -62,6 +62,10 @@ struct ContentView: View {
                 .safeAreaInset(edge: .bottom) {
                     SyncStatusView(outcome: syncService.lastOutcome, isSyncing: syncService.isSyncing)
                 }
+                // On the `Group` so the empty state is refreshable too — a fresh
+                // device has no rows to pull down, and that is exactly when a
+                // manual force-refresh matters most.
+                .refreshable { await syncService.refresh() }
             }
             .onChange(of: appearanceMode) { _, new in
                 #if os(iOS)
@@ -238,7 +242,6 @@ struct ContentView: View {
                 .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            .refreshable { await syncService.refresh() }
         }
     }
 
@@ -255,13 +258,18 @@ struct ContentView: View {
     }
 
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label("No checklists", systemImage: "checklist")
-        } description: {
-            Text("Create a checklist to turn its items into reminders.")
-        } actions: {
-            Button("Create checklist") { createChecklist() }
-                .accessibilityIdentifier("emptyStateCreateButton")
+        // Wrapped in a `ScrollView` so the `Group`'s `.refreshable` has a
+        // scrollable host on a device with no local checklists yet.
+        ScrollView {
+            ContentUnavailableView {
+                Label("No checklists", systemImage: "checklist")
+            } description: {
+                Text("Create a checklist to turn its items into reminders.")
+            } actions: {
+                Button("Create checklist") { createChecklist() }
+                    .accessibilityIdentifier("emptyStateCreateButton")
+            }
+            .padding(.top, 80)
         }
     }
 
@@ -362,8 +370,13 @@ struct SyncStatusView: View {
     /// Text shown under the list; `nil` when there is nothing to report.
     var message: String? {
         if isSyncing { return "Syncing…" }
-        if case .failed(let reason) = outcome { return reason }
-        return nil
+        switch outcome {
+        case .failed(let reason): return reason
+        // Surfaced rather than swallowed: a newer-payload guard or a read
+        // failure must not leave pull-to-refresh looking like a silent no-op.
+        case .unavailable: return "iCloud unavailable"
+        case .synced, .seeded, .none: return nil
+        }
     }
 
     var body: some View {
@@ -382,5 +395,6 @@ struct SyncStatusView: View {
     let store = ChecklistStore()
     ContentView()
         .environment(store)
+        // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
 }
