@@ -91,8 +91,9 @@ Follow `SingleThread` — it is the working reference for every mechanism here.
   this the catalog is not compiled into `Bundle.module`.
 - **`InfoPlist.strings` measures**: app `.lproj/{en,de,es,fr,ja,zh-Hans}/InfoPlist.strings`
   carrying the two `NSReminders*UsageDescription` keys plus `CFBundleDisplayName`;
-  watch `.lproj/*/InfoPlist.strings` carrying `NSRemindersFullAccessUsageDescription`
-  plus `CFBundleDisplayName`. Reference:
+  watch `.lproj/*/InfoPlist.strings` carrying only `CFBundleDisplayName` (the
+  watch never touches EventKit, so its generated Info.plist has no Reminders
+  usage-description key). Reference:
   `SingleThread/de.lproj/InfoPlist.strings`.
 - **Locale-pinned tests**: `String.en(key, bundle:, table:)` helper pinning
   `Locale(identifier: "en")`; catalogs read from the source tree via
@@ -138,7 +139,9 @@ Follow `SingleThread` — it is the working reference for every mechanism here.
 4. **`InfoPlist.strings` scope**: all six `.lproj` dirs in both app and watch.
    The app `.lproj` files localize the two Reminders usage descriptions and
    carry an unchanged `CFBundleDisplayName = CheckStitch`; the watch `.lproj`
-   files localize its usage description and carry `CFBundleDisplayName`.
+   files carry only `CFBundleDisplayName` — the watch never touches EventKit
+   (it forwards run requests to the phone), so its generated Info.plist has no
+   Reminders usage-description key.
    Usage-description build settings remain English, matching the reference.
 
 5. **Test fidelity**: port all 5 SingleThread localization assertions, minus
