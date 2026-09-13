@@ -16,4 +16,13 @@ struct AppearanceModeTests {
         if let raw { AppearanceModePreference(defaults: defaults).setRawValue(raw) }
         #expect(AppearanceMode.load(from: defaults) == .system)
     }
+
+    @Test(arguments: [
+        (AppearanceMode.system, "System"),
+        (.light, "Light"),
+        (.dark, "Dark"),
+    ])
+    func titlesResolveThroughTheCoreCatalog(_ mode: AppearanceMode, _ key: String) {
+        #expect(mode.title == String.en(key, bundle: .core))
+    }
 }
