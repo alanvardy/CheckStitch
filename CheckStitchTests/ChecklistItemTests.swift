@@ -30,6 +30,32 @@ struct ChecklistItemTests {
         #expect(decoded.id == item.id)
     }
 
+    @Test(arguments: [nil, 0, 1, -3] as [Int?])
+    func relativeDateRoundTripsThroughJSON(_ offset: Int?) throws {
+        let item = ChecklistItem(title: "one", relativeDate: offset)
+        let decoded = try JSONDecoder().decode(ChecklistItem.self, from: JSONEncoder().encode(item))
+        #expect(decoded.relativeDate == offset)
+        #expect(decoded == item)
+    }
+
+    /// A v2 item object: no `relativeDate` key anywhere.
+    @Test
+    func itemWithoutRelativeDateKeyDecodesToNil() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"id":"\#(id)","title":"one"}"#.utf8)
+        let decoded = try JSONDecoder().decode(ChecklistItem.self, from: data)
+        #expect(decoded.relativeDate == nil)
+    }
+
+    /// The encoder always writes the key, as JSON `null` when there is no date.
+    @Test
+    func encodeAlwaysEmitsRelativeDateKey() throws {
+        let data = try JSONEncoder().encode(ChecklistItem(title: "one"))
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(object?.keys.contains("relativeDate") == true)
+        #expect(object?["relativeDate"] is NSNull)
+    }
+
     @Test
     func descriptionDefaultsToEmptyWhenKeyIsAbsent() throws {
         let id = UUID().uuidString
