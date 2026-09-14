@@ -6,17 +6,24 @@ import os
 /// and `revision` carry the sync identity the merge compares; both are
 /// optional on decode so v1 payloads (which carried no sync state) still load.
 public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
-    public init(id: UUID = UUID(), title: String, modifiedAt: Date = .distantPast, revision: Int = 0) {
+    public init(id: UUID = UUID(), title: String, description: String = "", modifiedAt: Date = .distantPast, revision: Int = 0) {
         self.id = id
         self.title = title
+        self.description = description
         self.modifiedAt = modifiedAt
         self.revision = revision
     }
 
     public let id: UUID
     public var title: String
+    public var description: String
     public var modifiedAt: Date
     public var revision: Int
+
+    /// True when the item carries any description text. Whitespace is preserved
+    /// verbatim (matching `title`); only the empty string means "no description".
+    /// Consumed by the watch row and the reminder-notes normalisation.
+    public var hasDescription: Bool { !description.isEmpty }
 
     /// A title that is empty or whitespace/newlines only. Creation skips these
     /// so an emptied row can't produce a meaningless reminder.
@@ -24,12 +31,15 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, modifiedAt, revision }
+    private enum CodingKeys: String, CodingKey { case id, title, description, modifiedAt, revision }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
+        // Additive optional field: absent key decodes to "", matching the
+        // destinationListIdentifier precedent — no version bump.
+        description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
         modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? .distantPast
         revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
     }
@@ -38,6 +48,7 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(title, forKey: .title)
+        try container.encode(description, forKey: .description)
         try container.encode(modifiedAt, forKey: .modifiedAt)
         try container.encode(revision, forKey: .revision)
     }

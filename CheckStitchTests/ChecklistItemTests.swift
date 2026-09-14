@@ -31,6 +31,30 @@ struct ChecklistItemTests {
     }
 
     @Test
+    func descriptionDefaultsToEmptyWhenKeyIsAbsent() throws {
+        let id = UUID().uuidString
+        let json = Data(#"{"id":"\#(id)","title":"Milk"}"#.utf8)
+        let decoded = try JSONDecoder().decode(ChecklistItem.self, from: json)
+        #expect(decoded.description == "")
+        #expect(!decoded.hasDescription)
+    }
+
+    @Test
+    func descriptionRoundTripsThroughCodable() throws {
+        let item = ChecklistItem(title: "Milk", description: "2 litres, semi-skimmed")
+        let data = try JSONEncoder().encode(item)
+        let decoded = try JSONDecoder().decode(ChecklistItem.self, from: data)
+        #expect(decoded == item)
+        #expect(decoded.description == "2 litres, semi-skimmed")
+        #expect(decoded.hasDescription)
+    }
+
+    @Test(arguments: ["", " ", "\n"])
+    func descriptionDoesNotUnblankAnEmptyTitle(_ description: String) {
+        #expect(ChecklistItem(title: "  ", description: description).isBlank)
+    }
+
+    @Test
     func checklistDecodeDefaultsToDerivedOrder() throws {
         let first = UUID()
         let second = UUID()
