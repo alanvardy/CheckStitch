@@ -240,6 +240,21 @@ final class ChecklistStore {
         scheduleSave()
     }
 
+    /// Sets (or clears) an item's relative-date offset. Distinct label, so it sits
+    /// beside `updateItem(checklistID:itemID:title:)` without ambiguity. An
+    /// unchanged value is a no-op — this is what stops a text field re-committing
+    /// the same parse from bumping `revision` and winning a spurious LWW round.
+    func updateItem(checklistID: UUID, itemID: UUID, relativeDate: Int?) {
+        guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
+              let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
+        else { return }
+        guard checklists[checklistIndex].items[itemIndex].relativeDate != relativeDate else { return }
+        checklists[checklistIndex].items[itemIndex].relativeDate = relativeDate
+        checklists[checklistIndex].items[itemIndex].revision += 1
+        checklists[checklistIndex].items[itemIndex].modifiedAt = now()
+        scheduleSave()
+    }
+
     func removeItems(from id: UUID, at offsets: IndexSet) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
         for offset in offsets.sorted(by: >) {
