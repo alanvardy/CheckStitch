@@ -454,7 +454,7 @@ extension ChecklistItem {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes with the new `ChecklistItemDateTests`
+- [x] `make test-unit` passes with the new `ChecklistItemDateTests`
 
 #### Manual
 - [ ] None
