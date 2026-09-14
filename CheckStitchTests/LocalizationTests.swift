@@ -71,6 +71,8 @@ struct LocalizationTests {
         let coreKeys = try Catalogs.load(
             contentsOf: try Catalogs.url(forCatalog: "Core"), catalog: "Core")
         let dark = try #require(coreKeys.first { $0.key == "Dark" })
+        let twoArgumentVersion = try #require(coreKeys.first { $0.key == "Version %@ (%@)" })
+        let oneArgumentVersion = try #require(coreKeys.first { $0.key == "Version %@" })
         // The compiled core catalog is embedded in the test host as a resource
         // bundle. The hosted runner resolves `String(localized:)` with the process
         // locale (English here), so a locale pin cannot observe e.g. German;
@@ -88,6 +90,10 @@ struct LocalizationTests {
             "Core bundle de table is not a readable key/value plist")
         #expect(germanTable["Dark"] == dark.localizations["de"],
             "Core bundle is not carrying the German catalog")
+        #expect(germanTable["Version %@ (%@)"] == twoArgumentVersion.localizations["de"],
+            "Core bundle is not carrying the two-argument version string")
+        #expect(germanTable["Version %@"] == oneArgumentVersion.localizations["de"],
+            "Core bundle is not carrying the one-argument version string")
     }
 
     @Test

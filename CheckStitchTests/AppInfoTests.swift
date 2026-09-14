@@ -1,11 +1,10 @@
-import Foundation
 import CheckStitchCore
 import Testing
 
 /// Exercises `AppInfo` against a `StubBundle` in place of the real bundle's
-/// Info.plist. The version strings resolve through the shared `String.en`
-/// helper against the embedded Core bundle — the hosted test runner cannot use
-/// the package-only `Bundle.module`.
+/// Info.plist. Assertions use the concrete English output; that the version
+/// keys are embedded in the compiled Core catalog is covered separately by
+/// `LocalizationTests.coreCatalogValuesAreEmbeddedInTheResourceBundle`.
 struct AppInfoTests {
     @Test
     func readsMarketingVersionBuildNumberAndDisplayName() {
@@ -18,9 +17,7 @@ struct AppInfoTests {
         #expect(info.marketingVersion == "1.0")
         #expect(info.buildNumber == "1")
         #expect(info.displayName == "CheckStitch")
-        #expect(info.versionDescription == String.en(
-            "Version \(info.marketingVersion!) (\(info.buildNumber!))",
-            bundle: .core))
+        #expect(info.versionDescription == "Version 1.0 (1)")
     }
 
     @Test
@@ -41,9 +38,7 @@ struct AppInfoTests {
 
         #expect(info.marketingVersion == "1.0")
         #expect(info.buildNumber == nil)
-        #expect(info.versionDescription == String.en(
-            "Version \(info.marketingVersion!)",
-            bundle: .core))
+        #expect(info.versionDescription == "Version 1.0")
     }
 
     @Test
