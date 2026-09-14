@@ -142,7 +142,7 @@ extension Checklist {
     /// from it, so the encoded array order and the explicit order never
     /// diverge. Idempotent; used on decode, after merge, and after any
     /// mutation that touches `items`.
-    func normalizedOrder() -> Checklist {
+    public func normalizedOrder() -> Checklist {
         var copy = self
         let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         var order: [UUID] = []

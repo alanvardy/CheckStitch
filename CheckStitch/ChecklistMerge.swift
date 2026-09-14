@@ -24,6 +24,7 @@ enum ChecklistMerge {
                 itemTombstones.filter { $0.checklistID == checklists[index].id }.compactMap(\.itemID)
             )
             checklists[index].items.removeAll { deadItems.contains($0.id) }
+            checklists[index].itemOrder.removeAll { deadItems.contains($0) }
         }
 
         return ChecklistEnvelope(
@@ -70,7 +71,7 @@ enum ChecklistMerge {
         for remoteChecklist in remote {
             guard let index = indexByID[remoteChecklist.id] else {
                 indexByID[remoteChecklist.id] = result.count
-                result.append(remoteChecklist)
+                result.append(remoteChecklist.normalizedOrder())
                 continue
             }
             let localChecklist = result[index]
@@ -83,10 +84,29 @@ enum ChecklistMerge {
                 merged.revision = remoteChecklist.revision
                 merged.modifiedAt = remoteChecklist.modifiedAt
             }
-            merged.items = mergedItems(
+
+            let mergedItems = mergedItems(
                 localChecklist.items, remoteChecklist.items,
                 localDevice: localDevice, remoteDevice: remoteDevice
             )
+            let remoteWinsOrder = wins(
+                revision: remoteChecklist.orderRevision, date: remoteChecklist.orderModifiedAt,
+                device: remoteDevice,
+                overRevision: localChecklist.orderRevision, overDate: localChecklist.orderModifiedAt,
+                overDevice: localDevice
+            )
+            let winnerOrder = remoteWinsOrder ? remoteChecklist.itemOrder : localChecklist.itemOrder
+            let order = reconciledOrder(
+                winnerOrder: winnerOrder,
+                mergedItems: mergedItems,
+                fallback: localChecklist.itemOrder
+            )
+            merged.items = reorder(mergedItems, to: order)
+            merged.itemOrder = order
+            if remoteWinsOrder {
+                merged.orderRevision = remoteChecklist.orderRevision
+                merged.orderModifiedAt = remoteChecklist.orderModifiedAt
+            }
             result[index] = merged
         }
         return result
@@ -111,6 +131,33 @@ enum ChecklistMerge {
             }
         }
         return result
+    }
+
+    /// The merged item id order: winner ids that survive keep winner order; ids
+    /// that survive only in the merged list are appended. Deterministic and
+    /// symmetric for normalised inputs (each side's `itemOrder` covers its own
+    /// items, so the appended sequence is the loser's relative order either way).
+    private static func reconciledOrder(
+        winnerOrder: [UUID], mergedItems: [ChecklistItem], fallback: [UUID]
+    ) -> [UUID] {
+        let surviving = Set(mergedItems.map(\.id))
+        var order: [UUID] = []
+        var seen = Set<UUID>()
+        for id in winnerOrder where surviving.contains(id) && seen.insert(id).inserted {
+            order.append(id)
+        }
+        for id in fallback + mergedItems.map(\.id)
+        where surviving.contains(id) && seen.insert(id).inserted {
+            order.append(id)
+        }
+        return order
+    }
+
+    /// Rebuilds `items` in the reconciled id order. `order` is exactly the set of
+    /// merged item ids, so nothing is dropped.
+    private static func reorder(_ items: [ChecklistItem], to order: [UUID]) -> [ChecklistItem] {
+        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        return order.compactMap { byID[$0] }
     }
 
     private static func wins(revision: Int, date: Date, device: String? = nil,
