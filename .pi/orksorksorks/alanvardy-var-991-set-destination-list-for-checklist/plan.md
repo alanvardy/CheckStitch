@@ -827,8 +827,8 @@ selection made just before leaving is persisted.
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make test-ui` passes (existing smoke unchanged; it never opens the detail screen)
+- [x] `make test-unit` passes
+- [x] `make test-ui` passes (existing smoke unchanged; it never opens the detail screen)
 #### Manual
 - [ ] `make run` → edit a checklist → pick a non-default list → Done → relaunch → the picker still shows that list and it is checked in Reminders.app
 - [ ] `make run` → pick "Default (Inbox)" → run → the reminder lands in the default list
