@@ -1,0 +1,5 @@
+# Task
+
+The macOS build of CheckStitch does not render the user-selected background photo on the main screen (only the flat `Color.systemBackground` fill shows), while the same build and settings render correctly on iPhone/iPad — a platform-specific regression. Four unverified candidate causes live in different subsystems: the macOS NavigationStack painting an opaque container background, the macOS `Color.clear.overlay { … }.ignoresSafeArea()` / `scaledToFill` wrapper collapsing on zero-intrinsic-size, photo data never loading on macOS (sandboxed `defaultDirectory` path + network/Unsplash API), and the KVS / `@AppStorage` path where `backgroundEnabled` may read false on macOS. Research must establish, from the code alone, what each of these paths actually does on macOS vs iOS so the failing layer can be identified.
+
+Outcome: restore the photo (same fade opacity as iOS) on macOS across window resizes, add a test that reproduces the broken macOS branch / pins the fixed container-layout condition before the fix, pass `make test-unit` and the full gate (`bash scripts/test.sh`), and introduce no iOS/iPadOS rendering regression.
