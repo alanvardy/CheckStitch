@@ -71,8 +71,16 @@ final class ChecklistStore {
                 self.checklists = stored.checklists
                 self.tombstones = stored.tombstones
                 self.canOverwriteStoredPayload = true
-            case .migratable(_, let legacy):
-                self.checklists = legacy.map { $0.migrated(at: now()) }
+            case .migratable(let from, let legacy):
+                if from == 1 {
+                    // v1 carried no sync state: stamp it (unchanged behaviour).
+                    self.checklists = legacy.checklists.map { $0.migrated(at: now()) }
+                } else {
+                    // v2 (and later legacy versions) already carry sync state; load it
+                    // verbatim so a stored revision/modifiedAt is never restamped.
+                    self.checklists = legacy.checklists
+                }
+                self.tombstones = legacy.tombstones
                 self.canOverwriteStoredPayload = true   // never stall migration
             case .unsupportedVersion:
                 self.checklists = []
@@ -139,7 +147,7 @@ final class ChecklistStore {
             : name
         let copy = Checklist(
             name: Self.uniqueName(basedOn: requested, taken: checklists.map(\.name)),
-            items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1) },
+            items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate) },
             modifiedAt: now(),
             revision: 1
         )

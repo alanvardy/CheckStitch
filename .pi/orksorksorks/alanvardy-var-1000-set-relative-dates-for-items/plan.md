@@ -278,10 +278,10 @@ case .context(let data):
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (fast loop)
-- [ ] `bash scripts/test.sh` passes before this phase's commit — `make watch-build`
+- [x] `make test-unit` passes (fast loop)
+- [x] `bash scripts/test.sh` passes before this phase's commit — `make watch-build`
       is the only leg that compiles the changed `ChecklistSync.swift` watch decoder
-- [ ] New codec/store/sync/watch tests below pass
+- [x] New codec/store/sync/watch tests below pass
 
 #### Manual
 - [ ] None (covered by unit suites; watch leg asserted by the gate's

@@ -80,6 +80,31 @@ struct ChecklistSyncServiceTests {
     }
 
     @Test
+    func cloudV2PayloadIsAbsorbedWithoutRestampingOrTombstoneLoss() async throws {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let remoteID = UUID()
+        let checklistID = UUID()
+        let tombstone = ChecklistTombstone(
+            checklistID: checklistID, itemID: nil, deletedAt: Date(timeIntervalSince1970: 99), revision: 2)
+        let payload = ChecklistEnvelope(
+            version: 2,
+            deviceID: "remote-device",
+            checklists: [Checklist(id: remoteID, name: "Remote", modifiedAt: Date(timeIntervalSince1970: 50), revision: 4)],
+            tombstones: [tombstone])
+        let sync = InMemoryChecklistSync(stored: try ChecklistCodec.encode(payload))
+        let service = makeService(sync: sync, store: store)
+
+        let outcome = await service.reconcile()
+
+        #expect(outcome == .synced)
+        #expect(store.checklists.first(where: { $0.id == remoteID })?.revision == 4, "v2 revisions are not restamped")
+        #expect(store.tombstones.contains(tombstone), "v2 tombstones are not dropped")
+    }
+
+    @Test
     func localEmptyAppliesRemote() async {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

@@ -100,8 +100,14 @@ public final class WatchChecklistStore {
         switch message {
         case .context(let data):
             // Malformed or future-version payloads leave the previous list intact.
-            if case .loaded(let envelope) = ChecklistCodec.classify(data) {
+            switch ChecklistCodec.classify(data) {
+            case .loaded(let envelope):
                 checklists = envelope.checklists
+            case .migratable(let from, let envelope) where from >= 2:
+                // v2 carries every v3 field; accept it rather than blanking the list.
+                checklists = envelope.checklists
+            default:
+                break
             }
         case .runChecklist, .requestChecklists:
             break // phone-only directions

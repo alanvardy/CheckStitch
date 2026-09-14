@@ -356,28 +356,38 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(stored.version, 3)
     }
 
-    func testV2PayloadIsMigratedAndSavable() {
+    /// A stored v2 payload has real sync state. It must load with its revision,
+    /// timestamp and tombstones intact, stay writable, and never be restamped.
+    func testV2PayloadLoadsVerbatimWithoutRestamping() throws {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
-        // A true v2 payload: version 2 with deviceID/tombstones and sync-stamped
-        // records but no order keys — migration seeds the ordering state.
-        let v2 = Data(#"{"version":2,"deviceID":"other-device","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","modifiedAt":1700000000,"revision":2,"items":[{"id":"\#(UUID().uuidString)","title":"Milk","modifiedAt":1700000000,"revision":2}]}]}"#.utf8)
-        suite.defaults.set(v2, forKey: key)
+        let itemID = UUID()
+        let modifiedAt = Date(timeIntervalSince1970: 1_234)
+        let payload = ChecklistEnvelope(
+            version: 2,
+            deviceID: "remote-device",
+            checklists: [Checklist(
+                name: "Groceries",
+                items: [ChecklistItem(id: itemID, title: "Milk", modifiedAt: modifiedAt, revision: 7)],
+                modifiedAt: modifiedAt,
+                revision: 9)],
+            tombstones: [ChecklistTombstone(
+                checklistID: UUID(), itemID: nil, deletedAt: modifiedAt, revision: 2)])
+        suite.defaults.set(try ChecklistCodec.encode(payload), forKey: key)
 
         let store = makeStore(defaults: suite.defaults)
-        let checklist = try? XCTUnwrap(store.checklists.first)
-        XCTAssertEqual(store.checklists.count, 1)
-        XCTAssertGreaterThanOrEqual(checklist?.orderRevision ?? 0, 1, "migration seeds ordering from the checklist's own revision")
-        XCTAssertEqual(checklist?.itemOrder, checklist?.items.map(\.id))
+        XCTAssertTrue(store.canAcceptRemoteChanges, "a migrated v2 payload stays writable")
+        XCTAssertEqual(store.checklists.first?.revision, 9, "v2 revisions must not be restamped")
+        XCTAssertEqual(store.checklists.first?.modifiedAt, modifiedAt)
+        XCTAssertEqual(store.checklists.first?.items.first?.revision, 7)
+        XCTAssertEqual(store.tombstones.count, 1, "v2 tombstones must survive migration")
 
-        // The migrated payload is savable, not stalled in memory.
+        // Persist and reload: still not restamped.
         store.create()
-
         let reloaded = makeStore(defaults: suite.defaults)
-        XCTAssertEqual(reloaded.checklists.count, 2)
-        XCTAssertEqual(reloaded.checklists.first?.name, "Groceries")
-        XCTAssertGreaterThanOrEqual(reloaded.checklists.first?.orderRevision ?? 0, 1)
+        XCTAssertEqual(reloaded.checklists.first(where: { $0.name == "Groceries" })?.revision, 9)
+        XCTAssertEqual(reloaded.tombstones.count, 1)
     }
 
     func testMutationsStampRevisionAndTimestamp() {
