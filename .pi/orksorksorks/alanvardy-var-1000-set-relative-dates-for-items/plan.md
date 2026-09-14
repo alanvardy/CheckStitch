@@ -956,7 +956,7 @@ Notes:
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
+- [x] `make test-unit` passes
 - [ ] `bash scripts/test.sh` passes — this phase compiles the real UI, so the
       gate (not just the fast loop) is required
 
