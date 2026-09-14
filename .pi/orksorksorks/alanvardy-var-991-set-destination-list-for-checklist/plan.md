@@ -633,7 +633,7 @@ struct ChecklistRemindersTests {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes — all seven run outcomes plus the message mapping covered
+- [x] `make test-unit` passes — all seven run outcomes plus the message mapping covered
 #### Manual
 - [ ] `git grep -n "createdListIDs" CheckStitchTests/ChecklistRemindersTests.swift` shows the zero-create assertion in `missingDestinationCreatesNothing`
 
@@ -737,8 +737,8 @@ already defaults to `EventKitReminderDestination.shared`.
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make build-mac` passes (unsigned macOS leg; the adapter compiles without provisioning)
+- [x] `make test-unit` passes
+- [x] `make build-mac` passes (unsigned macOS leg; the adapter compiles without provisioning)
 #### Manual
 - [ ] `make run` → open a checklist → run one with an explicit list → confirm in Reminders.app the reminder landed in that list (validates `calendarIdentifier` stability on this toolchain)
 - [ ] In Reminders.app, rename that list, then run again → the reminder still lands in the renamed list (identifier, not title, is the identity)
