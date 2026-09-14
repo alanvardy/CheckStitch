@@ -111,6 +111,35 @@ final class ChecklistStore {
         return checklist
     }
 
+    /// The name a duplicate is offered by default: the source name plus a
+    /// literal " copy", left for `uniqueName` to disambiguate on commit — a
+    /// second copy of "Groceries" is therefore offered as "Groceries copy 2".
+    static func duplicateName(basedOn sourceName: String) -> String {
+        "\(sourceName) copy"
+    }
+
+    /// Duplicates a checklist: every item is copied into a fresh `ChecklistItem`
+    /// (new `UUID`, revision 1), under a name disambiguated by the same
+    /// machinery `create` uses, so a duplicate always succeeds. Returns `nil`
+    /// when the source no longer exists, mirroring `delete(id:)`'s silent
+    /// no-op. A blank name falls back to the offered default.
+    @discardableResult
+    func duplicate(id: UUID, name: String) -> Checklist? {
+        guard let source = checklists.first(where: { $0.id == id }) else { return nil }
+        let requested = name.trimmingCharacters(in: CharacterSet.whitespaces).isEmpty
+            ? Self.duplicateName(basedOn: source.name)
+            : name
+        let copy = Checklist(
+            name: Self.uniqueName(basedOn: requested, taken: checklists.map(\.name)),
+            items: source.items.map { ChecklistItem(title: $0.title, modifiedAt: now(), revision: 1) },
+            modifiedAt: now(),
+            revision: 1
+        )
+        checklists.append(copy)
+        save()
+        return copy
+    }
+
     /// Renames a checklist and reports whether the name was applied. The
     /// checklist being renamed is excluded from the uniqueness check, so
     /// keeping (or adopting a case/whitespace variant of) its own name is

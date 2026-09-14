@@ -516,5 +516,114 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertTrue(store.apply(remote: remote))
         XCTAssertEqual(changes, 1, "applying remote state must not schedule a push back to the cloud")
     }
+
+    // MARK: - Duplicate
+
+    func testDuplicateCopiesItemsWithFreshIdentifiersAndRevisions() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.addItem(to: source.id)
+        let item = store.checklist(id: source.id)?.items.first
+        store.updateItem(checklistID: source.id, itemID: item?.id ?? UUID(), title: "Milk")
+
+        let copy = store.duplicate(id: source.id, name: ChecklistStore.duplicateName(basedOn: "Groceries"))
+
+        let duplicated = try? XCTUnwrap(copy)
+        XCTAssertEqual(duplicated?.items.map(\.title), ["Milk"])
+        XCTAssertEqual(duplicated?.revision, 1)
+        XCTAssertEqual(duplicated?.items.first?.revision, 1)          // fresh, not the source's 2
+        XCTAssertNotEqual(duplicated?.items.first?.id, item?.id)      // never a reused id
+        XCTAssertNotEqual(duplicated?.id, source.id)
+        XCTAssertEqual(store.checklist(id: source.id)?.items.first?.revision, 2)  // source untouched
+    }
+
+    func testDuplicateDisambiguatesTheCopyName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+
+        // "Groceries copy", "Groceries copy 2", "Groceries copy 3"
+        let first = store.duplicate(id: source.id, name: ChecklistStore.duplicateName(basedOn: "Groceries"))
+        let second = store.duplicate(id: source.id, name: ChecklistStore.duplicateName(basedOn: "Groceries"))
+        let third = store.duplicate(id: source.id, name: ChecklistStore.duplicateName(basedOn: "Groceries"))
+        XCTAssertEqual(first?.name, "Groceries copy")
+        XCTAssertEqual(second?.name, "Groceries copy 2")
+        XCTAssertEqual(third?.name, "Groceries copy 3")
+
+        // and a user-typed taken name -> "Groceries 2"
+        let typed = store.duplicate(id: source.id, name: "Groceries")
+        XCTAssertEqual(typed?.name, "Groceries 2")
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Groceries copy", "Groceries copy 2", "Groceries copy 3", "Groceries 2"])
+    }
+
+    func testDuplicateNameIsSourceNamePlusCopy() {
+        XCTAssertEqual(ChecklistStore.duplicateName(basedOn: "Groceries"), "Groceries copy")
+    }
+
+    func testDuplicateBlankNameFallsBackToTheDefault() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+
+        let copy = store.duplicate(id: source.id, name: "   ")
+        XCTAssertEqual(copy?.name, "Groceries copy", "a blank name falls back to the default, never \"\"")
+    }
+
+    func testDuplicatePersistsAcrossReload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.addItem(to: source.id)
+        guard let item = store.checklist(id: source.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        store.updateItem(checklistID: source.id, itemID: item.id, title: "Milk")
+        let copied = store.duplicate(id: source.id, name: ChecklistStore.duplicateName(basedOn: "Groceries"))
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.count, 2)
+        let reloadedCopy = reloaded.checklist(id: copied?.id ?? UUID())
+        XCTAssertEqual(reloadedCopy?.name, "Groceries copy")
+        XCTAssertEqual(reloadedCopy?.items.map(\.title), ["Milk"])
+        XCTAssertEqual(reloaded.checklist(id: source.id)?.items.map(\.title), ["Milk"])
+    }
+
+    func testDuplicateFiresOnChange() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        let source = store.create(name: "Groceries")
+        XCTAssertEqual(changes, 1)
+
+        store.duplicate(id: source.id, name: ChecklistStore.duplicateName(basedOn: "Groceries"))
+        XCTAssertEqual(changes, 2, "a local duplicate notifies the sync coordinator")
+    }
+
+    func testDuplicateIgnoresAnUnknownID() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        XCTAssertNil(store.duplicate(id: UUID(), name: "x"))
+        XCTAssertTrue(store.checklists.isEmpty)
+        XCTAssertEqual(changes, 0, "an unknown id must not schedule a save")
+    }
 }
 
