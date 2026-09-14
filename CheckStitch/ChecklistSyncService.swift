@@ -126,8 +126,17 @@ final class ChecklistSyncService {
         switch ChecklistCodec.classify(remoteData) {
         case .loaded(let envelope):
             remote = envelope
-        case .migratable(_, let checklists):
-            remote = ChecklistEnvelope(deviceID: "", checklists: checklists.map { $0.migrated(at: .distantPast) })
+        case .migratable(let from, let legacy):
+            if from == 1 {
+                remote = ChecklistEnvelope(deviceID: "", checklists: legacy.checklists.map { $0.migrated(at: .distantPast) })
+            } else {
+                // v2 is currently-shaped: keep its deviceID (LWW tie-break) and
+                // tombstones, and do not restamp revisions.
+                remote = ChecklistEnvelope(
+                    deviceID: legacy.deviceID,
+                    checklists: legacy.checklists,
+                    tombstones: legacy.tombstones)
+            }
         case .unsupportedVersion, .unreadable:
             // Never discard local state because the remote bytes were foreign.
             return finish(.failed("Stored sync data could not be read."))

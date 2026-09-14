@@ -274,8 +274,9 @@ public enum ChecklistCodec {
     /// by a newer app sharing the App Group suite.
     public enum Outcome: Equatable {
         case loaded(ChecklistEnvelope)
-        /// A known older version that can be upgraded in place.
-        case migratable(from: Int, checklists: [Checklist])
+        /// A known older version that can be upgraded in place. Carries the
+        /// whole envelope so a v2 payload keeps its `deviceID` and `tombstones`.
+        case migratable(from: Int, envelope: ChecklistEnvelope)
         /// Written by a future version whose shape is unknown.
         case unsupportedVersion
         /// Garbage that cannot be decoded. Callers choose the response: the
@@ -296,9 +297,13 @@ public enum ChecklistCodec {
             switch probe.version {
             case currentVersion:
                 return .loaded(try JSONDecoder().decode(ChecklistEnvelope.self, from: data))
-            case 1, 2:
+            case 2:
+                // v2 already carries sync state: load it verbatim, never restamp.
+                let previous = try JSONDecoder().decode(ChecklistEnvelope.self, from: data)
+                return .migratable(from: 2, envelope: previous)
+            case 1:
                 let legacy = try JSONDecoder().decode(ChecklistEnvelope.self, from: data)
-                return .migratable(from: probe.version, checklists: legacy.checklists)
+                return .migratable(from: 1, envelope: legacy)
             default:
                 logger.error("Unsupported checklist payload version \(probe.version, privacy: .public); treating as empty")
                 return .unsupportedVersion
@@ -313,7 +318,7 @@ public enum ChecklistCodec {
     public static func decode(_ data: Data) -> [Checklist] {
         switch classify(data) {
         case .loaded(let envelope): return envelope.checklists
-        case .migratable(_, let checklists): return checklists
+        case .migratable(_, let envelope): return envelope.checklists
         case .unsupportedVersion, .unreadable: return []
         }
     }

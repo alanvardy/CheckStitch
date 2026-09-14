@@ -25,6 +25,19 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
+    func v2ContextStillPopulatesTheList() throws {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+
+        let expected = [Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", relativeDate: 1)])]
+        transport.deliver(.context(try ChecklistCodec.encode(
+            ChecklistEnvelope(version: 2, deviceID: "phone", checklists: expected))))
+
+        #expect(store.checklists == expected)
+    }
+
+    @Test
     func malformedContextLeavesThePreviousListIntact() throws {
         let transport = FakeChecklistSyncTransport()
         let store = WatchChecklistStore(transport: transport)

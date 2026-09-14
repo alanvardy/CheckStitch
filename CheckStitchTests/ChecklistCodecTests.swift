@@ -30,14 +30,14 @@ final class ChecklistCodecTests: XCTestCase {
         let legacy = Data(#"{"version":1,"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk"}]}]}"#.utf8)
 
         let outcome = ChecklistCodec.classify(legacy)
-        guard case .migratable(from: let version, checklists: let checklists) = outcome else {
+        guard case .migratable(from: let version, envelope: let envelope) = outcome else {
             XCTFail("expected migratable outcome, got \(outcome)")
             return
         }
         XCTAssertEqual(version, 1)
-        XCTAssertEqual(checklists.count, 1)
-        XCTAssertEqual(checklists.first?.name, "Groceries")
-        XCTAssertEqual(checklists.first?.items.first?.title, "Milk")
+        XCTAssertEqual(envelope.checklists.count, 1)
+        XCTAssertEqual(envelope.checklists.first?.name, "Groceries")
+        XCTAssertEqual(envelope.checklists.first?.items.first?.title, "Milk")
     }
 
     func testUnknownVersionDecodesAsEmpty() {
@@ -52,16 +52,41 @@ final class ChecklistCodecTests: XCTestCase {
         let v2 = Data(#"{"version":2,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","modifiedAt":1700000000,"revision":1,"items":[{"id":"\#(UUID().uuidString)","title":"Milk","modifiedAt":1700000000,"revision":1}]}]}"#.utf8)
 
         let outcome = ChecklistCodec.classify(v2)
-        guard case .migratable(from: let version, checklists: let checklists) = outcome else {
+        guard case .migratable(from: let version, envelope: let envelope) = outcome else {
             XCTFail("expected migratable outcome, got \(outcome)")
             return
         }
         XCTAssertEqual(version, 2)
-        XCTAssertEqual(checklists.count, 1)
-        XCTAssertEqual(checklists.first?.name, "Groceries")
-        XCTAssertEqual(checklists.first?.revision, 1)
-        XCTAssertEqual(checklists.first?.items.first?.title, "Milk")
-        XCTAssertEqual(checklists.first?.items.first?.revision, 1)
+        XCTAssertEqual(envelope.checklists.count, 1)
+        XCTAssertEqual(envelope.checklists.first?.name, "Groceries")
+        XCTAssertEqual(envelope.checklists.first?.revision, 1)
+        XCTAssertEqual(envelope.checklists.first?.items.first?.title, "Milk")
+        XCTAssertEqual(envelope.checklists.first?.items.first?.revision, 1)
+    }
+
+    /// A v2 payload: it has sync state and tombstones, and must be accepted
+    /// verbatim (never restamped) when classified.
+    func testV2PayloadIsClassifiedMigratableWithTombstones() throws {
+        let device = "device-a"
+        let tombstone = ChecklistTombstone(
+            checklistID: UUID(), itemID: nil, deletedAt: Date(timeIntervalSince1970: 42), revision: 3)
+        let envelope = ChecklistEnvelope(
+            version: 2, deviceID: device,
+            checklists: [Checklist(name: "Groceries", modifiedAt: Date(timeIntervalSince1970: 7), revision: 5)],
+            tombstones: [tombstone])
+
+        XCTAssertEqual(ChecklistCodec.classify(try ChecklistCodec.encode(envelope)),
+                       .migratable(from: 2, envelope: envelope))
+    }
+
+    func testCurrentVersionPayloadIsLoaded() throws {
+        let envelope = ChecklistEnvelope(deviceID: "d", checklists: [Checklist(name: "x")])
+        XCTAssertEqual(ChecklistCodec.classify(try ChecklistCodec.encode(envelope)), .loaded(envelope))
+    }
+
+    func testVersionFourIsUnsupported() {
+        let data = Data(#"{"version":4,"checklists":[]}"#.utf8)
+        XCTAssertEqual(ChecklistCodec.classify(data), .unsupportedVersion)
     }
 
     func testV3RoundTripPreservesOrder() throws {
