@@ -54,6 +54,30 @@ struct ChecklistItemTests {
     }
 
     @Test
+    func normalizedOrderDedupesDuplicateIds() {
+        let id = UUID()
+        let first = ChecklistItem(id: id, title: "First")
+        let second = ChecklistItem(id: id, title: "Second")
+        let checklist = Checklist(items: [first, second], itemOrder: [id, id])
+
+        let normalized = checklist.normalizedOrder()
+        #expect(normalized.itemOrder == [id])
+        #expect(normalized.items.map(\.id) == [id])
+        #expect(normalized.items.first?.title == "First", "the first occurrence is kept")
+    }
+
+    @Test
+    func decodeWithDuplicateItemIdsIsTotal() throws {
+        let id = UUID()
+        let json = Data(#"{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(id.uuidString)","title":"Milk"},{"id":"\#(id.uuidString)","title":"Cheese"}]}"#.utf8)
+
+        // Decode must not trap on a hand-corrupted payload; the duplicate is deduped.
+        let decoded = try JSONDecoder().decode(Checklist.self, from: json)
+        #expect(decoded.itemOrder == [id])
+        #expect(decoded.items.map(\.title) == ["Milk"])
+    }
+
+    @Test
     func normalizedOrderAppendsMissingItem() {
         let a = ChecklistItem(id: UUID(), title: "A")
         let b = ChecklistItem(id: UUID(), title: "B")

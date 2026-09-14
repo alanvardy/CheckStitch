@@ -156,7 +156,9 @@ enum ChecklistMerge {
     /// Rebuilds `items` in the reconciled id order. `order` is exactly the set of
     /// merged item ids, so nothing is dropped.
     private static func reorder(_ items: [ChecklistItem], to order: [UUID]) -> [ChecklistItem] {
-        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        // Same defensive build as `Checklist.normalizedOrder()`: never trap on a
+        // duplicate id, keep the first occurrence.
+        let byID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return order.compactMap { byID[$0] }
     }
 

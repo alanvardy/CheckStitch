@@ -144,7 +144,9 @@ extension Checklist {
     /// mutation that touches `items`.
     public func normalizedOrder() -> Checklist {
         var copy = self
-        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        // `uniquingKeysWith` keeps this total on hand-corrupted payloads: decode
+        // must never trap, and duplicate ids are deduped by `seen` below anyway.
+        let byID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var order: [UUID] = []
         var seen = Set<UUID>()
         for id in itemOrder where byID[id] != nil && seen.insert(id).inserted {
