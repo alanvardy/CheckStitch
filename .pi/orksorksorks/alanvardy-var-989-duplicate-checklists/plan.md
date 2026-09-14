@@ -304,9 +304,9 @@ non-English-differs canary from these fixtures.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes, including `LocalizationTests` presence and
+- [x] `make test-unit` passes, including `LocalizationTests` presence and
       non-English-differs checks for the three new keys
-- [ ] `make build` passes
+- [x] `make build` passes
 
 #### Manual
 - [ ] Open the alert on a device/simulator set to a non-English language and
