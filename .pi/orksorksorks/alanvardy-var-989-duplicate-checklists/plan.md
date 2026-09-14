@@ -319,7 +319,7 @@ non-English-differs canary from these fixtures.
 ## Final verification (after all phases, by the parent)
 
 #### Automated
-- [ ] `bash scripts/test.sh` prints `gate: ok` (iOS sim build → simulator
+- [x] `bash scripts/test.sh` prints `gate: ok` (iOS sim build → simulator
       pre-boot → `make test` → `make build-mac` → `make watch-build` → shell
       tests → `shellcheck`)
 
