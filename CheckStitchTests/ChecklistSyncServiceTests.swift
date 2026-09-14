@@ -100,6 +100,26 @@ struct ChecklistSyncServiceTests {
     }
 
     @Test
+    func descriptionSurvivesMergeAndPush() async throws {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let sync = InMemoryChecklistSync()
+        let service = makeService(sync: sync, store: store)
+        let item = ChecklistItem(title: "Milk", description: "2 litres")
+        let remote = Checklist(name: "Groceries", items: [item])
+        sync.stored = try ChecklistCodec.encode(ChecklistEnvelope(deviceID: "device-b", checklists: [remote]))
+
+        let outcome = await service.reconcile()
+
+        #expect(outcome == .synced)
+        #expect(store.checklists.first?.items.first?.description == "2 litres")
+        let pushed = try #require(sync.stored)
+        #expect(ChecklistCodec.decode(pushed).first?.items.first?.description == "2 litres", "the pushed envelope carries the description")
+    }
+
+    @Test
     func bothNonEmptyMergeAndPush() async {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

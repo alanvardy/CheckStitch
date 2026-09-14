@@ -436,8 +436,8 @@ func descriptionSurvivesTheWatchTransport() throws {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] Description bytes survive an `encode` → `classify` → `decode` round trip in both the merge and watch-context tests
+- [x] `make test-unit` passes
+- [x] Description bytes survive an `encode` → `classify` → `decode` round trip in both the merge and watch-context tests
 
 #### Manual
 - [ ] `git diff --name-only` for this stage lists only `CheckStitchTests/` files
