@@ -897,8 +897,8 @@ unit-tested in `errorMessagesDescribeEachFailure`.
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make test-ui` passes
+- [x] `make test-unit` passes
+- [x] `make test-ui` passes
 #### Manual
 - [ ] `make run` → pick a list for a checklist → delete that list in Reminders.app → run the checklist → the alert appears and Reminders.app shows zero new reminders (no green checkmark)
 - [ ] Deny Reminders access → run a checklist → the permission alert appears, no green checkmark
