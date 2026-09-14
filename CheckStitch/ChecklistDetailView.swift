@@ -25,6 +25,10 @@ struct ChecklistDetailView: View {
     /// Buffered copy name for that alert, seeded from the source name when the
     /// alert is raised.
     @State private var duplicateDraftName = ""
+    @State private var reminderLists: [ReminderListOption] = []
+    /// True when Reminders access was denied, threw, or returned no lists: the
+    /// picker degrades to the default-only row with an explanatory note.
+    @State private var destinationUnavailable = false
 
     var body: some View {
         if let checklist = store.checklist(id: checklistID) {
@@ -32,6 +36,21 @@ struct ChecklistDetailView: View {
                 Section("Checklist name") {
                     TextField("Name", text: $draftName)
                         .accessibilityIdentifier("checklistNameField")
+                }
+                Section("Destination list") {
+                    Picker("List", selection: destinationBinding(checklistID: checklistID)) {
+                        Text("Default (Inbox)").tag(String?.none)
+                        ForEach(reminderLists) { list in
+                            Text(list.title).tag(String?.some(list.id))
+                        }
+                    }
+                    .accessibilityIdentifier("destinationListPicker")
+
+                    if destinationUnavailable {
+                        Text("Reminders access is unavailable, so reminders go to the default list.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Section("Items") {
                     ForEach(checklist.items) { item in
@@ -94,6 +113,7 @@ struct ChecklistDetailView: View {
                 guard !didLoadDraft else { return }
                 draftName = checklist.name
                 didLoadDraft = true
+                Task { await loadReminderLists() }
             }
             .onDisappear {
                 // Leaving without Done still keeps a valid edit; a conflicting
@@ -163,6 +183,33 @@ struct ChecklistDetailView: View {
                 store.checklist(id: checklistID)?.items.first { $0.id == itemID }?.title ?? ""
             },
             set: { store.updateItem(checklistID: checklistID, itemID: itemID, title: $0) }
+        )
+    }
+
+    /// Enumerates the Reminders lists for the picker. Denied access, a thrown
+    /// error, or an empty enumeration leaves the default-only row plus the note.
+    private func loadReminderLists() async {
+        let destination = EventKitReminderDestination.shared
+        do {
+            guard try await destination.requestAccess() else {
+                destinationUnavailable = true
+                return
+            }
+            let snapshot = try await destination.reminderLists()
+            reminderLists = snapshot.options
+            destinationUnavailable = snapshot.options.isEmpty
+        } catch {
+            destinationUnavailable = true
+        }
+    }
+
+    /// Per-selection write through the store (Phase 2). `nil` is the "Default
+    /// (Inbox)" row. `.notFound` (deleted while this screen was open) is ignored,
+    /// matching `commitDraftIfChanged`.
+    private func destinationBinding(checklistID: UUID) -> Binding<String?> {
+        Binding(
+            get: { store.checklist(id: checklistID)?.destinationListIdentifier },
+            set: { store.setDestination($0, for: checklistID) }
         )
     }
 }
