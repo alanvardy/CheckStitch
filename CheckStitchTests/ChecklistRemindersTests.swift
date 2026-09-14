@@ -95,6 +95,46 @@ struct ChecklistRemindersTests {
     }
 
     @Test
+    func notesForwardDescription() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("Milk", description: "2 litres"), makeItem("Eggs", description: "a dozen")],
+            destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdNotes == ["2 litres", "a dozen"])
+    }
+
+    @Test
+    func blankDescriptionSendsNilNotes() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(spy.createdNotes == [nil])
+    }
+
+    /// Sad path: the existing denial/missing-destination guards still create
+    /// nothing, so no notes can leak.
+    @Test
+    func deniedAccessNeverSendsNotes() async {
+        let spy = SpyReminderDestination()
+        spy.accessGranted = false
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk", description: "2 litres")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .permissionDenied)
+        #expect(spy.createdNotes.isEmpty)
+    }
+
+    @Test
     func saveFailureReturnsFailed() async {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()

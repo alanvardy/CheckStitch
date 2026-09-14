@@ -56,6 +56,7 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
     var lists = ReminderListsSnapshot(options: [], defaultIdentifier: nil)
     var createError: Error?
     private(set) var createdTitles: [String] = []
+    private(set) var createdNotes: [String?] = []
     private(set) var createdListIDs: [String] = []
 
     func requestAccess() async throws -> Bool {
@@ -65,9 +66,10 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
 
     func reminderLists() async throws -> ReminderListsSnapshot { lists }
 
-    func create(title: String, in list: ReminderListOption) async throws {
+    func create(title: String, notes: String?, in list: ReminderListOption) async throws {
         if let createError { throw createError }
         createdTitles.append(title)
+        createdNotes.append(notes)
         createdListIDs.append(list.id)
     }
 }

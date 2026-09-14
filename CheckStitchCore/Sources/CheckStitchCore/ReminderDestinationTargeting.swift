@@ -80,5 +80,5 @@ public enum ReminderRunOutcome: Equatable, Sendable {
 public protocol ReminderDestinationTargeting {
     func requestAccess() async throws -> Bool
     func reminderLists() async throws -> ReminderListsSnapshot
-    func create(title: String, in list: ReminderListOption) async throws
+    func create(title: String, notes: String?, in list: ReminderListOption) async throws
 }
