@@ -46,7 +46,7 @@ enum LocalizationFixtures {
             "System",
             "This removes the checklist and all its items.",
         ]),
-        ("Core", ["System", "Light", "Dark"]),
+        ("Core", ["System", "Light", "Dark", "Version %@ (%@)", "Version %@"]),
         ("Watch", [
             "No checklists",
             "Open CheckStitch on your iPhone.",
@@ -84,6 +84,8 @@ enum LocalizationFixtures {
         ExclusionEntry(catalog: "App", key: "OK"),
         // percent format string is locale-invariant
         ExclusionEntry(catalog: "App", key: "%lld%%"),
+        // de/fr "Version" — same spelling as English
+        ExclusionEntry(catalog: "Core", key: "Version %@"),
     ]
 
     /// Keys that are absent or empty in `plist`. Extracted so the incomplete-plist
