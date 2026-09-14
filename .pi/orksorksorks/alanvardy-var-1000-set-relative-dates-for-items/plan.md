@@ -791,7 +791,7 @@ func create(title: String, dueDateComponents: DateComponents?) async throws {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
+- [x] `make test-unit` passes
 - [ ] `bash scripts/test.sh` passes (compiles both reminder paths + watch leg)
 
 #### Manual

@@ -167,4 +167,31 @@ struct ChecklistRemindersTests {
         #expect(ReminderRunOutcome.permissionDenied.errorMessage != nil)
         #expect(ReminderRunOutcome.failed("boom").errorMessage == "boom")
     }
+
+    /// Parity for the live path: the run orchestrator must pass the item's
+    /// date-only components to the seam. The real `Date()` today is not pinned,
+    /// so only structural properties are asserted — present and time-less when
+    /// the item carries a relative date, absent when it has none.
+    @Test
+    func relativeDatesCarryToTheSeam() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [
+                ChecklistItem(title: "Milk", relativeDate: 0),
+                makeItem("Eggs"),
+            ],
+            destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 2))
+        guard let date = spy.createdDates[0] else {
+            Issue.record("expected a date on the relative-date item")
+            return
+        }
+        #expect(date.hour == nil, "the live path passes date-only components")
+        #expect(date.minute == nil)
+        #expect(spy.createdDates[1] == nil)
+    }
 }

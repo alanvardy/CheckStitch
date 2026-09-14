@@ -29,20 +29,24 @@ final class SpyReminderCreator: ReminderCreating {
     var accessGranted = true
     var accessError: Error?
     var createError: Error?
-    /// Invoked at the start of every `create(title:)` — lets a suite observe
-    /// view-model state while the work is in flight.
+    /// Invoked at the start of every `create(title:, dueDateComponents:)` —
+    /// lets a suite observe view-model state while the work is in flight.
     var onCreate: (() -> Void)?
-    private(set) var createdTitles: [String] = []
+    /// Records every created reminder's title and date. `createdTitles` remains
+    /// a computed shim so existing assertions (Creator + ViewModel suites) stay
+    /// valid.
+    private(set) var createdItems: [(title: String, dueDateComponents: DateComponents?)] = []
+    var createdTitles: [String] { createdItems.map { $0.title } }
 
     func requestAccess() async throws -> Bool {
         if let accessError { throw accessError }
         return accessGranted
     }
 
-    func create(title: String) async throws {
+    func create(title: String, dueDateComponents: DateComponents?) async throws {
         if let createError { throw createError }
         onCreate?()
-        createdTitles.append(title)
+        createdItems.append((title: title, dueDateComponents: dueDateComponents))
     }
 }
 
@@ -66,12 +70,17 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
 
     func reminderLists() async throws -> ReminderListsSnapshot { lists }
 
-    func create(title: String, notes: String?, in list: ReminderListOption) async throws {
+    func create(title: String, notes: String?, in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {
         if let createError { throw createError }
         createdTitles.append(title)
         createdNotes.append(notes)
         createdListIDs.append(list.id)
+        createdDates.append(dueDateComponents)
     }
+
+    /// The date (or `nil`) passed to each `create`. Index-aligned with
+    /// `createdTitles` and `createdListIDs`.
+    private(set) var createdDates: [DateComponents?] = []
 }
 
 /// Test double for `ChecklistSyncing`: in-memory bytes, recorded writes, and a
