@@ -6,12 +6,13 @@ import os
 /// and `revision` carry the sync identity the merge compares; both are
 /// optional on decode so v1 payloads (which carried no sync state) still load.
 public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
-    public init(id: UUID = UUID(), title: String, description: String = "", modifiedAt: Date = .distantPast, revision: Int = 0) {
+    public init(id: UUID = UUID(), title: String, description: String = "", modifiedAt: Date = .distantPast, revision: Int = 0, relativeDate: Int? = nil) {
         self.id = id
         self.title = title
         self.description = description
         self.modifiedAt = modifiedAt
         self.revision = revision
+        self.relativeDate = relativeDate
     }
 
     public let id: UUID
@@ -19,6 +20,10 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     public var description: String
     public var modifiedAt: Date
     public var revision: Int
+    /// Days from today (0 = today, 1 = tomorrow, negative = past); `nil` = no date.
+    /// No time-of-day support. Not clamped — the arithmetic in
+    /// `ChecklistItem+DueDate.swift` is the only consumer.
+    public var relativeDate: Int?
 
     /// True when the item carries description text. The stored value is
     /// preserved verbatim (matching `title`), so surrounding whitespace on real
@@ -35,7 +40,7 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, description, modifiedAt, revision }
+    private enum CodingKeys: String, CodingKey { case id, title, description, modifiedAt, revision, relativeDate }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -46,6 +51,8 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
         modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? .distantPast
         revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
+        // Absent in v2-and-earlier payloads and in `nil`-valued current payloads.
+        relativeDate = try container.decodeIfPresent(Int.self, forKey: .relativeDate)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -55,6 +62,14 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         try container.encode(description, forKey: .description)
         try container.encode(modifiedAt, forKey: .modifiedAt)
         try container.encode(revision, forKey: .revision)
+        // Write the key unconditionally, matching the "encoder writes every key"
+        // invariant. `encode` on an `Int?` may omit the key depending on overload
+        // resolution, so be explicit.
+        if let relativeDate {
+            try container.encode(relativeDate, forKey: .relativeDate)
+        } else {
+            try container.encodeNil(forKey: .relativeDate)
+        }
     }
 }
 
