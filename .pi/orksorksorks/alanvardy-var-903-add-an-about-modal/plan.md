@@ -468,9 +468,9 @@ keeping the list's existing ordering (`About` alongside the other `A` keys,
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (new `AboutViewTests`, extended `ViewRenderTests`,
+- [x] `make test-unit` passes (new `AboutViewTests`, extended `ViewRenderTests`,
       and `LocalizationTests` over the three new App keys).
-- [ ] `make build` succeeds (simulator compile of the app target with the new
+- [x] `make build` succeeds (simulator compile of the app target with the new
       view and row).
 
 #### Manual
@@ -484,7 +484,7 @@ keeping the list's existing ordering (`About` alongside the other `A` keys,
       (`make build-mac-signed`) rather than vertically centring.
 
 #### Commit
-- [ ] One commit: `git commit -m "Add About screen and Settings row (VAR-903)"`
+- [x] One commit: `git commit -m "Add About screen and Settings row (VAR-903)"`
 
 ---
 

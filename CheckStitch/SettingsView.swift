@@ -40,6 +40,15 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settingsBackgroundRow")
                 }
+
+                Section {
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Label("About", systemImage: "info.circle")
+                    }
+                    .accessibilityIdentifier("settingsAboutRow")
+                }
             }
             .navigationTitle("Settings")
             .toolbarTitleDisplayMode(.inline)
