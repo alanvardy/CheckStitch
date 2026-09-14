@@ -19,6 +19,12 @@ struct ChecklistDetailView: View {
     @State private var draftName = ""
     @State private var didLoadDraft = false
     @State private var isNameConflictPresented = false
+    /// The duplicate flow asks for the copy's name first, so the button only
+    /// raises this alert and never creates anything itself.
+    @State private var isDuplicatePresented = false
+    /// Buffered copy name for that alert, seeded from the source name when the
+    /// alert is raised.
+    @State private var duplicateDraftName = ""
 
     var body: some View {
         if let checklist = store.checklist(id: checklistID) {
@@ -42,6 +48,15 @@ struct ChecklistDetailView: View {
                         Label("Add Item", systemImage: "plus.circle.fill")
                     }
                     .accessibilityIdentifier("addItemButton")
+                    .checkStitchButton()
+
+                    Button {
+                        duplicateDraftName = ChecklistStore.duplicateName(basedOn: checklist.name)
+                        isDuplicatePresented = true
+                    } label: {
+                        Label("Duplicate Checklist", systemImage: "doc.on.doc")
+                    }
+                    .accessibilityIdentifier("duplicateChecklistButton")
                     .checkStitchButton()
 
                     Button(role: .destructive) {
@@ -83,6 +98,18 @@ struct ChecklistDetailView: View {
                     .accessibilityIdentifier("renameNameConflictButton")
             } message: {
                 Text("Another checklist already uses \(draftName) — choose a different name.")
+            }
+            .alert("Duplicate Checklist", isPresented: $isDuplicatePresented) {
+                TextField("Name", text: $duplicateDraftName)
+                    .accessibilityIdentifier("duplicateChecklistNameField")
+                Button("Cancel", role: .cancel) {}
+                    .accessibilityIdentifier("cancelDuplicateChecklistButton")
+                Button("Duplicate") {
+                    store.duplicate(id: checklistID, name: duplicateDraftName)
+                }
+                .accessibilityIdentifier("confirmDuplicateChecklistButton")
+            } message: {
+                Text("Creates a copy with the same items.")
             }
             .confirmationDialog("Remove Checklist", isPresented: $isRemoveConfirmPresented) {
                 Button("Cancel", role: .cancel) {}
