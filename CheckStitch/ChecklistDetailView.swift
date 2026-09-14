@@ -47,7 +47,11 @@ struct ChecklistDetailView: View {
                     .accessibilityIdentifier("destinationListPicker")
 
                     if destinationUnavailable {
-                        Text("Reminders access is unavailable, so reminders go to the default list.")
+                        Text("Reminder lists aren't available, so a destination can't be chosen here.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else if destinationIsStale {
+                        Text("The previously selected list no longer exists. Choose another list or Default (Inbox).")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -201,6 +205,16 @@ struct ChecklistDetailView: View {
         } catch {
             destinationUnavailable = true
         }
+    }
+
+    /// True when the stored destination is no longer among the enumerated lists
+    /// (deleted in Reminders while this screen was open), so the picker would
+    /// otherwise render no selection without explanation.
+    private var destinationIsStale: Bool {
+        guard !destinationUnavailable,
+              let destination = store.checklist(id: checklistID)?.destinationListIdentifier
+        else { return false }
+        return !reminderLists.contains { $0.id == destination }
     }
 
     /// Per-selection write through the store (Phase 2). `nil` is the "Default

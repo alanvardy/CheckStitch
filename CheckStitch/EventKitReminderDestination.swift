@@ -49,5 +49,7 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
 enum ReminderDestinationError: LocalizedError {
     case listMissing
 
-    var errorDescription: String? { "That list no longer exists; no reminders were created." }
+    /// Distinct from `ReminderRunOutcome.destinationMissing`'s message: this is
+    /// thrown mid-loop (TOCTOU), so earlier items may already have been created.
+    var errorDescription: String? { "That list no longer exists, so some reminders may not have been created." }
 }

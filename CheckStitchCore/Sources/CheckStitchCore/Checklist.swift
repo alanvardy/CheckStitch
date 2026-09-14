@@ -46,9 +46,10 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
 /// A named collection of items that can be turned into reminders.
 ///
 /// `modifiedAt`/`revision` describe the checklist record itself, not its items:
-/// only a rename bumps them (`ChecklistStore.addItem`/`updateItem`/
-/// `removeItems` do not), so checklist-level last-write-wins decides the name
-/// while items merge independently on their own `modifiedAt`/`revision`.
+/// a rename or a destination change bumps them (`ChecklistStore.addItem`/
+/// `updateItem`/`removeItems` do not), so checklist-level last-write-wins
+/// decides the name and destination while items merge independently on their
+/// own `modifiedAt`/`revision`.
 public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public init(
         id: UUID = UUID(), name: String = "New checklist", items: [ChecklistItem] = [],
