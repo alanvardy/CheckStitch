@@ -1,5 +1,5 @@
 import CheckStitchCore
-import EventKit
+import Foundation
 import os
 
 enum ChecklistReminders {
