@@ -859,5 +859,44 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertTrue(store.checklists.isEmpty)
         XCTAssertEqual(changes, 0, "an unknown id must not schedule a save")
     }
+
+    func testSetDestinationUpdatesRevisionAndPersists() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        clock.now = Date(timeIntervalSince1970: 5)
+
+        XCTAssertEqual(store.setDestination("list-a", for: created.id), .updated)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.destinationListIdentifier, "list-a")
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.revision, 2)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.modifiedAt, clock.now)
+    }
+
+    func testSetDestinationClearsToDefaultWithNil() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.setDestination("list-a", for: created.id)
+
+        XCTAssertEqual(store.setDestination(nil, for: created.id), .updated)
+
+        XCTAssertNil(makeStore(defaults: suite.defaults).checklist(id: created.id)?.destinationListIdentifier)
+    }
+
+    /// Sad path: an id deleted while its edit screen was on the stack changes
+    /// nothing and reports not-found.
+    func testSetDestinationForUnknownChecklistReturnsNotFound() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+
+        XCTAssertEqual(store.setDestination("list-a", for: UUID()), .notFound)
+        XCTAssertTrue(store.checklists.isEmpty)
+    }
 }
 
