@@ -122,11 +122,12 @@ final class ChecklistStore {
     /// (new `UUID`, revision 1), under a name disambiguated by the same
     /// machinery `create` uses, so a duplicate always succeeds. Returns `nil`
     /// when the source no longer exists, mirroring `delete(id:)`'s silent
-    /// no-op. A blank name falls back to the offered default.
+    /// no-op. A blank (whitespace- or newline-only) name falls back to the
+    /// offered default.
     @discardableResult
     func duplicate(id: UUID, name: String) -> Checklist? {
         guard let source = checklists.first(where: { $0.id == id }) else { return nil }
-        let requested = name.trimmingCharacters(in: CharacterSet.whitespaces).isEmpty
+        let requested = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? Self.duplicateName(basedOn: source.name)
             : name
         let copy = Checklist(
