@@ -582,9 +582,9 @@ func deniedAccessNeverSendsNotes() async {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make build-mac` passes (protocol conformance compiles on macOS)
-- [ ] `grep -rn "func create(title:" CheckStitch CheckStitchCore CheckStitchTests` shows only the two conformances with the new signature
+- [x] `make test-unit` passes
+- [x] `make build-mac` passes (protocol conformance compiles on macOS)
+- [x] `grep -rn "func create(title:" CheckStitch CheckStitchCore CheckStitchTests` shows only the two conformances with the new signature
 
 #### Manual
 - [ ] `grep -n "ChecklistCreator" CheckStitch/ContentView.swift CheckStitch/MyApp.swift` shows no production call site (unchanged)

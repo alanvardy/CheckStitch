@@ -23,7 +23,10 @@ enum ChecklistReminders {
             }
             var created = 0
             for item in checklist.items where !item.isBlank {
-                try await targeting.create(title: item.title, in: destination)
+                try await targeting.create(
+                    title: item.title,
+                    notes: item.description.isEmpty ? nil : item.description,
+                    in: destination)
                 created += 1
             }
             return .created(count: created)

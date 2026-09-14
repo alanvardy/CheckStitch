@@ -27,7 +27,7 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
             defaultIdentifier: eventStore.defaultCalendarForNewReminders()?.calendarIdentifier)
     }
 
-    func create(title: String, in list: ReminderListOption) async throws {
+    func create(title: String, notes: String?, in list: ReminderListOption) async throws {
         // Re-resolve by identifier: a list deleted between pre-validation and
         // creation must throw rather than silently fall back to a nil calendar.
         guard let calendar = eventStore.calendars(for: .reminder)
@@ -36,6 +36,7 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
 
         let reminder = EKReminder(eventStore: eventStore)
         reminder.title = title
+        if let notes { reminder.notes = notes }   // nil leaves notes unset
         reminder.calendar = calendar
         // watchOS EventKit is read-only; the watch never reaches this adapter.
         #if !os(watchOS)
