@@ -88,9 +88,9 @@ Record, each with the command that produced it:
 ### Verification
 
 #### Automated
-- [ ] `codesign -d --entitlements - --xml DerivedData/Build/Products/Debug/CheckStitch.app | grep -c "com.apple.security.network.client"` prints `0`
-- [ ] `grep -c "ENABLE_APP_SANDBOX = YES;" CheckStitch.xcodeproj/project.pbxproj` prints `2`
-- [ ] `grep -c "ENABLE_OUTGOING_NETWORK_CONNECTIONS" CheckStitch.xcodeproj/project.pbxproj` prints `0`
+- [x] `codesign -d --entitlements - --xml DerivedData/Build/Products/Debug/CheckStitch.app | grep -c "com.apple.security.network.client"` prints `0`
+- [x] `grep -c "ENABLE_APP_SANDBOX = YES;" CheckStitch.xcodeproj/project.pbxproj` prints `2`
+- [x] `grep -c "ENABLE_OUTGOING_NETWORK_CONNECTIONS" CheckStitch.xcodeproj/project.pbxproj` prints `0`
 
 #### Manual
 - [ ] `make build-mac-signed`, then `open DerivedData/Build/Products/Debug/CheckStitch.app`:
