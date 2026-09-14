@@ -251,7 +251,7 @@ func testSetDestinationForUnknownChecklistReturnsNotFound() {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
+- [x] `make test-unit` passes
 #### Manual
 - [ ] None (covered by reload assertion in `testSetDestinationUpdatesRevisionAndPersists`)
 

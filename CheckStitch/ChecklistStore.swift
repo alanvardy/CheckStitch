@@ -13,6 +13,13 @@ final class ChecklistStore {
         case notFound
     }
 
+    /// Whether a `setDestination(_:for:)` call was applied or aimed at an id that
+    /// no longer exists (deleted while its edit screen was visible).
+    enum SetDestinationOutcome: Equatable {
+        case updated
+        case notFound
+    }
+
     private(set) var checklists: [Checklist]
     /// Persisted deletion records, unioned by `ChecklistMerge`. There is no
     /// retention/GC yet, so this only grows; it is bounded in practice by human
@@ -157,6 +164,19 @@ final class ChecklistStore {
         checklists[index].modifiedAt = now()
         scheduleSave()
         return .renamed
+    }
+
+    /// Points a checklist at a Reminders list (`nil` = system default) and reports
+    /// whether it applied. Follows `rename`: bump revision + `modifiedAt`, then
+    /// persist through the coalescing path.
+    @discardableResult
+    func setDestination(_ identifier: String?, for id: UUID) -> SetDestinationOutcome {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
+        checklists[index].destinationListIdentifier = identifier
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
+        scheduleSave()
+        return .updated
     }
 
     /// The first free name in the sequence `base`, `base 2`, `base 3`, …, so a
