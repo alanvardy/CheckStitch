@@ -1,0 +1,11 @@
+# Done
+
+- **Branch / head SHA**: `alanvardy-var-991-set-destination-list-for-checklist` @ `a40ed85` (review-fix commit on top of `f13d60b`); rebased on `main`, pushed to origin.
+- **Mechanical checks**: `./scripts/test.sh` → `gate: ok` — simulator build, macOS unit + UI tests, `make build-mac`, `make watch-build`, `scripts/tests/run.sh` (16/16), `shellcheck`. Gate re-run after the review fixes and green. Textual `xcodebuild` output contained no new warnings of note; the only warning is the pre-existing AppIntents "no AppIntents.framework dependency" metadata note.
+- **Review outcome**: one fresh-context bounded reviewer, no blockers. Merge winner semantics, pre-validate-then-create (zero reminders on missing/denied/failed), and Picker robustness all verified against the diff. Fixes worth doing now were applied (`[2]` — fixes + optional):
+  - Reworded the detail-screen unavailable note (no longer claims reminders go to the default list) and added a stale-selection note when the stored destination is no longer in the enumerated lists (`ChecklistDetailView.swift`).
+  - Split the error text: the adapter's mid-loop TOCTOU `listMissing` no longer claims no reminders were created; the core `.destinationMissing` (pre-validation) keeps the all-or-nothing wording (`EventKitReminderDestination.swift`, `ReminderDestinationTargeting.swift`).
+  - Replaced the now-transitive `import EventKit` with an explicit `import Foundation` in `ChecklistReminders.swift` (MemberImportVisibility requires it) and refreshed the stale `Checklist` doc comment.
+  - Added missing trailing newlines to 7 files.
+  - Declined: merge nil-clobbering by older peers / no version bump (accepted in `design.md` decision 4); concurrency, watchOS guard, per-item re-enumeration (reviewer confirmed correct/deliberate).
+- **Remaining manual items**: the plan's device verification, which the automated gate cannot cover — (1) run a checklist with an explicit list and confirm the reminder lands there; (2) rename that list and re-run (identifier, not title, is identity); (3) delete the list and run → alert + zero reminders; (4) deny Reminders access → permission alert, no green checkmark; (5) picker persists the destination across relaunch.
