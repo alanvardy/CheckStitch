@@ -20,6 +20,9 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     @State private var backgroundImage = BackgroundImageStore()
     @State private var settingsBag: SettingsBindings?
+    /// Message for the run-failure alert; `nil` hides it. Set only when a run
+    /// produced no reminders (missing destination, permission, or a thrown error).
+    @State private var runErrorMessage: String?
 
     var body: some View {
         ZStack {
@@ -121,6 +124,15 @@ struct ContentView: View {
         }
         .onChange(of: backgroundPinned) { _, pin in
             Task { await backgroundImage.setPinned(pin) }
+        }
+        .alert("Couldn't create reminders", isPresented: Binding(
+            get: { runErrorMessage != nil },
+            set: { if !$0 { runErrorMessage = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+                .accessibilityIdentifier("runErrorMessageButton")
+        } message: {
+            Text(runErrorMessage ?? "")
         }
     }
 
@@ -309,12 +321,18 @@ struct ContentView: View {
             // Hold the spinner for at least a second so saving quickly
             // doesn't flash the progress feedback past the user.
             async let minimumSpinner: Void = Task.sleep(for: .seconds(1))
-            await ChecklistReminders.create(from: checklist)
+            let outcome = await ChecklistReminders.create(from: checklist)
             try? await minimumSpinner
             creating.remove(id)
-            created.insert(id)
-            try? await Task.sleep(for: .seconds(1))
-            created.remove(id)
+            switch outcome {
+            case .created:
+                created.insert(id)
+                try? await Task.sleep(for: .seconds(1))
+                created.remove(id)
+            case .destinationMissing, .permissionDenied, .failed:
+                // Never flash success: nothing was created (or the run failed).
+                runErrorMessage = outcome.errorMessage
+            }
         }
     }
 }
