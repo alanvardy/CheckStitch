@@ -490,7 +490,7 @@ keeping the list's existing ordering (`About` alongside the other `A` keys,
 
 ## Final gate (parent, after both phases)
 
-- [ ] `bash scripts/test.sh` prints `gate: ok` (simulator build → `make test`
+- [x] `bash scripts/test.sh` prints `gate: ok` (simulator build → `make test`
       incl. the UI smoke → `make build-mac` → `make watch-build` → shell tests →
       shellcheck). Run once, after both phase commits.
 - [ ] Open the PR into `main` (never push directly to `main`); merge only with
