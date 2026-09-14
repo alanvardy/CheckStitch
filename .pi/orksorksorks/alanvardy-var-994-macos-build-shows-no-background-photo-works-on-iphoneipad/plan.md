@@ -229,9 +229,9 @@ by the iOS and watch slices and must not gain a macOS-sandbox key.
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` prints `gate: ok`
+- [x] `bash scripts/test.sh` prints `gate: ok`
       (simulator build → UI smoke → unsigned macOS leg → watchOS leg → shell tests → shellcheck)
-- [ ] `git diff --stat` shows no change under `CheckStitch/*.swift` (build config + shell test only)
+- [x] `git diff --stat` shows no change under `CheckStitch/*.swift` (build config + shell test only)
 
 #### Manual
 - [ ] `make build-mac-signed` + launch: photo renders behind the content, at
