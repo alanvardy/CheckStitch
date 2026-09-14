@@ -29,4 +29,39 @@ struct ChecklistItemTests {
         #expect(decoded == item)
         #expect(decoded.id == item.id)
     }
+
+    @Test
+    func checklistDecodeDefaultsToDerivedOrder() throws {
+        let first = UUID()
+        let second = UUID()
+        let json = Data(#"{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(first.uuidString)","title":"Milk"},{"id":"\#(second.uuidString)","title":"Eggs"}]}"#.utf8)
+
+        let decoded = try JSONDecoder().decode(Checklist.self, from: json)
+        #expect(decoded.itemOrder == [first, second])
+        #expect(decoded.orderRevision == 0)
+        #expect(decoded.orderModifiedAt == .distantPast)
+    }
+
+    @Test
+    func normalizedOrderRepairsDrift() {
+        let a = ChecklistItem(id: UUID(), title: "A")
+        let b = ChecklistItem(id: UUID(), title: "B")
+        let checklist = Checklist(items: [a, b], itemOrder: [b.id])
+
+        let normalized = checklist.normalizedOrder()
+        #expect(normalized.itemOrder == [b.id, a.id])
+        #expect(normalized.items.map(\.id) == [b.id, a.id])
+    }
+
+    @Test
+    func normalizedOrderAppendsMissingItem() {
+        let a = ChecklistItem(id: UUID(), title: "A")
+        let b = ChecklistItem(id: UUID(), title: "B")
+        let c = ChecklistItem(id: UUID(), title: "C")
+        let checklist = Checklist(items: [a, b, c], itemOrder: [a.id, c.id])
+
+        let normalized = checklist.normalizedOrder()
+        #expect(normalized.itemOrder == [a.id, c.id, b.id])
+        #expect(normalized.items.map(\.id) == [a.id, c.id, b.id])
+    }
 }

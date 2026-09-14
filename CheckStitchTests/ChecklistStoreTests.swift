@@ -306,6 +306,9 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklists.count, 1)
         XCTAssertEqual(store.checklists.first?.revision, 1)
         XCTAssertEqual(store.checklists.first?.items.first?.revision, 1)
+        // Ordering is seeded from the record's own sync state, granting no win.
+        XCTAssertEqual(store.checklists.first?.orderRevision, 1)
+        XCTAssertEqual(store.checklists.first?.itemOrder, store.checklists.first?.items.map(\.id))
 
         // The migrated payload is savable, not stalled in memory.
         store.create()
@@ -325,7 +328,7 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertFalse(first.deviceID.isEmpty)
     }
 
-    func testNewPayloadIsVersionTwo() {
+    func testNewPayloadIsVersionThree() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
@@ -337,7 +340,31 @@ final class ChecklistStoreTests: XCTestCase {
             XCTFail("expected the stored payload to classify as loaded")
             return
         }
-        XCTAssertEqual(stored.version, 2)
+        XCTAssertEqual(stored.version, 3)
+    }
+
+    func testV2PayloadIsMigratedAndSavable() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        // A true v2 payload: version 2 with deviceID/tombstones and sync-stamped
+        // records but no order keys — migration seeds the ordering state.
+        let v2 = Data(#"{"version":2,"deviceID":"other-device","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","modifiedAt":1700000000,"revision":2,"items":[{"id":"\#(UUID().uuidString)","title":"Milk","modifiedAt":1700000000,"revision":2}]}]}"#.utf8)
+        suite.defaults.set(v2, forKey: key)
+
+        let store = makeStore(defaults: suite.defaults)
+        let checklist = try? XCTUnwrap(store.checklists.first)
+        XCTAssertEqual(store.checklists.count, 1)
+        XCTAssertGreaterThanOrEqual(checklist?.orderRevision ?? 0, 1, "migration seeds ordering from the checklist's own revision")
+        XCTAssertEqual(checklist?.itemOrder, checklist?.items.map(\.id))
+
+        // The migrated payload is savable, not stalled in memory.
+        store.create()
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.count, 2)
+        XCTAssertEqual(reloaded.checklists.first?.name, "Groceries")
+        XCTAssertGreaterThanOrEqual(reloaded.checklists.first?.orderRevision ?? 0, 1)
     }
 
     func testMutationsStampRevisionAndTimestamp() {
