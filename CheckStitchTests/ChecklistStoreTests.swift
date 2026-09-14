@@ -22,6 +22,19 @@ final class ChecklistStoreTests: XCTestCase {
         ChecklistStore(defaults: defaults, key: key, textEditDelay: nil)
     }
 
+    /// A checklist named "Groceries" whose items carry the given titles in
+    /// order — the smallest fixture that exercises reordering.
+    private func makeItemStore(defaults: UserDefaults, titles: [String]) -> (store: ChecklistStore, checklistID: UUID) {
+        let store = makeStore(defaults: defaults)
+        let checklistID = store.create(name: "Groceries").id
+        for title in titles {
+            store.addItem(to: checklistID)
+            let items = store.checklist(id: checklistID)?.items
+            store.updateItem(checklistID: checklistID, itemID: items?.last?.id ?? UUID(), title: title)
+        }
+        return (store: store, checklistID: checklistID)
+    }
+
     /// Deterministic clock so revision/timestamp assertions are exact.
     private final class Clock { var now = Date(timeIntervalSince1970: 0) }
 
@@ -390,6 +403,189 @@ final class ChecklistStoreTests: XCTestCase {
 
         store.updateItem(checklistID: created.id, itemID: item?.id ?? UUID(), title: "Milk")
         XCTAssertEqual(store.checklist(id: created.id)?.items.first?.revision, 2)
+    }
+
+    // MARK: - moveItems
+
+    func testMoveReordersItemsWithinList() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let (store, checklistID) = makeItemStore(defaults: suite.defaults, titles: ["A", "B", "C"])
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: 2)
+
+        let moved = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertEqual(moved?.items.map(\.title), ["B", "A", "C"])
+        XCTAssertEqual(moved?.itemOrder, moved?.items.map(\.id))
+    }
+
+    func testMoveToEnd() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let (store, checklistID) = makeItemStore(defaults: suite.defaults, titles: ["A", "B", "C"])
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: 3)
+
+        let moved = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertEqual(moved?.items.map(\.title), ["B", "C", "A"])
+    }
+
+    func testMoveOutOfRangeIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let (store, checklistID) = makeItemStore(defaults: suite.defaults, titles: ["A", "B", "C"])
+        let before = try? XCTUnwrap(suite.defaults.data(forKey: key))
+        let orderRevision = store.checklist(id: checklistID)?.orderRevision ?? -1
+
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 9), to: 0)
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: -1)
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: 99)
+
+        let after = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertEqual(after?.items.map(\.title), ["A", "B", "C"])
+        XCTAssertEqual(after?.itemOrder, after?.items.map(\.id) ?? [])
+        XCTAssertEqual(after?.orderRevision, orderRevision)
+        XCTAssertEqual(suite.defaults.data(forKey: key), before)
+    }
+
+    func testMoveUnknownChecklistIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let (store, checklistID) = makeItemStore(defaults: suite.defaults, titles: ["A", "B"])
+        let before = try? XCTUnwrap(suite.defaults.data(forKey: key))
+
+        store.moveItems(checklistID: UUID(), from: IndexSet(integer: 0), to: 1)
+
+        XCTAssertEqual(store.checklists.map(\.id), [checklistID])
+        XCTAssertEqual(suite.defaults.data(forKey: key), before)
+    }
+
+    func testMovePreservesItemIdentity() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let clock = Clock()
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let checklistID = store.create(name: "Groceries").id
+        store.addItem(to: checklistID)
+        store.addItem(to: checklistID)
+        let initial = try? XCTUnwrap(store.checklist(id: checklistID)?.items)
+        store.updateItem(checklistID: checklistID, itemID: initial?[0].id ?? UUID(), title: "A")
+        store.updateItem(checklistID: checklistID, itemID: initial?[1].id ?? UUID(), title: "B")
+
+        clock.now = Date(timeIntervalSince1970: 5_000)
+        let before = try? XCTUnwrap(store.checklist(id: checklistID))
+        let beforeItems = before?.items ?? []
+
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: 1)
+
+        let after = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertEqual(after?.name, before?.name)
+        XCTAssertEqual(after?.revision, before?.revision)
+        XCTAssertEqual(after?.modifiedAt, before?.modifiedAt)
+        let afterByID = Dictionary(uniqueKeysWithValues: (after?.items ?? []).map { ($0.id, $0) })
+        for item in beforeItems {
+            XCTAssertEqual(afterByID[item.id]?.id, item.id)
+            XCTAssertEqual(afterByID[item.id]?.title, item.title, "item \(item.title) kept its text")
+            XCTAssertEqual(afterByID[item.id]?.modifiedAt, item.modifiedAt)
+            XCTAssertEqual(afterByID[item.id]?.revision, item.revision)
+        }
+        XCTAssertEqual(after?.orderRevision, (before?.orderRevision ?? 0) + 1)
+        XCTAssertEqual(after?.orderModifiedAt, clock.now)
+    }
+
+    func testMoveStampsOrderNotChecklist() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 1_000)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let checklistID = store.create(name: "Groceries").id
+        store.addItem(to: checklistID)
+        store.addItem(to: checklistID)
+        let created = try? XCTUnwrap(store.checklist(id: checklistID))
+
+        clock.now = Date(timeIntervalSince1970: 2_000)
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: 1)
+
+        let moved = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertEqual(moved?.orderRevision, (created?.orderRevision ?? 0) + 1)
+        XCTAssertEqual(moved?.orderModifiedAt, clock.now)
+        XCTAssertEqual(moved?.revision, created?.revision, "a reorder is not a checklist edit")
+        XCTAssertEqual(moved?.modifiedAt, created?.modifiedAt)
+    }
+
+    func testMovePersistsAcrossReload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let (store, checklistID) = makeItemStore(defaults: suite.defaults, titles: ["A", "B", "C"])
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: 2)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        let items = try? XCTUnwrap(reloaded.checklist(id: checklistID)?.items)
+        XCTAssertEqual(items?.map(\.title), ["B", "A", "C"])
+        XCTAssertEqual(reloaded.checklist(id: checklistID)?.orderRevision, 1)
+    }
+
+    // MARK: - itemOrder lockstep
+
+    func testAddItemAppendsToItemOrder() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let checklistID = store.create().id
+        store.addItem(to: checklistID)
+
+        let checklist = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertEqual(checklist?.itemOrder, checklist?.items.map(\.id))
+        XCTAssertEqual(checklist?.itemOrder.last, checklist?.items.last?.id)
+    }
+
+    func testRemoveItemsDropsFromItemOrder() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let (store, checklistID) = makeItemStore(defaults: suite.defaults, titles: ["A", "B", "C"])
+        let removedID = store.checklist(id: checklistID)?.items[1].id ?? UUID()
+        store.removeItems(from: checklistID, at: IndexSet(integer: 1))
+
+        let checklist = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertFalse(checklist?.itemOrder.contains(where: { $0 == removedID }) ?? false)
+        XCTAssertEqual(checklist?.itemOrder, checklist?.items.map(\.id) ?? [])
+    }
+
+    func testApplyKeepsItemsAndItemOrderInLockstep() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let (store, checklistID) = makeItemStore(defaults: suite.defaults, titles: ["A", "B"])
+
+        // Remote reorders the checklist with its own winning order metadata and
+        // adds a remote-only item; the merged list stays canonical.
+        let remoteItem = ChecklistItem(title: "Remote", modifiedAt: Date(timeIntervalSince1970: 5_000), revision: 1)
+        let remote = ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: "other-device",
+            checklists: [Checklist(
+                id: checklistID,
+                name: "Groceries",
+                items: [remoteItem],
+                modifiedAt: Date(timeIntervalSince1970: 5_000), revision: 2,
+                itemOrder: [remoteItem.id],
+                orderRevision: 2, orderModifiedAt: Date(timeIntervalSince1970: 5_000))])
+
+        XCTAssertTrue(store.apply(remote: remote))
+        let merged = try? XCTUnwrap(store.checklist(id: checklistID))
+        XCTAssertEqual(merged?.itemOrder, merged?.items.map(\.id) ?? [])
+        XCTAssertEqual(merged?.items.map(\.title), ["Remote", "A", "B"])
+
+        // The identical remote payload is a no-op the second time.
+        XCTAssertFalse(store.apply(remote: remote))
     }
 
     func testDeleteLeavesChecklistTombstone() {

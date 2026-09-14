@@ -520,10 +520,10 @@ defaults + `defer` cleanup, reload via a second store on the same defaults):
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes.
-- [ ] `bash scripts/test.sh` prints `gate: ok` (full simulator + mac + watch +
+- [x] `make test-unit` passes.
+- [x] `bash scripts/test.sh` prints `gate: ok` (full simulator + mac + watch +
   shell-test + shellcheck gate) **before** touching the UI layer.
-- [ ] `rg -n 'func moveItems' CheckStitch/ChecklistStore.swift` confirms the
+- [x] `rg -n 'func moveItems' CheckStitch/ChecklistStore.swift` confirms the
   public API name matches the ticket.
 
 #### Manual
