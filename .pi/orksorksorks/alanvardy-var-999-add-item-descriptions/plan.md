@@ -745,8 +745,8 @@ localization key (description is user data, not a UI string).
 
 ### Verification
 #### Automated
-- [ ] `make watch-build` passes
-- [ ] `bash scripts/test.sh` prints `gate: ok` (sim build → pre-boot → `make test` → `make build-mac` → `make watch-build` → shell tests → shellcheck)
+- [x] `make watch-build` passes
+- [x] `bash scripts/test.sh` prints `gate: ok` (sim build → pre-boot → `make test` → `make build-mac` → `make watch-build` → shell tests → shellcheck)
 
 #### Manual
 - [ ] `bash scripts/run-watch.sh` on the paired watch: a described item shows the title plus a secondary caption; an item with no description shows only the title
