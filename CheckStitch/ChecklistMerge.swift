@@ -81,6 +81,7 @@ enum ChecklistMerge {
                     overRevision: localChecklist.revision, overDate: localChecklist.modifiedAt,
                     overDevice: localDevice) {
                 merged.name = remoteChecklist.name
+                merged.destinationListIdentifier = remoteChecklist.destinationListIdentifier
                 merged.revision = remoteChecklist.revision
                 merged.modifiedAt = remoteChecklist.modifiedAt
             }

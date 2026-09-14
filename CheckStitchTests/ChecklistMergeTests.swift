@@ -360,6 +360,34 @@ struct ChecklistMergeTests {
         #expect(replayRemote.checklists == once.checklists, "replaying the original remote does not change the merge")
         #expect(once.checklists.first?.itemOrder == [a, b, c])
     }
+
+    @Test
+    func winnerDestinationOverwritesLoser() {
+        let id = UUID()
+        let newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2), destination: "list-b")
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1), destination: "list-a")
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [older]),
+            remote: envelope(device: "device-b", checklists: [newer])
+        )
+
+        #expect(merged.checklists.first?.destinationListIdentifier == "list-b", "the newest editor controls the destination")
+    }
+
+    @Test
+    func loserDestinationIsPreservedWhenNonWinning() {
+        let id = UUID()
+        let newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2), destination: "list-b")
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1), destination: "list-a")
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [newer]),
+            remote: envelope(device: "device-b", checklists: [older])
+        )
+
+        #expect(merged.checklists.first?.destinationListIdentifier == "list-b", "an older revision must not leak its destination in")
+    }
 }
 
 @MainActor
@@ -370,8 +398,9 @@ func envelope(device: String, checklists: [Checklist] = [], tombstones: [Checkli
 @MainActor
 func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPast,
     itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast,
-    items: [ChecklistItem] = []) -> Checklist {
-    Checklist(id: id, name: name, items: items, modifiedAt: modifiedAt, revision: revision,
+    items: [ChecklistItem] = [], destination: String? = nil) -> Checklist {
+    Checklist(id: id, name: name, items: items, destinationListIdentifier: destination,
+              modifiedAt: modifiedAt, revision: revision,
               itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
 }
 

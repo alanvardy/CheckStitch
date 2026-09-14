@@ -328,7 +328,7 @@ func loserDestinationIsPreservedWhenNonWinning() {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
+- [x] `make test-unit` passes
 #### Manual
 - [ ] None (both directions asserted by argument-order-swapped cases)
 
