@@ -62,12 +62,13 @@ struct ChecklistDetailView: View {
                 }
                 Section("Items") {
                     ForEach(checklist.items) { item in
-                        VStack(alignment: .leading, spacing: 4) {
-                            TextField("Item", text: titleBinding(checklistID: checklistID, itemID: item.id))
-                            TextField("Description", text: descriptionBinding(checklistID: checklistID, itemID: item.id), axis: .vertical)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .accessibilityIdentifier("itemDescriptionField-\(item.id.uuidString)")
+                        ItemRow(
+                            title: titleBinding(checklistID: checklistID, itemID: item.id),
+                            description: descriptionBinding(checklistID: checklistID, itemID: item.id),
+                            relativeDate: item.relativeDate,
+                            itemID: item.id
+                        ) { newValue in
+                            store.updateItem(checklistID: checklistID, itemID: item.id, relativeDate: newValue)
                         }
                     }
                     .onDelete { offsets in
@@ -256,4 +257,78 @@ struct ChecklistDetailView: View {
             set: { store.setDestination($0, for: checklistID) }
         )
     }
+}
+
+/// One item row: title plus an optional relative-date field.
+///
+/// The date field keeps its own text buffer. An unbuffered `Binding<String>`
+/// over `Int?` cannot represent a half-typed `"-"`: it parses to `nil`, and
+/// `get` would immediately render `""`, erasing the minus. Buffering also lets
+/// a typed `""`/`"-"` survive until `-5` is complete. Committing on every
+/// change is safe because `ChecklistStore.updateItem(…, relativeDate:)` no-ops
+/// an unchanged value.
+struct ItemRow: View {
+    let title: Binding<String>
+    let description: Binding<String>
+    let relativeDate: Int?
+    let itemID: UUID
+    let commitRelativeDate: (Int?) -> Void
+
+    init(
+        title: Binding<String>,
+        description: Binding<String> = .constant(""),
+        relativeDate: Int?,
+        itemID: UUID = UUID(),
+        commitRelativeDate: @escaping (Int?) -> Void
+    ) {
+        self.title = title
+        self.description = description
+        self.relativeDate = relativeDate
+        self.itemID = itemID
+        self.commitRelativeDate = commitRelativeDate
+    }
+
+    @State private var draftDate = ""
+    @State private var didLoadDraft = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                TextField("Item", text: title)
+                dueDateField
+            }
+            TextField("Description", text: description, axis: .vertical)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("itemDescriptionField-\(itemID.uuidString)")
+        }
+        .onAppear {
+            guard !didLoadDraft else { return }
+            draftDate = Self.format(relativeDate)
+            didLoadDraft = true
+        }
+    }
+
+    /// The date field, committed on every change (the store no-ops unchanged
+    /// values). The numbers-and-punctuation keyboard is iOS-only — macOS has no
+    /// software keyboard — and is what keeps a leading `-` typeable.
+    private var dueDateField: some View {
+        var field = TextField("Days", text: $draftDate)
+            .multilineTextAlignment(.trailing)
+            .frame(maxWidth: 80)
+            .accessibilityIdentifier("itemRelativeDateField")
+            .onChange(of: draftDate) { _, newValue in
+                commitRelativeDate(Self.parse(newValue))
+            }
+        #if os(iOS)
+            field = field.keyboardType(.numbersAndPunctuation)
+        #endif
+        return field
+    }
+
+    /// Unparseable text (including an in-progress `"-"`) means "no date".
+    static func parse(_ text: String) -> Int? { Int(text) }
+
+    /// `nil` renders as the empty field.
+    static func format(_ value: Int?) -> String { value.map(String.init) ?? "" }
 }

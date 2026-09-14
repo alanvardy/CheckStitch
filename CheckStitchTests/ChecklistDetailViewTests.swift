@@ -63,4 +63,31 @@ struct ChecklistDetailViewTests {
         #expect(ImageRenderer(content: view).uiImage != nil)
         #endif
     }
+
+    /// The date control's value graph: the row owns a text buffer, so a partial
+    /// `"-"` can survive long enough to be completed. The parse/format pair is
+    /// pure and asserted directly; commit behaviour is covered by the store
+    /// suite.
+    @Test
+    func itemRowBuffersItsDateText() {
+        let described = String(describing: ItemRow(
+            title: .constant("Milk"), relativeDate: 1, commitRelativeDate: { _ in }))
+        #expect(described.contains("relativeDate"))
+        #expect(described.contains("_draftDate"))
+    }
+
+    @Test(arguments: [
+        ("", nil), ("-", nil), ("abc", nil),
+        ("0", 0), ("-3", -3), ("12", 12),
+    ] as [(String, Int?)])
+    func itemRowParsesDateText(_ text: String, _ expected: Int?) {
+        #expect(ItemRow.parse(text) == expected)
+    }
+
+    @Test(arguments: [
+        (nil, ""), (0, "0"), (-3, "-3"),
+    ] as [(Int?, String)])
+    func itemRowFormatsMissingDatesAsEmpty(_ value: Int?, _ expected: String) {
+        #expect(ItemRow.format(value) == expected)
+    }
 }
