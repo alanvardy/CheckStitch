@@ -276,5 +276,23 @@ run_case run_watch_errors_on_unreachable_device run_watch_errors_on_unreachable_
 run_case run_watch_errors_on_unknown_device run_watch_errors_on_unknown_device
 run_case run_watch_matches_typographic_device_name run_watch_matches_typographic_device_name
 
+# --- macOS sandbox network entitlement -------------------------------------
+
+# Regression pin for the background-photo regression: the macOS slice runs under
+# App Sandbox, so without ENABLE_OUTGOING_NETWORK_CONNECTIONS the signed app
+# carries no com.apple.security.network.client entitlement and the URLSession
+# fetch of the photo is denied by the sandbox. iOS needs no such entitlement,
+# which is why only macOS lost the photo. Every sandboxed app-target
+# configuration must also request egress.
+macos_slice_requests_outgoing_network() {
+    local pbx="CheckStitch.xcodeproj/project.pbxproj"
+    local sandboxed network
+    sandboxed="$(grep -c 'ENABLE_APP_SANDBOX = YES;' "$pbx")"
+    network="$(grep -c 'ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;' "$pbx")"
+    [[ "$sandboxed" -gt 0 && "$sandboxed" -eq "$network" ]]
+}
+
+run_case macos_slice_requests_outgoing_network macos_slice_requests_outgoing_network
+
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

@@ -144,9 +144,9 @@ this bug's mechanism.
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/tests/run.sh` → `FAIL: macos_slice_requests_outgoing_network` (red before the fix — record this)
-- [ ] `shellcheck scripts/tests/run.sh` passes
-- [ ] `make test-unit` still green (unaffected)
+- [x] `bash scripts/tests/run.sh` → `FAIL: macos_slice_requests_outgoing_network` (red before the fix — record this)
+- [x] `shellcheck scripts/tests/run.sh` passes
+- [x] `make test-unit` still green (unaffected)
 
 #### Manual
 - [ ] none
