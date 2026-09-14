@@ -136,6 +136,31 @@ struct ChecklistMergeTests {
     }
 
     @Test
+    func descriptionFollowsTheWholeItemLWinner() {
+        let id = UUID()
+        let localItem = item(id: id, title: "Milk", description: "local note", revision: 2,
+                             modifiedAt: Date(timeIntervalSince1970: 2_000))
+        let remoteItem = item(id: id, title: "Milk", description: "remote note", revision: 3,
+                              modifiedAt: Date(timeIntervalSince1970: 3_000))
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: id, name: "Groceries", revision: 1, items: [localItem])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: id, name: "Groceries", revision: 1, items: [remoteItem])]))
+        #expect(merged.checklists.first?.items.first?.description == "remote note")
+    }
+
+    @Test
+    func distinctItemDescriptionsBothSurvive() {
+        let checklistID = UUID()
+        let a = item(id: UUID(), title: "Milk", description: "a note", revision: 1)
+        let b = item(id: UUID(), title: "Eggs", description: "b note", revision: 1)
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [a])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [b])]))
+        let descriptions: [String] = merged.checklists.first?.items.map(\.description) ?? []
+        #expect(Set(descriptions) == Set(["a note", "b note"]), "both devices' descriptions survive the merge")
+    }
+
+    @Test
     func identicalEnvelopesAreANoOp() {
         let envelope = ChecklistEnvelope(
             version: ChecklistCodec.currentVersion,
@@ -405,8 +430,8 @@ func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distan
 }
 
 @MainActor
-func item(id: UUID, title: String, revision: Int, modifiedAt: Date = .distantPast) -> ChecklistItem {
-    ChecklistItem(id: id, title: title, modifiedAt: modifiedAt, revision: revision)
+func item(id: UUID, title: String, description: String = "", revision: Int, modifiedAt: Date = .distantPast) -> ChecklistItem {
+    ChecklistItem(id: id, title: title, description: description, modifiedAt: modifiedAt, revision: revision)
 }
 
 @MainActor

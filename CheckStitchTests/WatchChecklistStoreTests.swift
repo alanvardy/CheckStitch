@@ -92,4 +92,15 @@ struct WatchChecklistStoreTests {
 
         #expect(store.checklists.first?.destinationListIdentifier == "list-a")
     }
+
+    @Test
+    func descriptionSurvivesTheWatchTransport() throws {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let expected = [Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", description: "2 litres")])]
+        transport.deliver(.context(try ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: expected))))
+
+        #expect(store.checklists.first?.items.first?.description == "2 litres")
+    }
 }
