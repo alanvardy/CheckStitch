@@ -282,14 +282,27 @@ run_case run_watch_matches_typographic_device_name run_watch_matches_typographic
 # App Sandbox, so without ENABLE_OUTGOING_NETWORK_CONNECTIONS the signed app
 # carries no com.apple.security.network.client entitlement and the URLSession
 # fetch of the photo is denied by the sandbox. iOS needs no such entitlement,
-# which is why only macOS lost the photo. Every sandboxed app-target
-# configuration must also request egress.
+# which is why only macOS lost the photo. Every build-settings block that
+# enables the sandbox must therefore also request egress.
 macos_slice_requests_outgoing_network() {
     local pbx="CheckStitch.xcodeproj/project.pbxproj"
-    local sandboxed network
-    sandboxed="$(grep -c 'ENABLE_APP_SANDBOX = YES;' "$pbx")"
-    network="$(grep -c 'ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;' "$pbx")"
-    [[ "$sandboxed" -gt 0 && "$sandboxed" -eq "$network" ]]
+    # Walk each buildSettings block by brace depth and fail if any block that
+    # sets ENABLE_APP_SANDBOX does not also set
+    # ENABLE_OUTGOING_NETWORK_CONNECTIONS, or if no sandboxed block is found.
+    awk '
+        /buildSettings = [{]/ { inblk = 1; depth = 1; sandboxed = 0; network = 0; next }
+        inblk {
+            if ($0 ~ /ENABLE_APP_SANDBOX = YES;/) sandboxed = 1
+            if ($0 ~ /ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;/) network = 1
+            tmp = $0
+            depth += gsub(/[{]/, "", tmp) - gsub(/[}]/, "", tmp)
+            if (depth <= 0) {
+                if (sandboxed) { total += 1; if (!network) bad = 1 }
+                inblk = 0
+            }
+        }
+        END { exit ((bad || total == 0) ? 1 : 0) }
+    ' "$pbx"
 }
 
 run_case macos_slice_requests_outgoing_network macos_slice_requests_outgoing_network
