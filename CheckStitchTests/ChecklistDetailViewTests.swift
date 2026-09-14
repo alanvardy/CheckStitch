@@ -23,7 +23,9 @@ struct ChecklistDetailViewTests {
     }
 
     /// Duplicating is a two-step flow: the button only raises a name alert with
-    /// its own draft, so nothing is created until the user confirms a name.
+    /// its own draft slot, rather than creating anything itself. Only those
+    /// slots are inspectable here (the body cannot be staged headless), so the
+    /// confirm action and the seeded default stay covered by the store tests.
     @Test
     func duplicateChecklistIsGatedBehindANameAlert() {
         let described = String(describing: ChecklistDetailView(checklistID: UUID()))

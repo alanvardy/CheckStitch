@@ -576,6 +576,17 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(copy?.name, "Groceries copy", "a blank name falls back to the default, never \"\"")
     }
 
+    func testDuplicateNewlineOnlyNameFallsBackToTheDefault() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+
+        let copy = store.duplicate(id: source.id, name: "\n\t\n")
+        XCTAssertEqual(copy?.name, "Groceries copy", "newline/tab-only input is blank too")
+    }
+
     func testDuplicatePersistsAcrossReload() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
