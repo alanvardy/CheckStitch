@@ -18,6 +18,17 @@ struct ViewRenderTests {
     }
 
     @Test
+    func settingsViewExposesAboutRow() {
+        let view = SettingsView(
+            appearanceMode: .constant(.system),
+            bindings: SettingsBindings(),
+            backgroundImage: BackgroundImageStore())
+        let bodyDescription = String(describing: view.body)
+        #expect(bodyDescription.contains("About"))
+        #expect(bodyDescription.contains("Background"))
+    }
+
+    @Test
     func syncStatusIsSilentWhenSynced() {
         #expect(SyncStatusView(outcome: .synced, isSyncing: false).message == nil)
     }

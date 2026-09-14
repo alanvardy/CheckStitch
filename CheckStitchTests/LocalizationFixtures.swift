@@ -12,6 +12,7 @@ enum LocalizationFixtures {
     static let requiredKeys: [(catalog: String, keys: [String])] = [
         ("App", [
             "%lld%%",
+            "About",
             "Add Item",
             "Another checklist already uses %@ — choose a different name.",
             "Appearance",
@@ -21,6 +22,7 @@ enum LocalizationFixtures {
             "Checklist name",
             "Checklist not found",
             "Choose between system, light, and dark mode.",
+            "Copyright 2026 Alan Vardy",
             "Create a checklist to turn its items into reminders.",
             "Create checklist",
             "Create reminders from checklist",
@@ -31,6 +33,7 @@ enum LocalizationFixtures {
             "Item",
             "Items",
             "Light",
+            "Made with love by a lone developer",
             "Name",
             "Name already in use",
             "No checklists",
