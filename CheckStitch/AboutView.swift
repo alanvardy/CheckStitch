@@ -19,7 +19,7 @@ struct AboutView: View {
             }
             Section {
                 Text("Copyright 2026 Alan Vardy")
-                Text("Made with love by a lone developer")
+                Text("Made with ❤️ by a Canadian developer 🇨🇦")
                 Text(appInfo.versionDescription)
             }
             Section {} footer: {

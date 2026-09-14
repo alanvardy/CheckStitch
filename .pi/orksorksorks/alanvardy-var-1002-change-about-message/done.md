@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Changed the CheckStitch About attribution from "Made with love by a lone developer" to "Made with ❤️ by a Canadian developer 🇨🇦" in all four in-sync sites — the rendered `Text` in `CheckStitch/AboutView.swift:22`, the catalog key + English source value in `CheckStitch/Localizable.xcstrings` (lines 906/912), both test expectations in `CheckStitchTests/AboutViewTests.swift` (lines 16, 33), and the fixture in `CheckStitchTests/LocalizationFixtures.swift:36`. Old string has zero remaining occurrences in source/test files.
+- **Commit SHA(s)**: `66941a6` "Update About attribution to Canadian developer message (VAR-1002)" (pushed to `origin/alanvardy-var-1002-change-about-message`).
+- **Verification**: `make test-unit` → **TEST SUCCEEDED, 135 tests in 26 suites passed** (macOS host, `CODE_SIGNING_ALLOWED=NO`); re-run independently by the parent after review.
+- **Reviewer findings**: No blockers. One P2 nit (optional follow-up): the de/es/fr/ja/zh-Hans translations in the xcstrings entry still express the old "lone developer" wording under the new key — VAR-1002 scoped the English source only, so nothing breaks (the non-English-differs canary still holds).
+- **Remaining manual items**: First-run of the full gate `./scripts/test.sh` if desired before merge (targeted `make test-unit` was the scoped verification per small.md); translated strings updated for the 5 non-English locales if/when wanted; the pre-existing worktree `DELETEME` deletion and untracked `.pi/` artifacts were deliberately left out of the commit.

@@ -36,7 +36,7 @@ enum LocalizationFixtures {
             "Item",
             "Items",
             "Light",
-            "Made with love by a lone developer",
+            "Made with ❤️ by a Canadian developer 🇨🇦",
             "Name",
             "Name already in use",
             "No checklists",
