@@ -202,14 +202,14 @@ by the iOS and watch slices and must not gain a macOS-sandbox key.
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/tests/run.sh` → `ok: macos_slice_requests_outgoing_network` (was red, now green)
-- [ ] `make build-mac` succeeds (unsigned compile leg — unaffected by the setting)
-- [ ] `make watch-build` succeeds
-- [ ] `make build-mac-signed`, then
+- [x] `bash scripts/tests/run.sh` → `ok: macos_slice_requests_outgoing_network` (was red, now green)
+- [x] `make build-mac` succeeds (unsigned compile leg — unaffected by the setting)
+- [x] `make watch-build` succeeds
+- [x] `make build-mac-signed`, then
       `codesign -d --entitlements - --xml DerivedData/Build/Products/Debug/CheckStitch.app`
       now contains `<key>com.apple.security.network.client</key><true/>`
       (confirmed to build without provisioning changes; `-allowProvisioningUpdates` is already in the target)
-- [ ] `make test-unit` green
+- [x] `make test-unit` green
 
 #### Manual
 - [ ] Signed launch + Settings → **Refresh wallpaper** with
