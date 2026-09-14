@@ -604,11 +604,11 @@ The UI smoke (`CheckStitchUITests/CheckStitchUITests.swift`,
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes (includes the new render test).
-- [ ] `bash scripts/test.sh` prints `gate: ok` — this covers `make build`
+- [x] `make test-unit` passes (includes the new render test).
+- [x] `bash scripts/test.sh` prints `gate: ok` — this covers `make build`
   (simulator), `make test`, `make build-mac`, `make watch-build`,
   `scripts/tests/run.sh`, and `shellcheck`.
-- [ ] `make test-ui` is green on this worktree's simulator (the smoke case).
+- [x] `make test-ui` is green on this worktree's simulator (the smoke case).
 
 #### Manual
 - [ ] `make run`: create a checklist, add ≥3 items, tap **Edit**, drag a row up

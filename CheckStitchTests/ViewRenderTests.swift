@@ -1,9 +1,36 @@
 @testable import CheckStitch
+import CheckStitchCore
 import SwiftUI
 import Testing
 
 @MainActor
 struct ViewRenderTests {
+    @Test
+    func detailViewRendersForEmptyAndNonEmptyChecklists() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let empty = store.create(name: "Empty")
+        let filled = store.create(name: "Filled")
+        store.addItem(to: filled.id)
+
+        let emptyView = ChecklistDetailView(checklistID: empty.id).environment(store)
+        let filledView = ChecklistDetailView(checklistID: filled.id).environment(store)
+        // `ImageRenderer` forces a real render pass, so the body evaluates
+        // against the injected store. (Calling `.body` on the `ModifiedContent`
+        // that `.environment` produces is a SwiftUI runtime trap.)
+        #expect(renders(emptyView))
+        #expect(renders(filledView))
+    }
+
+    /// Renders `view` offscreen and reports whether a frame was produced.
+    private func renders(_ view: some View) -> Bool {
+        #if os(macOS)
+        return ImageRenderer(content: view).nsImage != nil
+        #else
+        return ImageRenderer(content: view).uiImage != nil
+        #endif
+    }
+
     @Test
     func settingsViewListsAllAppearanceModes() {
         let view = SettingsView(

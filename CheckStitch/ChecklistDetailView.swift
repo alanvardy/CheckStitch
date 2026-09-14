@@ -40,6 +40,9 @@ struct ChecklistDetailView: View {
                     .onDelete { offsets in
                         store.removeItems(from: checklistID, at: offsets)
                     }
+                    .onMove { offsets, destination in
+                        store.moveItems(checklistID: checklistID, from: offsets, to: destination)
+                    }
                 }
                 Section {
                     Button {
@@ -71,6 +74,11 @@ struct ChecklistDetailView: View {
             .navigationTitle("Edit checklist")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
+                #if os(iOS)
+                // `EditButton` is unavailable on macOS, so the edit-mode toggle
+                // is iOS-only; macOS reorders by drag without edit mode.
+                ToolbarItem(placement: .topBarLeading) { EditButton() }
+                #endif
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { commitRename() }
                         // iOS 26 wraps bar items in a system glass container.
