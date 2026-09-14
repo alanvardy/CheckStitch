@@ -13,7 +13,14 @@ struct WatchChecklistDetailView: View {
 
     var body: some View {
         List(visibleItems) { item in
-            Text(item.title)
+            VStack(alignment: .leading) {
+                Text(item.title)
+                if item.hasDescription {
+                    Text(item.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .navigationTitle(checklist.name)
         .safeAreaInset(edge: .bottom) {
