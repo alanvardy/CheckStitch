@@ -35,6 +35,22 @@ public struct ReminderListsSnapshot: Equatable, Sendable {
         guard let defaultIdentifier else { return nil }
         return options.first { $0.id == defaultIdentifier }
     }
+
+    /// The lists a picker should offer as explicit choices. The system default
+    /// is left out: `options` already contains it (EventKit returns the default
+    /// calendar alongside every other list), and the picker's own default row
+    /// stands for it — keeping both would list the same list twice.
+    public var selectableOptions: [ReminderListOption] {
+        guard let defaultIdentifier else { return options }
+        return options.filter { $0.id != defaultIdentifier }
+    }
+
+    /// The picker selection for a stored destination. A stored identifier that
+    /// *is* the system default renders as the default row (`nil`), matching
+    /// `selectableOptions`; every other value (including `nil`) passes through.
+    public func pickerSelection(for stored: String?) -> String? {
+        stored == defaultIdentifier ? nil : stored
+    }
 }
 
 /// Outcome of a checklist run. `.destinationMissing` is distinct from `.failed`

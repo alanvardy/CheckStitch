@@ -25,7 +25,11 @@ struct ChecklistDetailView: View {
     /// Buffered copy name for that alert, seeded from the source name when the
     /// alert is raised.
     @State private var duplicateDraftName = ""
-    @State private var reminderLists: [ReminderListOption] = []
+    /// The enumerated lists at one instant. Read through `selectableOptions`,
+    /// which drops the system default: the "Default (Inbox)" row below already
+    /// stands for that list, and EventKit returns it like any other, so listing
+    /// it again would show the same destination twice.
+    @State private var listsSnapshot: ReminderListsSnapshot?
     /// True when Reminders access was denied, threw, or returned no lists: the
     /// picker degrades to the default-only row with an explanatory note.
     @State private var destinationUnavailable = false
@@ -40,7 +44,7 @@ struct ChecklistDetailView: View {
                 Section("Destination list") {
                     Picker("List", selection: destinationBinding(checklistID: checklistID)) {
                         Text("Default (Inbox)").tag(String?.none)
-                        ForEach(reminderLists) { list in
+                        ForEach(listsSnapshot?.selectableOptions ?? []) { list in
                             Text(list.title).tag(String?.some(list.id))
                         }
                     }
@@ -200,7 +204,7 @@ struct ChecklistDetailView: View {
                 return
             }
             let snapshot = try await destination.reminderLists()
-            reminderLists = snapshot.options
+            listsSnapshot = snapshot
             destinationUnavailable = snapshot.options.isEmpty
         } catch {
             destinationUnavailable = true
@@ -209,12 +213,15 @@ struct ChecklistDetailView: View {
 
     /// True when the stored destination is no longer among the enumerated lists
     /// (deleted in Reminders while this screen was open), so the picker would
-    /// otherwise render no selection without explanation.
+    /// otherwise render no selection without explanation. A destination that is
+    /// the system default is never stale: the default row still represents it.
     private var destinationIsStale: Bool {
         guard !destinationUnavailable,
-              let destination = store.checklist(id: checklistID)?.destinationListIdentifier
+              let listsSnapshot,
+              let destination = store.checklist(id: checklistID)?.destinationListIdentifier,
+              listsSnapshot.pickerSelection(for: destination) != nil
         else { return false }
-        return !reminderLists.contains { $0.id == destination }
+        return !listsSnapshot.selectableOptions.contains { $0.id == destination }
     }
 
     /// Per-selection write through the store (Phase 2). `nil` is the "Default
@@ -222,7 +229,13 @@ struct ChecklistDetailView: View {
     /// matching `commitDraftIfChanged`.
     private func destinationBinding(checklistID: UUID) -> Binding<String?> {
         Binding(
-            get: { store.checklist(id: checklistID)?.destinationListIdentifier },
+            get: {
+                let stored = store.checklist(id: checklistID)?.destinationListIdentifier
+                // A destination that is the system default is shown by the
+                // default row, which is the only row now carrying that list.
+                guard let listsSnapshot else { return stored }
+                return listsSnapshot.pickerSelection(for: stored)
+            },
             set: { store.setDestination($0, for: checklistID) }
         )
     }
