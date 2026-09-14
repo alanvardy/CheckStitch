@@ -707,10 +707,10 @@ body), so no change to the existing canaries beyond the new render test.
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes (includes the new render canary and the localization six-language suite)
-- [ ] `make build` (simulator) passes — the iOS body compiles with `axis: .vertical`
-- [ ] `make build-mac` passes
-- [ ] `grep -n '"Description"' CheckStitch/Localizable.xcstrings CheckStitchTests/LocalizationFixtures.swift` matches in both
+- [x] `make test-unit` passes (includes the new render canary and the localization six-language suite)
+- [x] `make build` (simulator) passes — the iOS body compiles with `axis: .vertical`
+- [x] `make build-mac` passes
+- [x] `grep -n '"Description"' CheckStitch/Localizable.xcstrings CheckStitchTests/LocalizationFixtures.swift` matches in both
 
 #### Manual
 - [ ] `make run` on the simulator: open a checklist, confirm each row shows a title field and a smaller multiline description field; typing a description does not disturb the title; the description persists after leaving and re-entering the screen (and after app relaunch)

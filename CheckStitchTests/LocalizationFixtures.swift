@@ -28,6 +28,7 @@ enum LocalizationFixtures {
             "Create reminders from checklist",
             "Creates a copy with the same items.",
             "Dark",
+            "Description",
             "Done",
             "Duplicate",
             "Duplicate Checklist",
@@ -83,6 +84,8 @@ enum LocalizationFixtures {
     static let excludedIdentities: Set<ExclusionEntry> = [
         // de "System" — standard German computing term, same spelling as English
         ExclusionEntry(catalog: "App", key: "System"),
+        // fr "Description" — same spelling as English
+        ExclusionEntry(catalog: "App", key: "Description"),
         ExclusionEntry(catalog: "Core", key: "System"),
         // de "Name" — same spelling as English
         ExclusionEntry(catalog: "App", key: "Name"),
