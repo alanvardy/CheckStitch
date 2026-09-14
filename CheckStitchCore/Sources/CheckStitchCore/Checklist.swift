@@ -52,12 +52,14 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
 public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public init(
         id: UUID = UUID(), name: String = "New checklist", items: [ChecklistItem] = [],
+        destinationListIdentifier: String? = nil,
         modifiedAt: Date = .distantPast, revision: Int = 0,
         itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast
     ) {
         self.id = id
         self.name = name
         self.items = items
+        self.destinationListIdentifier = destinationListIdentifier
         self.modifiedAt = modifiedAt
         self.revision = revision
         // Canonical order defaults to the array's own order; an explicit value is
@@ -70,6 +72,9 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var name: String
     public var items: [ChecklistItem]
+    /// `EKCalendar.calendarIdentifier` of the chosen Reminders list. `nil` means
+    /// "system default list", so legacy payloads keep today's behaviour.
+    public var destinationListIdentifier: String?
     public var modifiedAt: Date
     public var revision: Int
     /// Canonical item ordering as a list of item ids. Kept in lockstep with
@@ -80,7 +85,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
+        case id, name, items, destinationListIdentifier, modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -88,6 +93,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         let id = try container.decode(UUID.self, forKey: .id)
         let name = try container.decode(String.self, forKey: .name)
         let items = try container.decodeIfPresent([ChecklistItem].self, forKey: .items) ?? []
+        let destinationListIdentifier = try container.decodeIfPresent(String.self, forKey: .destinationListIdentifier)
         let modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? .distantPast
         let revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
         let itemOrder = try container.decodeIfPresent([UUID].self, forKey: .itemOrder) ?? items.map(\.id)
@@ -96,7 +102,9 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // Decode-time self-heal: a payload whose `itemOrder` disagrees with `items`
         // (or omits an id) is canonicalised rather than trusted. Built through
         // the public init so the whole value is assigned at once.
-        self = Checklist(id: id, name: name, items: items, modifiedAt: modifiedAt, revision: revision,
+        self = Checklist(id: id, name: name, items: items,
+                         destinationListIdentifier: destinationListIdentifier,
+                         modifiedAt: modifiedAt, revision: revision,
                          itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
             .normalizedOrder()
     }
@@ -106,6 +114,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(items, forKey: .items)
+        try container.encode(destinationListIdentifier, forKey: .destinationListIdentifier)
         try container.encode(modifiedAt, forKey: .modifiedAt)
         try container.encode(revision, forKey: .revision)
         try container.encode(itemOrder, forKey: .itemOrder)

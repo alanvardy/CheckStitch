@@ -101,4 +101,27 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(decoded.first?.items.first?.title, "Milk")
         XCTAssertFalse(decoded.first?.items.first?.isBlank ?? true)
     }
+
+    /// A v2 payload written before the destination field existed: decodes as nil
+    /// rather than throwing, so every checklist already stored keeps working.
+    func testDecodesV2PayloadWithoutDestinationAsNil() {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":2,"deviceID":"device-a","checklists":[{"id":"\#(id)","name":"Groceries","items":[],"modifiedAt":0,"revision":1}]}"#.utf8)
+
+        let decoded = ChecklistCodec.decode(data)
+
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertNil(decoded.first?.destinationListIdentifier)
+    }
+
+    func testDestinationSurvivesEnvelopeRoundTrip() throws {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")],
+                                  destinationListIdentifier: "list-a")
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [checklist])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.destinationListIdentifier, "list-a")
+    }
 }
