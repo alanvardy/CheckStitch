@@ -155,6 +155,211 @@ struct ChecklistMergeTests {
         #expect(merged == envelope, "re-merging an unchanged payload is a no-op")
         #expect(merged.contentEquals(envelope))
     }
+
+    @Test
+    func orderWinnerIsHigherOrderRevision() {
+        let id = UUID()
+        let a = UUID()
+        let b = UUID()
+        let items = [
+            item(id: a, title: "a", revision: 1),
+            item(id: b, title: "b", revision: 1),
+        ]
+        let ordered = checklist(id: id, name: "same", revision: 1,
+            itemOrder: [a, b], orderRevision: 1, items: items)
+        let reordered = checklist(id: id, name: "same", revision: 1,
+            itemOrder: [b, a], orderRevision: 2, items: items)
+
+        let remoteWins = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [ordered]),
+            remote: envelope(device: "device-b", checklists: [reordered])
+        )
+        let localWins = ChecklistMerge.merge(
+            local: envelope(device: "device-b", checklists: [reordered]),
+            remote: envelope(device: "device-a", checklists: [ordered])
+        )
+
+        #expect(remoteWins.checklists.first?.itemOrder == [b, a], "higher orderRevision wins as the remote argument")
+        #expect(localWins.checklists.first?.itemOrder == [b, a], "higher orderRevision wins as the local argument")
+        #expect(remoteWins.checklists.first?.items.map(\.id) == [b, a], "items follow the reconciled order")
+        #expect(localWins.checklists.first?.items.map(\.id) == [b, a])
+    }
+
+    @Test
+    func orderTieBreaksByTimestampThenDevice() {
+        let id = UUID()
+        let a = UUID()
+        let b = UUID()
+        let items = [
+            item(id: a, title: "a", revision: 1),
+            item(id: b, title: "b", revision: 1),
+        ]
+        let older = Date(timeIntervalSince1970: 1_700_000_000)
+        let newer = Date(timeIntervalSince1970: 1_700_000_100)
+        let abOld = checklist(id: id, name: "same", revision: 1,
+            itemOrder: [a, b], orderRevision: 1, orderModifiedAt: older, items: items)
+        let baNew = checklist(id: id, name: "same", revision: 1,
+            itemOrder: [b, a], orderRevision: 1, orderModifiedAt: newer, items: items)
+
+        let newerRemote = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [abOld]),
+            remote: envelope(device: "device-b", checklists: [baNew])
+        )
+        let newerLocal = ChecklistMerge.merge(
+            local: envelope(device: "device-b", checklists: [baNew]),
+            remote: envelope(device: "device-a", checklists: [abOld])
+        )
+        #expect(newerRemote.checklists.first?.itemOrder == [b, a], "newer orderModifiedAt wins when remote")
+        #expect(newerLocal.checklists.first?.itemOrder == [b, a], "newer orderModifiedAt wins when local")
+
+        let abSame = checklist(id: id, name: "same", revision: 1,
+            itemOrder: [a, b], orderRevision: 1, orderModifiedAt: older, items: items)
+        let baSame = checklist(id: id, name: "same", revision: 1,
+            itemOrder: [b, a], orderRevision: 1, orderModifiedAt: older, items: items)
+        let aLocal = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [abSame]),
+            remote: envelope(device: "device-b", checklists: [baSame])
+        )
+        let aRemote = ChecklistMerge.merge(
+            local: envelope(device: "device-b", checklists: [baSame]),
+            remote: envelope(device: "device-a", checklists: [abSame])
+        )
+        #expect(aLocal.checklists.first?.itemOrder == [a, b], "device-a wins when local on an order tie")
+        #expect(aRemote.checklists.first?.itemOrder == [a, b], "device-a wins when remote on an order tie")
+    }
+
+    @Test
+    func remoteOnlyItemIsAppendedInWinnerOrder() {
+        let id = UUID()
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: id, name: "same", revision: 1,
+                itemOrder: [a, b], orderRevision: 1, items: [
+                    item(id: a, title: "a", revision: 1),
+                    item(id: b, title: "b", revision: 1),
+                ]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: id, name: "same", revision: 1,
+                itemOrder: [b, a], orderRevision: 2, items: [
+                    item(id: a, title: "a", revision: 1),
+                    item(id: b, title: "b", revision: 1),
+                    item(id: c, title: "c", revision: 1),
+                ]),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.checklists.first?.itemOrder == [b, a, c], "the remote-only id is appended after the winner's ids")
+        #expect(merged.checklists.first?.items.map(\.id) == [b, a, c])
+    }
+
+    @Test
+    func remoteOnlyItemIsAppendedWhenOrderWinnerIsLocal() {
+        let id = UUID()
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: id, name: "same", revision: 1,
+                itemOrder: [b, a], orderRevision: 2, items: [
+                    item(id: a, title: "a", revision: 1),
+                    item(id: b, title: "b", revision: 1),
+                ]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: id, name: "same", revision: 1,
+                itemOrder: [a, b], orderRevision: 1, items: [
+                    item(id: a, title: "a", revision: 1),
+                    item(id: b, title: "b", revision: 1),
+                    item(id: c, title: "c", revision: 1),
+                ]),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.checklists.first?.itemOrder == [b, a, c], "the remote-only id is appended when the local order wins")
+        #expect(merged.checklists.first?.items.map(\.id) == [b, a, c])
+    }
+
+    @Test
+    func tombstonedItemIsExcludedFromMergedOrder() {
+        let checklistID = UUID()
+        let a = UUID()
+        let b = UUID()
+        let live = envelope(device: "device-a", checklists: [
+            checklist(id: checklistID, name: "live", revision: 1,
+                itemOrder: [a, b], orderRevision: 2, items: [
+                    item(id: a, title: "a", revision: 1),
+                    item(id: b, title: "b", revision: 1),
+                ]),
+        ])
+        let remote = envelope(device: "device-b", tombstones: [
+            tombstone(checklistID: checklistID, itemID: a, revision: 2),
+        ])
+
+        let merged = ChecklistMerge.merge(local: live, remote: remote)
+
+        #expect(merged.checklists.first?.items.map(\.id) == [b], "the tombstoned item is dropped from items")
+        #expect(merged.checklists.first?.itemOrder == [b], "the tombstoned id is dropped from itemOrder")
+    }
+
+    @Test
+    func orderReconciliationIsSymmetric() {
+        let id = UUID()
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        let shared = item(id: a, title: "shared", revision: 1)
+        let fromA = checklist(id: id, name: "from-a", revision: 5, modifiedAt: Date(timeIntervalSince1970: 50),
+            itemOrder: [a, b], orderRevision: 4, orderModifiedAt: Date(timeIntervalSince1970: 40),
+            items: [shared, item(id: b, title: "b", revision: 1)])
+        let fromB = checklist(id: id, name: "from-b", revision: 4, modifiedAt: Date(timeIntervalSince1970: 40),
+            itemOrder: [c, a], orderRevision: 3, orderModifiedAt: Date(timeIntervalSince1970: 30),
+            items: [shared, item(id: c, title: "c", revision: 1)])
+
+        let localFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [fromA]),
+            remote: envelope(device: "device-b", checklists: [fromB])
+        )
+        let remoteFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-b", checklists: [fromB]),
+            remote: envelope(device: "device-a", checklists: [fromA])
+        )
+
+        #expect(localFirst.checklists == remoteFirst.checklists, "the merged checklists are argument-order independent")
+        #expect(localFirst.checklists.first?.itemOrder == [a, b, c])
+        #expect(remoteFirst.checklists.first?.itemOrder == [a, b, c])
+    }
+
+    @Test
+    func orderReconciliationIsIdempotent() {
+        let id = UUID()
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        let shared = item(id: a, title: "shared", revision: 1)
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: id, name: "from-a", revision: 5, modifiedAt: Date(timeIntervalSince1970: 50),
+                itemOrder: [a, b], orderRevision: 4, orderModifiedAt: Date(timeIntervalSince1970: 40),
+                items: [shared, item(id: b, title: "b", revision: 1)]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: id, name: "from-b", revision: 4, modifiedAt: Date(timeIntervalSince1970: 40),
+                itemOrder: [c, a], orderRevision: 3, orderModifiedAt: Date(timeIntervalSince1970: 30),
+                items: [shared, item(id: c, title: "c", revision: 1)]),
+        ])
+
+        let once = ChecklistMerge.merge(local: local, remote: remote)
+        let mergedAgain = ChecklistMerge.merge(local: once, remote: once)
+        let replayRemote = ChecklistMerge.merge(local: once, remote: remote)
+
+        #expect(mergedAgain.checklists == once.checklists, "re-merging an unchanged envelope is a no-op")
+        #expect(replayRemote.checklists == once.checklists, "replaying the original remote does not change the merge")
+        #expect(once.checklists.first?.itemOrder == [a, b, c])
+    }
 }
 
 @MainActor
@@ -163,8 +368,11 @@ func envelope(device: String, checklists: [Checklist] = [], tombstones: [Checkli
 }
 
 @MainActor
-func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPast, items: [ChecklistItem] = []) -> Checklist {
-    Checklist(id: id, name: name, items: items, modifiedAt: modifiedAt, revision: revision)
+func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPast,
+    itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast,
+    items: [ChecklistItem] = []) -> Checklist {
+    Checklist(id: id, name: name, items: items, modifiedAt: modifiedAt, revision: revision,
+              itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
 }
 
 @MainActor

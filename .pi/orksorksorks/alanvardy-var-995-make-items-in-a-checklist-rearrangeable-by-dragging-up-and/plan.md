@@ -387,8 +387,8 @@ Add tests (Swift Testing, `@MainActor struct ChecklistMergeTests`):
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes, including the new symmetry/idempotence cases.
-- [ ] `rg -n 'reconciledOrder|remoteWinsOrder' CheckStitch/ChecklistMerge.swift`
+- [x] `make test-unit` passes, including the new symmetry/idempotence cases.
+- [x] `rg -n 'reconciledOrder|remoteWinsOrder' CheckStitch/ChecklistMerge.swift`
   confirms the wiring.
 
 #### Manual
