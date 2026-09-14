@@ -139,7 +139,7 @@ final class ChecklistStore {
             : name
         let copy = Checklist(
             name: Self.uniqueName(basedOn: requested, taken: checklists.map(\.name)),
-            items: source.items.map { ChecklistItem(title: $0.title, modifiedAt: now(), revision: 1) },
+            items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1) },
             modifiedAt: now(),
             revision: 1
         )
@@ -214,6 +214,19 @@ final class ChecklistStore {
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
         checklists[checklistIndex].items[itemIndex].title = title
+        checklists[checklistIndex].items[itemIndex].revision += 1
+        checklists[checklistIndex].items[itemIndex].modifiedAt = now()
+        scheduleSave()
+    }
+
+    /// Edits only the item's description, stamping the item's sync identity and
+    /// debouncing like `updateItem`. Item ops never touch the checklist's own
+    /// `revision`/`modifiedAt` (see `Checklist` doc).
+    func updateItemDescription(checklistID: UUID, itemID: UUID, description: String) {
+        guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
+              let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
+        else { return }
+        checklists[checklistIndex].items[itemIndex].description = description
         checklists[checklistIndex].items[itemIndex].revision += 1
         checklists[checklistIndex].items[itemIndex].modifiedAt = now()
         scheduleSave()

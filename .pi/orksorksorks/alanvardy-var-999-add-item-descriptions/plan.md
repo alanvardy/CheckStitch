@@ -330,8 +330,8 @@ func makeItem(_ title: String, description: String = "") -> ChecklistItem {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] Description edit/reload, duplicate-copy, and no-op cases are exercised
+- [x] `make test-unit` passes
+- [x] Description edit/reload, duplicate-copy, and no-op cases are exercised
 
 #### Manual
 - [ ] `grep -n "updateItemDescription" CheckStitch/ChecklistStore.swift` shows the new mutator and no change to `updateItem`/`addItem`

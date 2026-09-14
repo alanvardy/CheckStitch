@@ -405,6 +405,82 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklist(id: created.id)?.items.first?.revision, 2)
     }
 
+    func testDescriptionEditBumpsItemRevisionNotChecklist() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        let item = store.checklist(id: created.id)?.items.first
+
+        clock.now = Date(timeIntervalSince1970: 1_000)
+        store.updateItemDescription(checklistID: created.id, itemID: item?.id ?? UUID(), description: "2 litres")
+
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.description, "2 litres")
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.revision, 2)     // 1 on add, +1
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.modifiedAt, clock.now)
+        XCTAssertEqual(store.checklist(id: created.id)?.revision, 1)                 // checklist untouched
+        XCTAssertEqual(store.checklist(id: created.id)?.modifiedAt, created.modifiedAt)
+    }
+
+    func testDescriptionEditPersistsAndReloads() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        let item = store.checklist(id: created.id)?.items.first
+        store.updateItemDescription(checklistID: created.id, itemID: item?.id ?? UUID(), description: "2 litres")
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.items.first?.description, "2 litres")
+    }
+
+    func testTitleEditLeavesDescriptionIntact() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        let id = store.checklist(id: created.id)?.items.first?.id ?? UUID()
+        store.updateItemDescription(checklistID: created.id, itemID: id, description: "2 litres")
+        store.updateItem(checklistID: created.id, itemID: id, title: "Milk")
+
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.title, "Milk")
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.description, "2 litres")
+    }
+
+    func testDuplicateCopiesDescription() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.addItem(to: source.id)
+        let item = store.checklist(id: source.id)?.items.first
+        store.updateItemDescription(checklistID: source.id, itemID: item?.id ?? UUID(), description: "2 litres")
+
+        let copy = store.duplicate(id: source.id, name: "Groceries copy")
+
+        XCTAssertEqual(copy?.items.first?.description, "2 litres")
+        XCTAssertEqual(copy?.items.first?.revision, 1)          // fresh copy, not source's 2
+        XCTAssertNotEqual(copy?.items.first?.id, item?.id)
+    }
+
+    /// Sad path: unknown ids are silent no-ops, exactly like `updateItem`.
+    func testDescriptionEditUnknownIDsIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+
+        store.updateItemDescription(checklistID: created.id, itemID: UUID(), description: "ghost")
+        store.updateItemDescription(checklistID: UUID(), itemID: UUID(), description: "ghost")
+
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.description, "")
+    }
+
     // MARK: - moveItems
 
     func testMoveReordersItemsWithinList() {
