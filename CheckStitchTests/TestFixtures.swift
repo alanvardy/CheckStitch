@@ -46,6 +46,32 @@ final class SpyReminderCreator: ReminderCreating {
     }
 }
 
+/// Test double for `ReminderDestinationTargeting`: records created titles and
+/// list ids, and can be told to deny access, expose a given set of lists, or
+/// throw on create.
+@MainActor
+final class SpyReminderDestination: ReminderDestinationTargeting {
+    var accessGranted = true
+    var accessError: Error?
+    var lists = ReminderListsSnapshot(options: [], defaultIdentifier: nil)
+    var createError: Error?
+    private(set) var createdTitles: [String] = []
+    private(set) var createdListIDs: [String] = []
+
+    func requestAccess() async throws -> Bool {
+        if let accessError { throw accessError }
+        return accessGranted
+    }
+
+    func reminderLists() async throws -> ReminderListsSnapshot { lists }
+
+    func create(title: String, in list: ReminderListOption) async throws {
+        if let createError { throw createError }
+        createdTitles.append(title)
+        createdListIDs.append(list.id)
+    }
+}
+
 /// Test double for `ChecklistSyncing`: in-memory bytes, recorded writes, and a
 /// manually-fired external-change callback.
 @MainActor
