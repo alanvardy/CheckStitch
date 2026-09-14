@@ -124,4 +124,36 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
         XCTAssertEqual(ChecklistCodec.decode(data).first?.destinationListIdentifier, "list-a")
     }
+
+    /// A v3 envelope whose item carries no `description` key: must stay `.loaded`
+    /// with an empty description (the additive-field guarantee).
+    func testV3ItemWithoutDescriptionClassifiesLoadedAsEmpty() throws {
+        let itemID = UUID().uuidString
+        let data = Data(#"{"version":3,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(envelope.checklists.first?.items.first?.description, "")
+    }
+
+    func testDescriptionSurvivesEnvelopeRoundTrip() throws {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", description: "2 litres")])
+        let data = try ChecklistCodec.encode(ChecklistEnvelope(deviceID: "device-a", checklists: [checklist]))
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(envelope.checklists.first?.items.first?.description, "2 litres")
+        XCTAssertTrue(String(data: data, encoding: .utf8)?.contains(#""description""#) ?? false)
+    }
+
+    /// Sad path: a malformed (non-string) description throws, so the whole payload
+    /// is `.unreadable` — only whole-key absence is tolerant.
+    func testMalformedDescriptionMakesPayloadUnreadable() {
+        let data = Data(#"{"version":3,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"x","items":[{"id":"\#(UUID().uuidString)","title":"Milk","description":42}]}]}"#.utf8)
+        XCTAssertEqual(ChecklistCodec.classify(data), .unreadable)
+    }
 }

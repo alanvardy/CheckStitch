@@ -193,8 +193,8 @@ func testMalformedDescriptionMakesPayloadUnreadable() {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make test-unit` specifically exercises the three new `ChecklistCodecTests` methods and the `ChecklistItemTests` description tests
+- [x] `make test-unit` passes
+- [x] `make test-unit` specifically exercises the three new `ChecklistCodecTests` methods and the `ChecklistItemTests` description tests
 
 #### Manual
 - [ ] Inspect encoded JSON for one item and confirm a `"description"` key is present and `currentVersion` file line is still `3`
