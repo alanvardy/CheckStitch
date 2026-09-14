@@ -183,7 +183,9 @@ final class ChecklistStore {
 
     func addItem(to id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
-        checklists[index].items.append(ChecklistItem(title: "New item", modifiedAt: now(), revision: 1))
+        let item = ChecklistItem(title: "New item", modifiedAt: now(), revision: 1)
+        checklists[index].items.append(item)
+        checklists[index].itemOrder.append(item.id)
         save()
     }
 
@@ -202,9 +204,42 @@ final class ChecklistStore {
         for offset in offsets.sorted(by: >) {
             guard checklists[index].items.indices.contains(offset) else { continue }
             let removed = checklists[index].items.remove(at: offset)
+            checklists[index].itemOrder.removeAll { $0 == removed.id }
             tombstones.append(ChecklistTombstone(
                 checklistID: id, itemID: removed.id, deletedAt: now(), revision: removed.revision + 1))
         }
+        save()
+    }
+
+    /// Applies SwiftUI's `move(fromOffsets:toOffset:)` index arithmetic: removes
+    /// the offsets (descending) and re-inserts them at the destination adjusted
+    /// by the number of removed elements that sat before it. Returns `nil` for
+    /// any out-of-range input so callers can no-op.
+    private static func moved<T>(_ array: [T], from offsets: IndexSet, to destination: Int) -> [T]? {
+        guard !offsets.isEmpty else { return nil }
+        guard offsets.allSatisfy({ array.indices.contains($0) }) else { return nil }
+        guard destination >= 0 && destination <= array.count else { return nil }
+        let moving = offsets.sorted().map { array[$0] }
+        var result = array
+        for offset in offsets.sorted(by: >) { result.remove(at: offset) }
+        let insertion = destination - offsets.filter { $0 < destination }.count
+        result.insert(contentsOf: moving, at: insertion)
+        return result
+    }
+
+    /// Reorders a checklist's items. A structural edit, so it stamps the
+    /// ordering state and persists immediately — item `id`/`title`/`modifiedAt`/
+    /// `revision` are untouched, so a pure reorder is never mistaken for an item
+    /// edit. Unknown checklist ids and out-of-range offsets/destinations are
+    /// silent no-ops.
+    func moveItems(checklistID: UUID, from offsets: IndexSet, to destination: Int) {
+        guard let index = checklists.firstIndex(where: { $0.id == checklistID }) else { return }
+        guard let items = Self.moved(checklists[index].items, from: offsets, to: destination) else { return }
+        checklists[index].items = items
+        // Same order, kept in lockstep with the canonical list.
+        checklists[index].itemOrder = items.map(\.id)
+        checklists[index].orderRevision += 1
+        checklists[index].orderModifiedAt = now()
         save()
     }
 
@@ -226,7 +261,10 @@ final class ChecklistStore {
         // Defensive: the service already rejects non-current versions via
         // `classify`, but a future caller must never merge a foreign shape.
         guard remote.version == ChecklistCodec.currentVersion else { return false }
-        let merged = ChecklistMerge.merge(local: envelope, remote: remote)
+        var merged = ChecklistMerge.merge(local: envelope, remote: remote)
+        // Self-heal after merge: the canonical item list and `itemOrder` must
+        // always agree, even when a remote order conflict was folded in.
+        merged.checklists = merged.checklists.map { $0.normalizedOrder() }
         guard merged != envelope else { return false }   // idempotent
         let visibleChanged = merged.checklists != checklists
         isApplyingRemote = true
