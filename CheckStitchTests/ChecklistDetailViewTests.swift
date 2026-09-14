@@ -3,7 +3,8 @@ import CheckStitchCore
 import SwiftUI
 import Testing
 
-/// Pins the destructive-remove wiring of the checklist detail screen. SwiftUI
+/// Pins the destructive-remove wiring and the duplicate flow of the checklist
+/// detail screen. SwiftUI
 /// environments cannot be staged in the headless Swift Testing host — reading
 /// `body` fatal-errors without a live scene because `body` reads the store
 /// environment — so these tests describe the view *value*, whose state slots
@@ -19,6 +20,15 @@ struct ChecklistDetailViewTests {
         #expect(described.contains("isRemoveConfirmPresented"))
         #expect(described.contains("isRemoving"))
         #expect(described.contains("isNameConflictPresented"))
+    }
+
+    /// Duplicating is a two-step flow: the button only raises a name alert with
+    /// its own draft, so nothing is created until the user confirms a name.
+    @Test
+    func duplicateChecklistIsGatedBehindANameAlert() {
+        let described = String(describing: ChecklistDetailView(checklistID: UUID()))
+        #expect(described.contains("isDuplicatePresented"))
+        #expect(described.contains("duplicateDraftName"))
     }
 
     /// Construction stays intact with the store/dismiss seams and the dialog

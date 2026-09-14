@@ -240,8 +240,8 @@ duplicate flow, so the header stays accurate.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes, including the new `ChecklistDetailViewTests` case
-- [ ] `make build` passes (the view is shared by iOS and macOS)
+- [x] `make test-unit` passes, including the new `ChecklistDetailViewTests` case
+- [x] `make build` passes (the view is shared by iOS and macOS)
 
 #### Manual
 - [ ] `make run` on the simulator, open a checklist with items: the trailing
