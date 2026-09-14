@@ -1,0 +1,119 @@
+@testable import CheckStitch
+import CheckStitchCore
+import Foundation
+import Testing
+
+@MainActor
+struct ChecklistRemindersTests {
+    private func snapshot(defaultIdentifier: String? = "list-default") -> ReminderListsSnapshot {
+        ReminderListsSnapshot(
+            options: [
+                ReminderListOption(id: "list-default", title: "Reminders"),
+                ReminderListOption(id: "list-a", title: "Groceries"),
+            ],
+            defaultIdentifier: defaultIdentifier)
+    }
+
+    @Test
+    func createsInChosenList() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
+                                  destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["Milk", "Eggs"])
+        #expect(spy.createdListIDs == ["list-a", "list-a"])
+    }
+
+    @Test
+    func nilDestinationUsesDefaultList() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot(defaultIdentifier: "list-default")
+        let checklist = Checklist(items: [makeItem("Milk")])
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdListIDs == ["list-default"])
+    }
+
+    /// Sad path: a destination that no longer exists must create ZERO reminders.
+    @Test
+    func missingDestinationCreatesNothing() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
+                                  destinationListIdentifier: "list-deleted")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .destinationMissing)
+        #expect(spy.createdTitles.isEmpty)
+        #expect(spy.createdListIDs.isEmpty)
+    }
+
+    /// Sad path: no default list at all is a failure, not a silent skip.
+    @Test
+    func missingDefaultCreatesNothing() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot(defaultIdentifier: nil)
+        let checklist = Checklist(items: [makeItem("Milk")])
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .destinationMissing)
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    @Test
+    func permissionDeniedReturnsDenied() async {
+        let spy = SpyReminderDestination()
+        spy.accessGranted = false
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .permissionDenied)
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    @Test
+    func blankTitlesAreSkipped() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk"), makeItem("   "), makeItem("")],
+                                  destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdTitles == ["Milk"])
+    }
+
+    @Test
+    func saveFailureReturnsFailed() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        spy.createError = TestError.boom
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        guard case .failed = outcome else {
+            Issue.record("expected .failed, got \(outcome)")
+            return
+        }
+    }
+
+    @Test
+    func errorMessagesDescribeEachFailure() {
+        #expect(ReminderRunOutcome.created(count: 1).errorMessage == nil)
+        #expect(ReminderRunOutcome.destinationMissing.errorMessage == "That list no longer exists; no reminders were created.")
+        #expect(ReminderRunOutcome.permissionDenied.errorMessage != nil)
+        #expect(ReminderRunOutcome.failed("boom").errorMessage == "boom")
+    }
+}
