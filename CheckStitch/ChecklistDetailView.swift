@@ -9,6 +9,9 @@ struct ChecklistDetailView: View {
     @Environment(ChecklistStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var isRemoving = false
+    /// Gates deletion behind the confirmation dialog: the remove button only
+    /// raises this, and the dialog's destructive button performs the removal.
+    @State private var isRemoveConfirmPresented = false
     /// Buffered copy of the name field. The rename is validated and committed
     /// from here — on Done, or when the screen is left — instead of per
     /// keystroke, so typing a name another checklist owns does not raise an
@@ -42,9 +45,7 @@ struct ChecklistDetailView: View {
                     .checkStitchButton()
 
                     Button(role: .destructive) {
-                        isRemoving = true
-                        store.delete(id: checklistID)
-                        dismiss()
+                        isRemoveConfirmPresented = true
                     } label: {
                         Label("Remove Checklist", systemImage: "trash")
                     }
@@ -82,6 +83,18 @@ struct ChecklistDetailView: View {
                     .accessibilityIdentifier("renameNameConflictButton")
             } message: {
                 Text("Another checklist already uses \(draftName) — choose a different name.")
+            }
+            .confirmationDialog("Remove Checklist", isPresented: $isRemoveConfirmPresented) {
+                Button("Cancel", role: .cancel) {}
+                    .accessibilityIdentifier("cancelRemoveChecklistButton")
+                Button("Remove", role: .destructive) {
+                    isRemoving = true
+                    store.delete(id: checklistID)
+                    dismiss()
+                }
+                .accessibilityIdentifier("confirmRemoveChecklistButton")
+            } message: {
+                Text("This removes the checklist and all its items.")
             }
         } else if !isRemoving {
             // Deleted elsewhere while this screen was on the stack. A delete
