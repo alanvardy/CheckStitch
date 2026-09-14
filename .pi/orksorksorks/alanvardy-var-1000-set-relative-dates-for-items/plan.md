@@ -562,7 +562,7 @@ The existing `updateItem(..., title:)` is untouched.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
+- [x] `make test-unit` passes
 
 #### Manual
 - [ ] None

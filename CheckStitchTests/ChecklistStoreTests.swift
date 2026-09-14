@@ -491,6 +491,107 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklist(id: created.id)?.items.first?.description, "")
     }
 
+    func testUpdateItemRelativeDatePersists() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 3)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.items.first?.relativeDate, 3)
+    }
+
+    func testUpdateItemRelativeDateClearsToNil() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else { return }
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 3)
+
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: nil)
+
+        XCTAssertNil(store.checklist(id: created.id)?.items.first?.relativeDate)
+    }
+
+    func testUpdateItemRelativeDateNoOpsWhenUnchanged() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else { return }
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 2)
+        let revision = store.checklist(id: created.id)?.items.first?.revision
+
+        var changes = 0
+        store.onChange = { changes += 1 }
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 2)
+
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.revision, revision)
+        XCTAssertEqual(changes, 0, "an unchanged value must not schedule a save or push")
+    }
+
+    func testUpdateItemRelativeDateIgnoresUnknownIDs() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        store.updateItem(checklistID: UUID(), itemID: UUID(), relativeDate: 1)
+        store.updateItem(checklistID: created.id, itemID: UUID(), relativeDate: 1)
+
+        XCTAssertEqual(changes, 0)
+    }
+
+    func testRelativeDateEditsAreCoalescedUntilFlush() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: .milliseconds(50))
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else { return }
+
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 1)
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 2)
+
+        XCTAssertEqual(store.checklist(id: created.id)?.items.first?.relativeDate, 2)
+        XCTAssertNil(makeStore(defaults: suite.defaults).checklist(id: created.id)?.items.first?.relativeDate)
+
+        store.flushPendingSave()
+        XCTAssertEqual(makeStore(defaults: suite.defaults).checklist(id: created.id)?.items.first?.relativeDate, 2)
+    }
+
+    func testDuplicateCopiesRelativeDate() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.addItem(to: source.id)
+        guard let item = store.checklist(id: source.id)?.items.first else { return }
+        store.updateItem(checklistID: source.id, itemID: item.id, relativeDate: 2)
+
+        let copy = store.duplicate(id: source.id, name: "Groceries copy")
+
+        XCTAssertEqual(copy?.items.first?.relativeDate, 2)
+    }
+
     // MARK: - moveItems
 
     func testMoveReordersItemsWithinList() {
