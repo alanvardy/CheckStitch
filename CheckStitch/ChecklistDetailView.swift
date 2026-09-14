@@ -62,7 +62,13 @@ struct ChecklistDetailView: View {
                 }
                 Section("Items") {
                     ForEach(checklist.items) { item in
-                        TextField("Item", text: titleBinding(checklistID: checklistID, itemID: item.id))
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("Item", text: titleBinding(checklistID: checklistID, itemID: item.id))
+                            TextField("Description", text: descriptionBinding(checklistID: checklistID, itemID: item.id), axis: .vertical)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("itemDescriptionField")
+                        }
                     }
                     .onDelete { offsets in
                         store.removeItems(from: checklistID, at: offsets)
@@ -191,6 +197,17 @@ struct ChecklistDetailView: View {
                 store.checklist(id: checklistID)?.items.first { $0.id == itemID }?.title ?? ""
             },
             set: { store.updateItem(checklistID: checklistID, itemID: itemID, title: $0) }
+        )
+    }
+
+    /// Per-keystroke description write, mirroring `titleBinding`. The getter
+    /// re-finds the item by id each read; a missing checklist/item reads as "".
+    private func descriptionBinding(checklistID: UUID, itemID: UUID) -> Binding<String> {
+        Binding(
+            get: {
+                store.checklist(id: checklistID)?.items.first { $0.id == itemID }?.description ?? ""
+            },
+            set: { store.updateItemDescription(checklistID: checklistID, itemID: itemID, description: $0) }
         )
     }
 

@@ -43,4 +43,24 @@ struct ChecklistDetailViewTests {
         #expect(described.contains("_dismiss"))
         #expect(described.contains("checklistID"))
     }
+
+    /// The description field is added to the Items rows; this stages a real render
+    /// pass against an injected store (the binding itself is private and
+    /// environment-bound, so its read/write behaviour is pinned by the store tests).
+    @Test
+    func detailViewRendersItemsWithDescriptions() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let checklist = store.create(name: "Groceries")
+        store.addItem(to: checklist.id)
+        let itemID = store.checklist(id: checklist.id)?.items.first?.id ?? UUID()
+        store.updateItemDescription(checklistID: checklist.id, itemID: itemID, description: "2 litres")
+
+        let view = ChecklistDetailView(checklistID: checklist.id).environment(store)
+        #if os(macOS)
+        #expect(ImageRenderer(content: view).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: view).uiImage != nil)
+        #endif
+    }
 }
