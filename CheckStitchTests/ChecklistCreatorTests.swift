@@ -62,4 +62,47 @@ struct ChecklistCreatorTests {
         #expect(outcome == .failed(TestError.boom.localizedDescription))
         #expect(spy.createdTitles.isEmpty)
     }
+
+    /// Fixed, UTC gregorian calendar plus a fixed "today" so the components are
+    /// exact. Built as locals (a `Date` is `Sendable`) rather than captured through
+    /// `self`, because the creator's `now` closure must be `@Sendable`.
+    @Test
+    func relativeDatesCarryThroughToTheSeam() async {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let today = calendar.date(from: DateComponents(year: 2026, month: 3, day: 10))!
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, now: { today }, calendar: calendar)
+        let items = [
+            ChecklistItem(title: "a", relativeDate: 0),
+            ChecklistItem(title: "b", relativeDate: 1),
+            ChecklistItem(title: "c"),
+        ]
+
+        let outcome = await creator.create(from: items)
+
+        #expect(outcome == .created(count: 3))
+        #expect(spy.createdItems.map { $0.title } == ["a", "b", "c"])
+        #expect(spy.createdItems[0].dueDateComponents == DateComponents(year: 2026, month: 3, day: 10))
+        #expect(spy.createdItems[1].dueDateComponents == DateComponents(year: 2026, month: 3, day: 11))
+        #expect(spy.createdItems[2].dueDateComponents == nil)
+    }
+
+    @Test
+    func blankItemsAreStillSkippedWhenTheyCarryDates() async {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let today = calendar.date(from: DateComponents(year: 2026, month: 3, day: 10))!
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, now: { today }, calendar: calendar)
+
+        let outcome = await creator.create(from: [
+            ChecklistItem(title: "  ", relativeDate: 3),
+            ChecklistItem(title: "a", relativeDate: -1),
+        ])
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdItems.map { $0.title } == ["a"])
+        #expect(spy.createdItems[0].dueDateComponents == DateComponents(year: 2026, month: 3, day: 9))
+    }
 }

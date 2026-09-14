@@ -1,5 +1,6 @@
 import CheckStitchCore
 import EventKit
+import Foundation
 
 /// Real adapter over one long-lived `EKEventStore`: enumerates Reminders lists
 /// and creates reminders in a chosen one. `shared` is the production instance —
@@ -27,7 +28,7 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
             defaultIdentifier: eventStore.defaultCalendarForNewReminders()?.calendarIdentifier)
     }
 
-    func create(title: String, notes: String?, in list: ReminderListOption) async throws {
+    func create(title: String, notes: String?, in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {
         // Re-resolve by identifier: a list deleted between pre-validation and
         // creation must throw rather than silently fall back to a nil calendar.
         guard let calendar = eventStore.calendars(for: .reminder)
@@ -38,6 +39,9 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
         reminder.title = title
         if let notes { reminder.notes = notes }   // nil leaves notes unset
         reminder.calendar = calendar
+        if let dueDateComponents {
+            reminder.dueDateComponents = dueDateComponents
+        }
         // watchOS EventKit is read-only; the watch never reaches this adapter.
         #if !os(watchOS)
             try eventStore.save(reminder, commit: true)

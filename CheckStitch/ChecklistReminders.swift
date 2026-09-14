@@ -23,10 +23,15 @@ enum ChecklistReminders {
             }
             var created = 0
             for item in checklist.items where !item.isBlank {
+                // Both paths compute the date from the same pure Core function;
+                // `Date()` is the device-local today, matching the SingleThread
+                // precedent. Items without a relative date keep no date.
+                let dueDateComponents = item.dueDateComponents(today: Date())
                 try await targeting.create(
                     title: item.title,
                     notes: item.hasDescription ? item.description : nil,
-                    in: destination)
+                    in: destination,
+                    dueDateComponents: dueDateComponents)
                 created += 1
             }
             return .created(count: created)

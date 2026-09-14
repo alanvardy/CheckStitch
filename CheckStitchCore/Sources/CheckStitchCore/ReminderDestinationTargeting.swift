@@ -76,9 +76,13 @@ public enum ReminderRunOutcome: Equatable, Sendable {
 /// Seam over the EventKit surface the run path needs: permission, list
 /// enumeration, and creating a reminder in a chosen list. Injected so tests can
 /// drive denial/missing-list/save-failure without touching EventKit.
+///
+/// `dueDateComponents` is the date-only reminder date (or `nil` for none); see
+/// `ChecklistItem.dueDateComponents` — the run path never does offset arithmetic
+/// itself.
 @MainActor
 public protocol ReminderDestinationTargeting {
     func requestAccess() async throws -> Bool
     func reminderLists() async throws -> ReminderListsSnapshot
-    func create(title: String, notes: String?, in list: ReminderListOption) async throws
+    func create(title: String, notes: String?, in list: ReminderListOption, dueDateComponents: DateComponents?) async throws
 }

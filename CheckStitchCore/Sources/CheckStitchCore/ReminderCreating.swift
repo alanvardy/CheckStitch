@@ -1,11 +1,12 @@
 import EventKit
+import Foundation
 
 /// Seam over the EventKit surface the checklist flow needs: permission and
 /// per-item reminder creation. Injected via `AppEnvironment` so tests can drive
 /// denial and failure without touching EventKit.
 public protocol ReminderCreating: Sendable {
     func requestAccess() async throws -> Bool
-    func create(title: String) async throws
+    func create(title: String, dueDateComponents: DateComponents?) async throws
 }
 
 /// Real adapter over one long-lived `EKEventStore`.
@@ -26,10 +27,13 @@ public final class EventKitReminderCreator: ReminderCreating {
         try await eventStore.requestFullAccessToReminders()
     }
 
-    public func create(title: String) async throws {
+    public func create(title: String, dueDateComponents: DateComponents?) async throws {
         let reminder = EKReminder(eventStore: eventStore)
         reminder.title = title
         reminder.calendar = eventStore.defaultCalendarForNewReminders()
+        if let dueDateComponents {
+            reminder.dueDateComponents = dueDateComponents
+        }
         // watchOS EventKit is read-only; the watch never reaches this adapter.
         #if !os(watchOS)
             try eventStore.save(reminder, commit: true)
