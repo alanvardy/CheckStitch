@@ -13,7 +13,7 @@ struct AboutViewTests {
         let bodyDescription = String(describing: view.body)
         for expected in [
             "Copyright 2026 Alan Vardy",
-            "Made with love by a lone developer",
+            "Made with ❤️ by a Canadian developer 🇨🇦",
             "Version 1.0 (1)",
             "CheckStitch",
             "alan@vardy.cc",
@@ -30,7 +30,7 @@ struct AboutViewTests {
         let view = AboutView(appInfo: AppInfo(bundle: StubBundle(info: [:])))
         let bodyDescription = String(describing: view.body)
         #expect(bodyDescription.contains("Copyright 2026 Alan Vardy"))
-        #expect(bodyDescription.contains("Made with love by a lone developer"))
+        #expect(bodyDescription.contains("Made with ❤️ by a Canadian developer 🇨🇦"))
         // Display name falls back to the "CheckStitch" literal.
         #expect(bodyDescription.contains("CheckStitch"))
     }

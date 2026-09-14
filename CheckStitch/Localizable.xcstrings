@@ -1026,13 +1026,13 @@
         }
       }
     },
-    "Made with love by a lone developer" : {
+    "Made with ❤️ by a Canadian developer 🇨🇦" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Made with love by a lone developer"
+            "value" : "Made with ❤️ by a Canadian developer 🇨🇦"
           }
         },
         "de" : {
