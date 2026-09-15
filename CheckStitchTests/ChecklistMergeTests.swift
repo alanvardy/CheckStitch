@@ -321,7 +321,7 @@ struct ChecklistMergeTests {
 
         #expect(mergedItem?.title == "Milk", "the seeded title clock (5/t50) beats the stale 3/t30 title edit")
         #expect(mergedItem?.description == "new note", "the newer description clock (6/t60) wins its own axis")
-        #expect(mergedItem?.revision == 5, "the whole-item winner's coarse clock survives")
+        #expect(mergedItem?.revision == 6, "the coarse clock is raised to cover the adopted 6/t60 description clock")
         #expect(mergedItem?.titleRevision == 5)
         #expect(mergedItem?.titleModifiedAt == Date(timeIntervalSince1970: 50))
         #expect(mergedItem?.descriptionRevision == 6)
@@ -329,6 +329,38 @@ struct ChecklistMergeTests {
         // The losers' axes still win on replay: re-merging with the original
         // remote must be a contentEquals no-op.
         #expect(ChecklistMerge.merge(local: merged, remote: remote).contentEquals(merged))
+    }
+
+    /// The coarse clock is the item's high-water mark: even a payload whose
+    /// field clock outruns its own `revision` (unreachable through the store,
+    /// but not impossible on the wire) must merge to `revision >= every field
+    /// clock`, so the `removed.revision + 1` tombstone invariant keeps holding.
+    @Test
+    func mergedCoarseClockCoversEveryAdoptedFieldClock() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let localItem = item(id: itemID, title: "Milk", revision: 1,
+                             modifiedAt: Date(timeIntervalSince1970: 10),
+                             titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
+                             descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10),
+                             relativeDateRevision: 1, relativeDateModifiedAt: Date(timeIntervalSince1970: 10))
+        let skewedItem = item(id: itemID, title: "Milk", description: "note", revision: 2,
+                              modifiedAt: Date(timeIntervalSince1970: 20),
+                              titleRevision: 9, titleModifiedAt: Date(timeIntervalSince1970: 90),
+                              descriptionRevision: 8, descriptionModifiedAt: Date(timeIntervalSince1970: 80),
+                              relativeDateRevision: 7, relativeDateModifiedAt: Date(timeIntervalSince1970: 70))
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [localItem])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [skewedItem])]))
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.revision == 9, "the coarse clock is raised to the highest adopted field clock")
+        #expect(mergedItem?.titleRevision == 9)
+        #expect(mergedItem?.descriptionRevision == 8)
+        #expect(mergedItem?.relativeDateRevision == 7)
+        #expect(mergedItem?.title == "Milk", "the skewed remote title still wins its own axis")
+        #expect(mergedItem?.description == "note")
+        #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
     }
 
     @Test
