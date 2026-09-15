@@ -1,5 +1,15 @@
 # Done
 
+## Amendment — typed due date and field labels (`f3647c4`)
+
+Follow-up request on the same PR: the preset date menu is replaced by a typed
+number field (0 today, 1 tomorrow, empty means no date) with the convention in a
+section footer, and the edit fields are labelled through section headers
+("Title", "Description", "Due date"). `RelativeDateDraft` buffers the text so a
+half-typed `"-"` survives while an invalid keystroke never rewrites the stored
+offset. Catalog: "Title" and the caption added in all six locales, "No date"
+removed. `bash scripts/test.sh` prints `gate: ok` at `f3647c4`.
+
 - **Branch / head SHA**: `alanvardy-var-1007-add-edit-screen-for-each-task` @ `578a394`
   (rebased onto `main` @ `25d62a0`; pushed with `--force-with-lease`).
 - **Mechanical checks**: `bash scripts/test.sh` prints **`gate: ok`** — iOS
