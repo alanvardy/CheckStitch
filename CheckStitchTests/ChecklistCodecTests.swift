@@ -161,11 +161,13 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).first?.destinationListIdentifier, "list-a")
     }
 
-    /// A v3 envelope whose item carries no `description` key: must stay `.loaded`
-    /// with an empty description (the additive-field guarantee).
-    func testV3ItemWithoutDescriptionClassifiesLoadedAsEmpty() throws {
+    /// A current-version (v4) envelope whose item carries no `description` key:
+    /// must stay `.loaded` with an empty description (the additive-field
+    /// guarantee). v3 payloads predate `relativeDate`, so they classify as
+    /// `.migratable` instead — see `testV3PayloadIsClassifiedMigratable`.
+    func testItemWithoutDescriptionClassifiesLoadedAsEmpty() throws {
         let itemID = UUID().uuidString
-        let data = Data(#"{"version":3,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
+        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
 
         guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
@@ -189,7 +191,7 @@ final class ChecklistCodecTests: XCTestCase {
     /// Sad path: a malformed (non-string) description throws, so the whole payload
     /// is `.unreadable` — only whole-key absence is tolerant.
     func testMalformedDescriptionMakesPayloadUnreadable() {
-        let data = Data(#"{"version":3,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"x","items":[{"id":"\#(UUID().uuidString)","title":"Milk","description":42}]}]}"#.utf8)
+        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"x","items":[{"id":"\#(UUID().uuidString)","title":"Milk","description":42}]}]}"#.utf8)
         XCTAssertEqual(ChecklistCodec.classify(data), .unreadable)
     }
 }
