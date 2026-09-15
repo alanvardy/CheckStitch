@@ -456,8 +456,8 @@ Tests (Swift Testing, behaviour names, `#expect(..., "message")`):
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes; session, error-path, and import-twice tests green
-- [ ] Error paths leave `store.checklists`/`store.tombstones` untouched
+- [x] `make test-unit` passes; session, error-path, and import-twice tests green
+- [x] Error paths leave `store.checklists`/`store.tombstones` untouched
 
 #### Manual
 - [ ] None.
