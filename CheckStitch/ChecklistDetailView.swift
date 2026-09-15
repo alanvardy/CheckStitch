@@ -65,12 +65,10 @@ struct ChecklistDetailView: View {
                         ItemRow(
                             checklistID: checklistID,
                             itemID: item.id,
-                            title: titleBinding(checklistID: checklistID, itemID: item.id),
-                            description: descriptionBinding(checklistID: checklistID, itemID: item.id),
+                            title: item.title,
+                            description: item.description,
                             relativeDate: item.relativeDate
-                        ) { newValue in
-                            store.updateItem(checklistID: checklistID, itemID: item.id, relativeDate: newValue)
-                        }
+                        )
                     }
                     .onDelete { offsets in
                         store.removeItems(from: checklistID, at: offsets)
@@ -193,26 +191,6 @@ struct ChecklistDetailView: View {
         store.rename(id: checklistID, to: draftName)
     }
 
-    private func titleBinding(checklistID: UUID, itemID: UUID) -> Binding<String> {
-        Binding(
-            get: {
-                store.checklist(id: checklistID)?.items.first { $0.id == itemID }?.title ?? ""
-            },
-            set: { store.updateItem(checklistID: checklistID, itemID: itemID, title: $0) }
-        )
-    }
-
-    /// Per-keystroke description write, mirroring `titleBinding`. The getter
-    /// re-finds the item by id each read; a missing checklist/item reads as "".
-    private func descriptionBinding(checklistID: UUID, itemID: UUID) -> Binding<String> {
-        Binding(
-            get: {
-                store.checklist(id: checklistID)?.items.first { $0.id == itemID }?.description ?? ""
-            },
-            set: { store.updateItemDescription(checklistID: checklistID, itemID: itemID, description: $0) }
-        )
-    }
-
     /// Enumerates the Reminders lists for the picker. Denied access, a thrown
     /// error, or an empty enumeration leaves the default-only row plus the note.
     private func loadReminderLists() async {
@@ -260,119 +238,45 @@ struct ChecklistDetailView: View {
     }
 }
 
-/// One item row: title plus an optional relative-date field.
-///
-/// The date field keeps its own text buffer. An unbuffered `Binding<String>`
-/// over `Int?` cannot represent a half-typed `"-"`: it parses to `nil`, and
-/// `get` would immediately render `""`, erasing the minus. Buffering also lets
-/// a typed `""`/`"-"` survive until `-5` is complete. Committing on every
-/// change is safe because `ChecklistStore.updateItem(…, relativeDate:)` no-ops
-/// an unchanged value.
+/// One item row: the item's title, its human-readable due date and its
+/// description, all read-only. The whole row is the link into the pushed
+/// `ItemEditView`, so the tap target is the row rather than a small pencil icon.
+/// That is why the row no longer hosts editable fields: a `NavigationLink` row
+/// makes its inline controls inert, so title/description editing moved onto the
+/// edit screen with the date.
 struct ItemRow: View {
     let checklistID: UUID
     let itemID: UUID
-    let title: Binding<String>
-    let description: Binding<String>
+    let title: String
+    let description: String
     let relativeDate: Int?
-    let commitRelativeDate: (Int?) -> Void
-
-    init(
-        checklistID: UUID,
-        itemID: UUID = UUID(),
-        title: Binding<String>,
-        description: Binding<String> = .constant(""),
-        relativeDate: Int?,
-        commitRelativeDate: @escaping (Int?) -> Void
-    ) {
-        self.checklistID = checklistID
-        self.itemID = itemID
-        self.title = title
-        self.description = description
-        self.relativeDate = relativeDate
-        self.commitRelativeDate = commitRelativeDate
-    }
-
-    @State private var draftDate = ""
-    @State private var didLoadDraft = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                TextField("Item", text: title)
-                dueDateField
-                editLink
-            }
-            TextField("Description", text: description, axis: .vertical)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("itemDescriptionField-\(itemID.uuidString)")
-        }
-        .onAppear {
-            guard !didLoadDraft else { return }
-            draftDate = Self.format(relativeDate)
-            didLoadDraft = true
-        }
-        .onChange(of: relativeDate) { _, newValue in
-            // An external (iCloud) change updates the buffer; a value this row
-            // just committed parses back to the same value and is left alone, so
-            // a half-typed `"-"` or a padded `"05"` is never rewritten mid-edit.
-            if let refreshed = Self.draft(afterExternalChange: newValue, current: draftDate) {
-                draftDate = refreshed
-            }
-        }
-    }
-
-    /// Pushed editor for this item's description and relative due date.
-    /// `borderless` keeps the tap target to the icon so the row's inline fields
-    /// stay editable.
-    private var editLink: some View {
         NavigationLink {
             ItemEditView(checklistID: checklistID, itemID: itemID)
         } label: {
-            Image(systemName: "square.and.pencil")
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(Self.displayTitle(title))
+                    Spacer(minLength: 0)
+                    // Blank when the item carries no date, per the product ask.
+                    Text(DueDateLabel.text(for: relativeDate))
+                        .foregroundStyle(.secondary)
+                }
+                if !description.isEmpty {
+                    Text(description)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
-        .buttonStyle(.borderless)
-        .accessibilityLabel("Edit item")
-        .accessibilityIdentifier("editItemButton-\(itemID.uuidString)")
+        .accessibilityIdentifier("itemRow-\(itemID.uuidString)")
     }
 
-    /// The date field, committed on every change (the store no-ops unchanged
-    /// values). The numbers-and-punctuation keyboard is iOS-only — macOS has no
-    /// software keyboard — and is what keeps a leading `-` typeable. The chain
-    /// is duplicated under the guard because SwiftUI modifier calls return
-    /// distinct opaque view types, so a guarded reassignment cannot type-check.
-    private var dueDateField: some View {
-        #if os(iOS)
-            TextField("Days", text: $draftDate)
-                .keyboardType(.numbersAndPunctuation)
-                .multilineTextAlignment(.trailing)
-                .frame(maxWidth: 80)
-                .accessibilityIdentifier("itemRelativeDateField-\(itemID.uuidString)")
-                .onChange(of: draftDate) { _, newValue in
-                    commitRelativeDate(Self.parse(newValue))
-                }
-        #else
-            TextField("Days", text: $draftDate)
-                .multilineTextAlignment(.trailing)
-                .frame(maxWidth: 80)
-                .accessibilityIdentifier("itemRelativeDateField-\(itemID.uuidString)")
-                .onChange(of: draftDate) { _, newValue in
-                    commitRelativeDate(Self.parse(newValue))
-                }
-        #endif
-    }
-
-    /// Unparseable text (including an in-progress `"-"`) means "no date".
-    static func parse(_ text: String) -> Int? { Int(text) }
-
-    /// `nil` renders as the empty field.
-    static func format(_ value: Int?) -> String { value.map(String.init) ?? "" }
-
-    /// The buffer text to adopt after `relativeDate` changes externally, or
-    /// `nil` when `current` already represents `newValue` and must be preserved
-    /// (so a padded `"05"` or a half-typed `"-"` is never rewritten mid-edit).
-    static func draft(afterExternalChange newValue: Int?, current: String) -> String? {
-        parse(current) == newValue ? nil : format(newValue)
+    /// The row's title. An empty title (the user cleared it on the edit screen)
+    /// would otherwise leave the row rendering blank, so it falls back to the
+    /// same "Item" placeholder the old inline field carried.
+    static func displayTitle(_ title: String) -> String {
+        title.isEmpty ? String(localized: "Item") : title
     }
 }
