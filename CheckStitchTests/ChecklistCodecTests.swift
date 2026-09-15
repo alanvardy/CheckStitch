@@ -84,8 +84,19 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.classify(try ChecklistCodec.encode(envelope)), .loaded(envelope))
     }
 
-    func testVersionFourIsUnsupported() {
-        let data = Data(#"{"version":4,"checklists":[]}"#.utf8)
+    /// A v3 payload predates `relativeDate` but carries full sync and ordering
+    /// state; it must classify as migratable and load verbatim.
+    func testV3PayloadIsClassifiedMigratable() throws {
+        let envelope = ChecklistEnvelope(
+            version: 3, deviceID: "device-a",
+            checklists: [Checklist(name: "Groceries", modifiedAt: Date(timeIntervalSince1970: 7), revision: 5)])
+
+        XCTAssertEqual(ChecklistCodec.classify(try ChecklistCodec.encode(envelope)),
+                       .migratable(from: 3, envelope: envelope))
+    }
+
+    func testFutureVersionIsUnsupported() {
+        let data = Data(#"{"version":5,"checklists":[]}"#.utf8)
         XCTAssertEqual(ChecklistCodec.classify(data), .unsupportedVersion)
     }
 

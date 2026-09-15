@@ -155,8 +155,8 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension Checklist {
-    /// Upgrades a pre-v3 entry: v1/v2 carried no ordering state, so seed it from
-    /// the record's own sync state rather than granting a spurious ordering win.
+    /// Upgrades a v1 entry: v1 carried no sync or ordering state, so stamp both
+    /// from the record's own identity rather than granting a spurious win.
     public func migrated(at date: Date) -> Checklist {
         var copy = self
         let priorModifiedAt = modifiedAt
@@ -174,6 +174,21 @@ extension Checklist {
             upgraded.modifiedAt = date
             upgraded.revision = max(upgraded.revision, 1)
             return upgraded
+        }
+        return copy
+    }
+
+    /// Upgrades a v2 entry's ordering: v2 carried item/checklist sync state but
+    /// no ordering state, so seed `orderRevision`/`orderModifiedAt` from the
+    /// record's own sync state. Unlike `migrated(at:)`, this never restamps the
+    /// item or checklist `revision`/`modifiedAt` — v2 already has real sync
+    /// identity, and restamping it would manufacture spurious LWW wins.
+    public func seededOrder() -> Checklist {
+        var copy = self
+        copy.orderRevision = max(revision, 1)
+        copy.orderModifiedAt = modifiedAt
+        if copy.itemOrder.isEmpty {
+            copy.itemOrder = copy.items.map(\.id)
         }
         return copy
     }
@@ -265,7 +280,7 @@ extension ChecklistEnvelope {
 }
 
 public enum ChecklistCodec {
-    public static let currentVersion = 3
+    public static let currentVersion = 4
 
     private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "ChecklistCodec")
 
@@ -275,7 +290,8 @@ public enum ChecklistCodec {
     public enum Outcome: Equatable {
         case loaded(ChecklistEnvelope)
         /// A known older version that can be upgraded in place. Carries the
-        /// whole envelope so a v2 payload keeps its `deviceID` and `tombstones`.
+        /// whole envelope so a legacy payload keeps its `deviceID`, tombstones,
+        /// and any sync state the loaders must not restamp.
         case migratable(from: Int, envelope: ChecklistEnvelope)
         /// Written by a future version whose shape is unknown.
         case unsupportedVersion
@@ -297,8 +313,14 @@ public enum ChecklistCodec {
             switch probe.version {
             case currentVersion:
                 return .loaded(try JSONDecoder().decode(ChecklistEnvelope.self, from: data))
+            case 3:
+                // v3 carries full sync and ordering state: load it verbatim,
+                // never restamp. It predates `relativeDate`, which decodes nil.
+                let previous = try JSONDecoder().decode(ChecklistEnvelope.self, from: data)
+                return .migratable(from: 3, envelope: previous)
             case 2:
-                // v2 already carries sync state: load it verbatim, never restamp.
+                // v2 carries sync state but no ordering state; the loaders seed
+                // ordering without restamping. Load verbatim here.
                 let previous = try JSONDecoder().decode(ChecklistEnvelope.self, from: data)
                 return .migratable(from: 2, envelope: previous)
             case 1:

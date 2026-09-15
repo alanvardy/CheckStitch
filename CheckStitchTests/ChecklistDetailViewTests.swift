@@ -71,7 +71,7 @@ struct ChecklistDetailViewTests {
     @Test
     func itemRowBuffersItsDateText() {
         let described = String(describing: ItemRow(
-            title: .constant("Milk"), relativeDate: 1, commitRelativeDate: { _ in }))
+            itemID: UUID(), title: .constant("Milk"), relativeDate: 1, commitRelativeDate: { _ in }))
         #expect(described.contains("relativeDate"))
         #expect(described.contains("_draftDate"))
     }
@@ -89,5 +89,19 @@ struct ChecklistDetailViewTests {
     ] as [(Int?, String)])
     func itemRowFormatsMissingDatesAsEmpty(_ value: Int?, _ expected: String) {
         #expect(ItemRow.format(value) == expected)
+    }
+
+    /// An external change rewrites the buffer only when it differs from what the
+    /// buffer already parses to; otherwise an in-progress or padded value stays.
+    @Test(arguments: [
+        (5, "", "5"),
+        (5, "5", nil),
+        (nil, "", nil),
+        (7, "7", nil),
+        (7, "05", "7"),
+        (5, "-", "5"),
+    ] as [(Int?, String, String?)])
+    func itemRowAdoptsOnlyDifferingExternalDates(_ newValue: Int?, _ current: String, _ expected: String?) {
+        #expect(ItemRow.draft(afterExternalChange: newValue, current: current) == expected)
     }
 }

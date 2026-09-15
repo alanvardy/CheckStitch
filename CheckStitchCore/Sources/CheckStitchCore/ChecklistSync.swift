@@ -104,7 +104,8 @@ public final class WatchChecklistStore {
             case .loaded(let envelope):
                 checklists = envelope.checklists
             case .migratable(let from, let envelope) where from >= 2:
-                // v2 carries every v3 field; accept it rather than blanking the list.
+                // v2/v3 contexts carry sync state; accept rather than blanking
+                // the list. Display order comes from `items`, which is intact.
                 checklists = envelope.checklists
             default:
                 break
