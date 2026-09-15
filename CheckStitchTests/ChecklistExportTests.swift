@@ -52,6 +52,14 @@ final class ChecklistExportTests: XCTestCase {
         XCTAssertTrue(env.checklists.isEmpty)
     }
 
+    func testFilenameDefaultPathProducesDatedStem() {
+        // Exercises the `.now`/`.current` defaults: assert the shape rather than
+        // a fixed date, so the test cannot break across a day boundary.
+        let stem = ChecklistExport.filename()
+        XCTAssertNotNil(stem.range(of: #"^CheckStitch-\d{4}-\d{2}-\d{2}$"#, options: .regularExpression),
+                        "unexpected default filename stem: \(stem)")
+    }
+
     func testFilenameIsStableForFixedDate() {
         var utc = Calendar(identifier: .gregorian)
         utc.timeZone = TimeZone(identifier: "UTC")!
