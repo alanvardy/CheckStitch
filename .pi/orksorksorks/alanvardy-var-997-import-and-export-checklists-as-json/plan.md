@@ -828,7 +828,7 @@ No change to `CheckStitchUITests/CheckStitchUITests.swift` — the smoke test's
 
 #### Automated
 - [x] `make test-unit` passes (view tests + all localization suites green)
-- [ ] `bash scripts/test.sh` prints `gate: ok` (runs `make build`, `make test`,
+- [x] `bash scripts/test.sh` prints `gate: ok` (runs `make build`, `make test`,
   `make build-mac`, `make watch-build`, `bash scripts/tests/run.sh`, `shellcheck`)
 
 #### Manual
@@ -854,10 +854,10 @@ No change to `CheckStitchUITests/CheckStitchUITests.swift` — the smoke test's
 
 ## Final gate
 
-- [ ] `make test-unit` (fast loop) green
-- [ ] `bash scripts/test.sh` → `gate: ok`
+- [x] `make test-unit` (fast loop) green
+- [x] `bash scripts/test.sh` → `gate: ok`
 - [ ] `make build-mac-signed` manual panel check complete
-- [ ] No `project.pbxproj` edit was needed (synchronized groups pick up new files)
+- [x] No `project.pbxproj` edit was needed (synchronized groups pick up new files)
 
 ---
 
