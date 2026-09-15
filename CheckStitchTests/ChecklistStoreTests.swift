@@ -323,8 +323,10 @@ final class ChecklistStoreTests: XCTestCase {
         // today's whole-item semantics on every axis.
         XCTAssertEqual(store.checklists.first?.items.first?.titleRevision, 1)
         XCTAssertEqual(store.checklists.first?.items.first?.descriptionRevision, 1)
+        XCTAssertEqual(store.checklists.first?.items.first?.relativeDateRevision, 1)
         XCTAssertEqual(store.checklists.first?.items.first?.titleModifiedAt, store.checklists.first?.items.first?.modifiedAt)
         XCTAssertEqual(store.checklists.first?.items.first?.descriptionModifiedAt, store.checklists.first?.items.first?.modifiedAt)
+        XCTAssertEqual(store.checklists.first?.items.first?.relativeDateModifiedAt, store.checklists.first?.items.first?.modifiedAt)
         // Ordering is seeded from the record's own sync state, granting no win.
         XCTAssertEqual(store.checklists.first?.orderRevision, 1)
         XCTAssertEqual(store.checklists.first?.itemOrder, store.checklists.first?.items.map(\.id))
@@ -625,6 +627,79 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(changes, 0, "an unchanged value must not schedule a save or push")
     }
 
+    /// Re-committing an unchanged relative date must not bump any clock — not
+    /// the coarse clock and none of the six field clocks — so it can never win a
+    /// spurious LWW round (the per-axis extension of the no-op guard above).
+    func testUnchangedRelativeDateIsANoOpForEveryClock() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 2)
+        guard let before = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the edited item")
+            return
+        }
+
+        clock.now = Date(timeIntervalSince1970: 30)
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 2)
+
+        let after = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(after?.revision, before.revision)
+        XCTAssertEqual(after?.modifiedAt, before.modifiedAt)
+        XCTAssertEqual(after?.relativeDate, before.relativeDate)
+        XCTAssertEqual(after?.titleRevision, before.titleRevision)
+        XCTAssertEqual(after?.titleModifiedAt, before.titleModifiedAt)
+        XCTAssertEqual(after?.descriptionRevision, before.descriptionRevision)
+        XCTAssertEqual(after?.descriptionModifiedAt, before.descriptionModifiedAt)
+        XCTAssertEqual(after?.relativeDateRevision, before.relativeDateRevision)
+        XCTAssertEqual(after?.relativeDateModifiedAt, before.relativeDateModifiedAt)
+    }
+
+    /// A changed relative date stamps only its own clock (and the coarse clock
+    /// it rides on); the title and description clocks keep their own stamps.
+    func testChangedRelativeDateStampsRelativeDateClockOnly() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItem(checklistID: created.id, itemID: item.id, title: "Milk")
+        clock.now = Date(timeIntervalSince1970: 30)
+        store.updateItemDescription(checklistID: created.id, itemID: item.id, description: "2 litres")
+        let titleRevision = store.checklist(id: created.id)?.items.first?.titleRevision
+        let titleModifiedAt = store.checklist(id: created.id)?.items.first?.titleModifiedAt
+        let descriptionRevision = store.checklist(id: created.id)?.items.first?.descriptionRevision
+        let descriptionModifiedAt = store.checklist(id: created.id)?.items.first?.descriptionModifiedAt
+
+        clock.now = Date(timeIntervalSince1970: 40)
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 2)
+
+        let edited = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(edited?.revision, 4, "1 add + title + description + relative-date edit")
+        XCTAssertEqual(edited?.relativeDateRevision, edited?.revision, "the relative-date clock stamps the coarse revision")
+        XCTAssertEqual(edited?.relativeDateModifiedAt, clock.now)
+        XCTAssertEqual(edited?.titleRevision, titleRevision, "the title clock keeps its own stamp")
+        XCTAssertEqual(edited?.titleModifiedAt, titleModifiedAt)
+        XCTAssertEqual(edited?.descriptionRevision, descriptionRevision, "the description clock keeps its own stamp")
+        XCTAssertEqual(edited?.descriptionModifiedAt, descriptionModifiedAt)
+    }
+
     func testUpdateItemRelativeDateIgnoresUnknownIDs() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
@@ -763,6 +838,53 @@ final class ChecklistStoreTests: XCTestCase {
         }
         XCTAssertEqual(after?.orderRevision, (before?.orderRevision ?? 0) + 1)
         XCTAssertEqual(after?.orderModifiedAt, clock.now)
+    }
+
+    /// A reorder is a structural edit: it stamps only the ordering state, so
+    /// every field clock (and the coarse item clock) survives untouched.
+    func testMoveItemsLeavesEveryFieldClockUntouched() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let checklistID = store.create(name: "Groceries").id
+        store.addItem(to: checklistID)
+        store.addItem(to: checklistID)
+        guard let item = store.checklist(id: checklistID)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItem(checklistID: checklistID, itemID: item.id, title: "A")
+        clock.now = Date(timeIntervalSince1970: 30)
+        store.updateItemDescription(checklistID: checklistID, itemID: item.id, description: "note")
+        clock.now = Date(timeIntervalSince1970: 40)
+        store.updateItem(checklistID: checklistID, itemID: item.id, relativeDate: 2)
+        guard let before = store.checklist(id: checklistID)?.items.first else {
+            XCTFail("expected the edited item")
+            return
+        }
+
+        clock.now = Date(timeIntervalSince1970: 5_000)
+        store.moveItems(checklistID: checklistID, from: IndexSet(integer: 0), to: 1)
+
+        guard let after = store.checklist(id: checklistID)?.items.first else {
+            XCTFail("expected the moved item")
+            return
+        }
+        XCTAssertEqual(after.id, before.id, "a move preserves the item, only the order changes")
+        XCTAssertEqual(after.title, before.title)
+        XCTAssertEqual(after.description, before.description)
+        XCTAssertEqual(after.relativeDate, before.relativeDate)
+        XCTAssertEqual(after.revision, before.revision)
+        XCTAssertEqual(after.modifiedAt, before.modifiedAt)
+        XCTAssertEqual(after.titleRevision, before.titleRevision)
+        XCTAssertEqual(after.titleModifiedAt, before.titleModifiedAt)
+        XCTAssertEqual(after.descriptionRevision, before.descriptionRevision)
+        XCTAssertEqual(after.descriptionModifiedAt, before.descriptionModifiedAt)
+        XCTAssertEqual(after.relativeDateRevision, before.relativeDateRevision)
+        XCTAssertEqual(after.relativeDateModifiedAt, before.relativeDateModifiedAt)
     }
 
     func testMoveStampsOrderNotChecklist() {

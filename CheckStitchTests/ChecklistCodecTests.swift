@@ -199,8 +199,10 @@ final class ChecklistCodecTests: XCTestCase {
         let item = ChecklistItem(
             id: UUID(), title: "Milk", description: "2 litres",
             modifiedAt: Date(timeIntervalSince1970: 20), revision: 2,
+            relativeDate: 3,
             titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20),
-            descriptionRevision: 3, descriptionModifiedAt: Date(timeIntervalSince1970: 30))
+            descriptionRevision: 3, descriptionModifiedAt: Date(timeIntervalSince1970: 30),
+            relativeDateRevision: 4, relativeDateModifiedAt: Date(timeIntervalSince1970: 40))
         let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [
             Checklist(id: UUID(), name: "Groceries", items: [item],
                       modifiedAt: Date(timeIntervalSince1970: 10), revision: 1),
@@ -214,14 +216,17 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(decoded.titleModifiedAt, Date(timeIntervalSince1970: 20))
         XCTAssertEqual(decoded.descriptionRevision, 3)
         XCTAssertEqual(decoded.descriptionModifiedAt, Date(timeIntervalSince1970: 30))
+        XCTAssertEqual(decoded.relativeDateRevision, 4)
+        XCTAssertEqual(decoded.relativeDateModifiedAt, Date(timeIntervalSince1970: 40))
         let raw = try XCTUnwrap(String(data: data, encoding: .utf8))
-        for key in ["titleRevision", "titleModifiedAt", "descriptionRevision", "descriptionModifiedAt"] {
+        for key in ["titleRevision", "titleModifiedAt", "descriptionRevision", "descriptionModifiedAt",
+                    "relativeDateRevision", "relativeDateModifiedAt"] {
             XCTAssertTrue(raw.contains("\"\(key)\""), "the \(key) key is written unconditionally")
         }
     }
 
     /// A v4 payload whose item carries `revision`/`modifiedAt` but none of the
-    /// four per-field clock keys: it must stay `.loaded` and seed every field
+    /// six per-field clock keys: it must stay `.loaded` and seed every field
     /// clock from the item's coarse clock, matching pre-upgrade semantics.
     func testItemWithoutFieldClocksSeedsFromCoarseClock() throws {
         let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","revision":3,"modifiedAt":100}]}]}"#.utf8)
@@ -233,8 +238,10 @@ final class ChecklistCodecTests: XCTestCase {
         let item = try XCTUnwrap(envelope.checklists.first?.items.first)
         XCTAssertEqual(item.titleRevision, 3)
         XCTAssertEqual(item.descriptionRevision, 3)
+        XCTAssertEqual(item.relativeDateRevision, 3)
         XCTAssertEqual(item.titleModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
         XCTAssertEqual(item.descriptionModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
+        XCTAssertEqual(item.relativeDateModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
     }
 
     /// The new per-field keys ride the v4 envelope, so legacy classifications

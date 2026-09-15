@@ -421,7 +421,7 @@ Extend the `item(...)` fixture with `relativeDateRevision`/`relativeDateModified
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (all six clocks covered by codec + merge + store)
+- [x] `make test-unit` passes (all six clocks covered by codec + merge + store)
 - [ ] `./scripts/test.sh` prints `gate: ok`
 
 #### Manual

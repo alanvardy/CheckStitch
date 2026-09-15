@@ -179,6 +179,74 @@ struct ChecklistMergeTests {
     }
 
     @Test
+    func relativeDateAndTitleEditsOnDifferentDevicesBothSurvive() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        // Device A changed the relative date last (coarse revision 2); its
+        // title clock is the older baseline. Device B edited the title last
+        // (coarse revision 1); its relative-date clock is the older baseline.
+        // Both sides share the untouched description baseline (1/t10), so the
+        // description axis is deterministic too.
+        let fromA = item(id: itemID, title: "Milk", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         relativeDate: 3,
+                         titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
+                         descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10),
+                         relativeDateRevision: 2, relativeDateModifiedAt: Date(timeIntervalSince1970: 20))
+        let fromB = item(id: itemID, title: "B title", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 30),
+                         descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10),
+                         relativeDateRevision: 1, relativeDateModifiedAt: Date(timeIntervalSince1970: 10))
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB]),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.title == "B title", "the newer title clock wins")
+        #expect(mergedItem?.relativeDate == 3, "the newer relative-date clock wins")
+        #expect(mergedItem?.revision == 2, "the whole-item winner's coarse clock survives")
+        #expect(mergedItem?.modifiedAt == Date(timeIntervalSince1970: 20))
+        // The winner's per-field clocks are copied verbatim, not re-seeded.
+        #expect(mergedItem?.titleRevision == 2)
+        #expect(mergedItem?.titleModifiedAt == Date(timeIntervalSince1970: 30))
+        #expect(mergedItem?.relativeDateRevision == 2)
+        #expect(mergedItem?.relativeDateModifiedAt == Date(timeIntervalSince1970: 20))
+        // The loser's values still win their own axes on re-merge: replaying the
+        // merged result (and the original remote) is a contentEquals no-op.
+        #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
+        #expect(ChecklistMerge.merge(local: merged, remote: remote).contentEquals(merged))
+    }
+
+    @Test
+    func relativeDateAndTitleEditsOnDifferentDevicesBothSurviveReversed() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let fromA = item(id: itemID, title: "Milk", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         relativeDate: 3,
+                         titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
+                         descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10),
+                         relativeDateRevision: 2, relativeDateModifiedAt: Date(timeIntervalSince1970: 20))
+        let fromB = item(id: itemID, title: "B title", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 30),
+                         descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10),
+                         relativeDateRevision: 1, relativeDateModifiedAt: Date(timeIntervalSince1970: 10))
+        let aFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB])]))
+        let bFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB])]),
+            remote: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA])]))
+
+        #expect(aFirst.checklists == bFirst.checklists, "the per-field merge is argument-order independent")
+        #expect(bFirst.checklists.first?.items.first?.title == "B title")
+        #expect(bFirst.checklists.first?.items.first?.relativeDate == 3)
+    }
+
+    @Test
     func sameFieldEditsStillResolveByFieldLWW() {
         let checklistID = UUID()
         let itemID = UUID()
@@ -512,11 +580,13 @@ func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distan
 func item(id: UUID, title: String, description: String = "", revision: Int,
           modifiedAt: Date = .distantPast, relativeDate: Int? = nil,
           titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
-          descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil) -> ChecklistItem {
+          descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil,
+          relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil) -> ChecklistItem {
     ChecklistItem(id: id, title: title, description: description, modifiedAt: modifiedAt,
                   revision: revision, relativeDate: relativeDate,
                   titleRevision: titleRevision, titleModifiedAt: titleModifiedAt,
-                  descriptionRevision: descriptionRevision, descriptionModifiedAt: descriptionModifiedAt)
+                  descriptionRevision: descriptionRevision, descriptionModifiedAt: descriptionModifiedAt,
+                  relativeDateRevision: relativeDateRevision, relativeDateModifiedAt: relativeDateModifiedAt)
 }
 
 @MainActor
