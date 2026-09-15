@@ -792,7 +792,7 @@ func create(title: String, dueDateComponents: DateComponents?) async throws {
 
 #### Automated
 - [x] `make test-unit` passes
-- [ ] `bash scripts/test.sh` passes (compiles both reminder paths + watch leg)
+- [x] `bash scripts/test.sh` passes (compiles both reminder paths + watch leg)
 
 #### Manual
 - [ ] `make run`, create a checklist with one item titled `today` (offset `0`),
@@ -957,7 +957,7 @@ Notes:
 
 #### Automated
 - [x] `make test-unit` passes
-- [ ] `bash scripts/test.sh` passes — this phase compiles the real UI, so the
+- [x] `bash scripts/test.sh` passes — this phase compiles the real UI, so the
       gate (not just the fast loop) is required
 
 #### Manual
