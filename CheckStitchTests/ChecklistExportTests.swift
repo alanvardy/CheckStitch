@@ -62,20 +62,21 @@ final class ChecklistExportTests: XCTestCase {
     }
 
     func testFileWrapperCarriesEncodedBytes() throws {
-        // One captured selection feeds both sides: two fresh `selectedPair()`
-        // calls would mint different UUIDs and the bytes could never match.
         let selected = selectedPair()
         let doc = try ChecklistExportDocument(checklists: selected)
-        // `fileWrapper` returns exactly the bytes held in `data` (the framework
-        // supplies its own `WriteConfiguration` — that type has no accessible
-        // initializers, so the writer is exercised through the same value).
         let contents = doc.data
-        let expected = try ChecklistExport.data(checklists: selected)
 
-        XCTAssertEqual(contents, expected)
-        guard case .loaded(_) = ChecklistCodec.classify(contents) else {
+        // Assert semantically rather than byte-for-byte: `fileWrapper` returns
+        // exactly `data`, but independent `JSONEncoder` encodes of the same
+        // value are NOT guaranteed byte-identical (key order may vary across
+        // encodes), so comparing two raw byte arrays is inherently flaky. Decode
+        // the document's bytes and compare the envelope instead.
+        guard case .loaded(let env) = ChecklistCodec.classify(contents) else {
             XCTFail("wrapper bytes did not classify as loaded, got \(ChecklistCodec.classify(contents))")
             return
         }
+        XCTAssertEqual(env.checklists, selected)
+        XCTAssertEqual(env.deviceID, "")
+        XCTAssertTrue(env.tombstones.isEmpty)
     }
 }
