@@ -259,8 +259,8 @@ Tests (XCTest names):
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes; new store tests green
-- [ ] Existing `ChecklistStoreTests` (tombstones, merge, `onChange`) unchanged and green
+- [x] `make test-unit` passes; new store tests green
+- [x] Existing `ChecklistStoreTests` (tombstones, merge, `onChange`) unchanged and green
 
 #### Manual
 - [ ] None.

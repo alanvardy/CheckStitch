@@ -1086,5 +1086,114 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.setDestination("list-a", for: UUID()), .notFound)
         XCTAssertTrue(store.checklists.isEmpty)
     }
+
+    // MARK: - Import primitives
+
+    /// An "imported" checklist with non-default identity, so freshness is provable.
+    private func makeImportedChecklist(name: String = "Groceries",
+                                       items: [String] = ["Milk", "Eggs"]) -> Checklist {
+        Checklist(name: name,
+                  items: items.map { ChecklistItem(title: $0, description: "\($0) notes", relativeDate: 1) },
+                  modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
+    }
+
+    func testImportInsertGivesFreshIdentityAndPreservesName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = makeImportedChecklist()
+        let inserted = store.importInsert(source)
+
+        let copy = try? XCTUnwrap(store.checklist(id: inserted))
+        XCTAssertEqual(copy?.name, "Groceries")
+        XCTAssertEqual(copy?.revision, 1, "imported revision is not carried over")
+        XCTAssertNotEqual(copy?.id, source.id)
+        XCTAssertEqual(copy?.items.count, 2)
+        XCTAssertEqual(copy?.items.map(\.title), ["Milk", "Eggs"])
+        XCTAssertEqual(copy?.items.map(\.description), ["Milk notes", "Eggs notes"])
+        XCTAssertEqual(copy?.items.map(\.relativeDate), [1, 1])
+        XCTAssertTrue(copy?.items.allSatisfy { predicted in
+            source.items.allSatisfy { $0.id != predicted.id }
+        } ?? false, "every item gets a fresh id")
+        XCTAssertEqual(copy?.items.map(\.revision), [1, 1])
+        XCTAssertTrue(store.tombstones.isEmpty)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.count, 1)
+        XCTAssertEqual(reloaded.checklists.first?.name, "Groceries")
+    }
+
+    func testImportInsertDisambiguatesNameAutomaticallyAndViaOverride() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let local = store.create(name: "Groceries")
+        store.importInsert(makeImportedChecklist())
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Groceries 2"])
+
+        store.importInsert(makeImportedChecklist(), as: "Custom")
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Groceries 2", "Custom"])
+        XCTAssertEqual(store.checklist(id: local.id)?.name, "Groceries")
+    }
+
+    func testImportInsertFiresOnChange() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        store.importInsert(makeImportedChecklist())
+        XCTAssertEqual(changes, 1, "an import notifies the sync coordinator")
+    }
+
+    func testImportReplaceRemovesLocalAndRecordsWholeChecklistTombstone() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let local = store.create(name: "Groceries")
+        let replacedID = try? XCTUnwrap(store.importReplace(id: local.id, with: makeImportedChecklist()))
+
+        let copy = try? XCTUnwrap(store.checklist(id: replacedID ?? UUID()))
+        XCTAssertEqual(store.checklists.count, 1, "a replace swaps, not duplicates")
+        XCTAssertNotEqual(copy?.id, local.id)
+        XCTAssertEqual(copy?.name, "Groceries")
+        XCTAssertEqual(copy?.revision, 1)
+        XCTAssertNil(store.checklist(id: local.id))
+
+        XCTAssertEqual(store.tombstones.count, 1)
+        XCTAssertEqual(store.tombstones.first?.checklistID, local.id)
+        XCTAssertNil(store.tombstones.first?.itemID)
+        XCTAssertEqual(store.tombstones.first?.revision, 2)
+    }
+
+    func testImportReplaceUnknownIdIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let local = store.create(name: "Groceries")
+        XCTAssertNil(store.importReplace(id: UUID(), with: makeImportedChecklist()))
+        XCTAssertEqual(store.checklists.count, 1)
+        XCTAssertEqual(store.checklists.first?.id, local.id)
+        XCTAssertTrue(store.tombstones.isEmpty)
+    }
+
+    func testConflictingChecklistMatchesTrimmedCaseInsensitiveName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let local = store.create(name: "Groceries")
+
+        XCTAssertEqual(store.conflictingChecklist(named: "groceries")?.id, local.id)
+        XCTAssertEqual(store.conflictingChecklist(named: " groceries ")?.id, local.id)
+        XCTAssertEqual(store.conflictingChecklist(named: "GROCERIES")?.id, local.id)
+        XCTAssertNil(store.conflictingChecklist(named: "Milk"))
+    }
 }
 
