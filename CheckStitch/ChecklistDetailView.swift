@@ -63,6 +63,7 @@ struct ChecklistDetailView: View {
                 Section("Items") {
                     ForEach(checklist.items) { item in
                         ItemRow(
+                            checklistID: checklistID,
                             itemID: item.id,
                             title: titleBinding(checklistID: checklistID, itemID: item.id),
                             description: descriptionBinding(checklistID: checklistID, itemID: item.id),
@@ -268,6 +269,7 @@ struct ChecklistDetailView: View {
 /// change is safe because `ChecklistStore.updateItem(…, relativeDate:)` no-ops
 /// an unchanged value.
 struct ItemRow: View {
+    let checklistID: UUID
     let itemID: UUID
     let title: Binding<String>
     let description: Binding<String>
@@ -275,12 +277,14 @@ struct ItemRow: View {
     let commitRelativeDate: (Int?) -> Void
 
     init(
+        checklistID: UUID,
         itemID: UUID = UUID(),
         title: Binding<String>,
         description: Binding<String> = .constant(""),
         relativeDate: Int?,
         commitRelativeDate: @escaping (Int?) -> Void
     ) {
+        self.checklistID = checklistID
         self.itemID = itemID
         self.title = title
         self.description = description
@@ -296,6 +300,7 @@ struct ItemRow: View {
             HStack {
                 TextField("Item", text: title)
                 dueDateField
+                editLink
             }
             TextField("Description", text: description, axis: .vertical)
                 .font(.footnote)
@@ -315,6 +320,20 @@ struct ItemRow: View {
                 draftDate = refreshed
             }
         }
+    }
+
+    /// Pushed editor for this item's description and relative due date.
+    /// `borderless` keeps the tap target to the icon so the row's inline fields
+    /// stay editable.
+    private var editLink: some View {
+        NavigationLink {
+            ItemEditView(checklistID: checklistID, itemID: itemID)
+        } label: {
+            Image(systemName: "square.and.pencil")
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("editItemButton-\(itemID.uuidString)")
     }
 
     /// The date field, committed on every change (the store no-ops unchanged

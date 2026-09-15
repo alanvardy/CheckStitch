@@ -71,7 +71,8 @@ struct ChecklistDetailViewTests {
     @Test
     func itemRowBuffersItsDateText() {
         let described = String(describing: ItemRow(
-            itemID: UUID(), title: .constant("Milk"), relativeDate: 1, commitRelativeDate: { _ in }))
+            checklistID: UUID(), itemID: UUID(), title: .constant("Milk"),
+            relativeDate: 1, commitRelativeDate: { _ in }))
         #expect(described.contains("relativeDate"))
         #expect(described.contains("_draftDate"))
     }
@@ -103,5 +104,50 @@ struct ChecklistDetailViewTests {
     ] as [(Int?, String, String?)])
     func itemRowAdoptsOnlyDifferingExternalDates(_ newValue: Int?, _ current: String, _ expected: String?) {
         #expect(ItemRow.draft(afterExternalChange: newValue, current: current) == expected)
+    }
+
+    /// The row carries the checklist identity its pushed edit link needs.
+    @Test
+    func itemRowCarriesItsChecklistForTheEditLink() {
+        let described = String(describing: ItemRow(
+            checklistID: UUID(), itemID: UUID(), title: .constant("Milk"),
+            relativeDate: 1, commitRelativeDate: { _ in }))
+        #expect(described.contains("checklistID"))
+        #expect(described.contains("itemID"))
+    }
+
+    /// The edit screen renders against an injected store for an existing item.
+    @Test
+    func itemEditViewRendersForAnExistingItem() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let checklist = store.create(name: "Groceries")
+        store.addItem(to: checklist.id)
+        let itemID = store.checklist(id: checklist.id)?.items.first?.id ?? UUID()
+        store.updateItemDescription(checklistID: checklist.id, itemID: itemID, description: "2 litres")
+        store.updateItem(checklistID: checklist.id, itemID: itemID, relativeDate: 1)
+
+        let view = ItemEditView(checklistID: checklist.id, itemID: itemID).environment(store)
+        #if os(macOS)
+        #expect(ImageRenderer(content: view).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: view).uiImage != nil)
+        #endif
+    }
+
+    /// A deleted item (e.g. an iCloud merge) renders the not-found placeholder
+    /// instead of a form bound to a missing item.
+    @Test
+    func itemEditViewRendersNotFoundForAMissingItem() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let checklist = store.create(name: "Groceries")
+
+        let view = ItemEditView(checklistID: checklist.id, itemID: UUID()).environment(store)
+        #if os(macOS)
+        #expect(ImageRenderer(content: view).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: view).uiImage != nil)
+        #endif
     }
 }

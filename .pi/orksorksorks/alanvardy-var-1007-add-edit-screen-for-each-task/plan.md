@@ -506,11 +506,11 @@ launch smoke does not create.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes — updated `ItemRow` constructions, the new
+- [x] `make test-unit` passes — updated `ItemRow` constructions, the new
       `ItemEditView` render tests, and the localization suites.
-- [ ] `make build-mac` passes — the `#if os(iOS)`/`#else` `dueDateField` branch
+- [x] `make build-mac` passes — the `#if os(iOS)`/`#else` `dueDateField` branch
       compiles against the macOS SDK (unsigned, no provisioning).
-- [ ] `make build` passes — iOS simulator compile.
+- [x] `make build` passes — iOS simulator compile.
 
 #### Manual
 - [ ] `make run`; open a checklist, tap the pencil on a row, type a description,
