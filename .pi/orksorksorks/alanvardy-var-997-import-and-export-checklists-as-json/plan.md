@@ -827,7 +827,7 @@ No change to `CheckStitchUITests/CheckStitchUITests.swift` — the smoke test's
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (view tests + all localization suites green)
+- [x] `make test-unit` passes (view tests + all localization suites green)
 - [ ] `bash scripts/test.sh` prints `gate: ok` (runs `make build`, `make test`,
   `make build-mac`, `make watch-build`, `bash scripts/tests/run.sh`, `shellcheck`)
 
