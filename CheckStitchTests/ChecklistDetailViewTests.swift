@@ -118,12 +118,12 @@ struct ChecklistDetailViewTests {
 
     /// The edit screen renders against an injected store for an existing item.
     @Test
-    func itemEditViewRendersForAnExistingItem() {
+    func itemEditViewRendersForAnExistingItem() throws {
         let defaults = makeIsolatedDefaults()
         let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
         let checklist = store.create(name: "Groceries")
         store.addItem(to: checklist.id)
-        let itemID = store.checklist(id: checklist.id)?.items.first?.id ?? UUID()
+        let itemID = try #require(store.checklist(id: checklist.id)?.items.first?.id)
         store.updateItemDescription(checklistID: checklist.id, itemID: itemID, description: "2 litres")
         store.updateItem(checklistID: checklist.id, itemID: itemID, relativeDate: 1)
 
