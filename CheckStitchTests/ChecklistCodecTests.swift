@@ -194,4 +194,71 @@ final class ChecklistCodecTests: XCTestCase {
         let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"x","items":[{"id":"\#(UUID().uuidString)","title":"Milk","description":42}]}]}"#.utf8)
         XCTAssertEqual(ChecklistCodec.classify(data), .unreadable)
     }
+
+    func testFieldClocksSurviveEnvelopeRoundTrip() throws {
+        let item = ChecklistItem(
+            id: UUID(), title: "Milk", description: "2 litres",
+            modifiedAt: Date(timeIntervalSince1970: 20), revision: 2,
+            titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20),
+            descriptionRevision: 3, descriptionModifiedAt: Date(timeIntervalSince1970: 30))
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [
+            Checklist(id: UUID(), name: "Groceries", items: [item],
+                      modifiedAt: Date(timeIntervalSince1970: 10), revision: 1),
+        ])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        let decoded = try XCTUnwrap(ChecklistCodec.decode(data).first?.items.first)
+        XCTAssertEqual(decoded.titleRevision, 2)
+        XCTAssertEqual(decoded.titleModifiedAt, Date(timeIntervalSince1970: 20))
+        XCTAssertEqual(decoded.descriptionRevision, 3)
+        XCTAssertEqual(decoded.descriptionModifiedAt, Date(timeIntervalSince1970: 30))
+        let raw = try XCTUnwrap(String(data: data, encoding: .utf8))
+        for key in ["titleRevision", "titleModifiedAt", "descriptionRevision", "descriptionModifiedAt"] {
+            XCTAssertTrue(raw.contains("\"\(key)\""), "the \(key) key is written unconditionally")
+        }
+    }
+
+    /// A v4 payload whose item carries `revision`/`modifiedAt` but none of the
+    /// four per-field clock keys: it must stay `.loaded` and seed every field
+    /// clock from the item's coarse clock, matching pre-upgrade semantics.
+    func testItemWithoutFieldClocksSeedsFromCoarseClock() throws {
+        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","revision":3,"modifiedAt":100}]}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        let item = try XCTUnwrap(envelope.checklists.first?.items.first)
+        XCTAssertEqual(item.titleRevision, 3)
+        XCTAssertEqual(item.descriptionRevision, 3)
+        XCTAssertEqual(item.titleModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
+        XCTAssertEqual(item.descriptionModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
+    }
+
+    /// The new per-field keys ride the v4 envelope, so legacy classifications
+    /// must not shift. Reuses the existing v1/v2/v3 literals as a lightweight guard.
+    func testV1V2V3ClassificationUnchanged() {
+        let v1 = Data(#"{"version":1,"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk"}]}]}"#.utf8)
+        guard case .migratable(from: let v1From, envelope: _) = ChecklistCodec.classify(v1) else {
+            XCTFail("expected v1 migratable outcome, got \(ChecklistCodec.classify(v1))")
+            return
+        }
+        XCTAssertEqual(v1From, 1)
+
+        let v2 = Data(#"{"version":2,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","modifiedAt":100,"revision":1}]}]}"#.utf8)
+        guard case .migratable(from: let v2From, envelope: _) = ChecklistCodec.classify(v2) else {
+            XCTFail("expected v2 migratable outcome, got \(ChecklistCodec.classify(v2))")
+            return
+        }
+        XCTAssertEqual(v2From, 2)
+
+        let v3 = Data(#"{"version":3,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","modifiedAt":100,"revision":1}]}]}"#.utf8)
+        guard case .migratable(from: let v3From, envelope: _) = ChecklistCodec.classify(v3) else {
+            XCTFail("expected v3 migratable outcome, got \(ChecklistCodec.classify(v3))")
+            return
+        }
+        XCTAssertEqual(v3From, 3)
+    }
 }

@@ -6,13 +6,24 @@ import os
 /// and `revision` carry the sync identity the merge compares; both are
 /// optional on decode so v1 payloads (which carried no sync state) still load.
 public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
-    public init(id: UUID = UUID(), title: String, description: String = "", modifiedAt: Date = .distantPast, revision: Int = 0, relativeDate: Int? = nil) {
+    public init(
+        id: UUID = UUID(), title: String, description: String = "",
+        modifiedAt: Date = .distantPast, revision: Int = 0, relativeDate: Int? = nil,
+        titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
+        descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil
+    ) {
         self.id = id
         self.title = title
         self.description = description
         self.modifiedAt = modifiedAt
         self.revision = revision
         self.relativeDate = relativeDate
+        // A fresh record (or a legacy payload) attributes its last whole-item edit
+        // to every field, so a nil field clock seeds from the coarse clock.
+        self.titleRevision = titleRevision ?? revision
+        self.titleModifiedAt = titleModifiedAt ?? modifiedAt
+        self.descriptionRevision = descriptionRevision ?? revision
+        self.descriptionModifiedAt = descriptionModifiedAt ?? modifiedAt
     }
 
     public let id: UUID
@@ -24,6 +35,12 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     /// No time-of-day support. Not clamped — the arithmetic in
     /// `ChecklistItem+DueDate.swift` is the only consumer.
     public var relativeDate: Int?
+    /// Per-field sync identity: each editable field carries its own clock so a
+    /// title edit and a description edit from two devices are independent.
+    public var titleRevision: Int
+    public var titleModifiedAt: Date
+    public var descriptionRevision: Int
+    public var descriptionModifiedAt: Date
 
     /// True when the item carries description text. The stored value is
     /// preserved verbatim (matching `title`), so surrounding whitespace on real
@@ -40,7 +57,10 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, description, modifiedAt, revision, relativeDate }
+    private enum CodingKeys: String, CodingKey {
+        case id, title, description, modifiedAt, revision, relativeDate
+        case titleRevision, titleModifiedAt, descriptionRevision, descriptionModifiedAt
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -53,6 +73,12 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
         // Absent in v2-and-earlier payloads and in `nil`-valued current payloads.
         relativeDate = try container.decodeIfPresent(Int.self, forKey: .relativeDate)
+        // Additive optional keys: absent in pre-upgrade payloads, so seed each field
+        // clock from the item's coarse clock (today's semantics on first contact).
+        titleRevision = try container.decodeIfPresent(Int.self, forKey: .titleRevision) ?? revision
+        titleModifiedAt = try container.decodeIfPresent(Date.self, forKey: .titleModifiedAt) ?? modifiedAt
+        descriptionRevision = try container.decodeIfPresent(Int.self, forKey: .descriptionRevision) ?? revision
+        descriptionModifiedAt = try container.decodeIfPresent(Date.self, forKey: .descriptionModifiedAt) ?? modifiedAt
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -70,6 +96,10 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         } else {
             try container.encodeNil(forKey: .relativeDate)
         }
+        try container.encode(titleRevision, forKey: .titleRevision)
+        try container.encode(titleModifiedAt, forKey: .titleModifiedAt)
+        try container.encode(descriptionRevision, forKey: .descriptionRevision)
+        try container.encode(descriptionModifiedAt, forKey: .descriptionModifiedAt)
     }
 }
 
@@ -173,6 +203,10 @@ extension Checklist {
             var upgraded = item
             upgraded.modifiedAt = date
             upgraded.revision = max(upgraded.revision, 1)
+            upgraded.titleRevision = upgraded.revision
+            upgraded.titleModifiedAt = date
+            upgraded.descriptionRevision = upgraded.revision
+            upgraded.descriptionModifiedAt = date
             return upgraded
         }
         return copy

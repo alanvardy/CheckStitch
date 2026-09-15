@@ -126,10 +126,27 @@ enum ChecklistMerge {
                 continue
             }
             let localItem = result[index]
+            var merged = localItem
+            // Coarse clock: always the whole-item winner's, so the tombstone
+            // invariant (`removed.revision + 1`) keeps holding.
             if wins(revision: remoteItem.revision, date: remoteItem.modifiedAt, device: remoteDevice,
                     overRevision: localItem.revision, overDate: localItem.modifiedAt, overDevice: localDevice) {
-                result[index] = remoteItem
+                merged.revision = remoteItem.revision
+                merged.modifiedAt = remoteItem.modifiedAt
             }
+            if fieldWins(revision: remoteItem.titleRevision, date: remoteItem.titleModifiedAt, device: remoteDevice,
+                         overRevision: localItem.titleRevision, overDate: localItem.titleModifiedAt, overDevice: localDevice) {
+                merged.title = remoteItem.title
+                merged.titleRevision = remoteItem.titleRevision
+                merged.titleModifiedAt = remoteItem.titleModifiedAt
+            }
+            if fieldWins(revision: remoteItem.descriptionRevision, date: remoteItem.descriptionModifiedAt, device: remoteDevice,
+                         overRevision: localItem.descriptionRevision, overDate: localItem.descriptionModifiedAt, overDevice: localDevice) {
+                merged.description = remoteItem.description
+                merged.descriptionRevision = remoteItem.descriptionRevision
+                merged.descriptionModifiedAt = remoteItem.descriptionModifiedAt
+            }
+            result[index] = merged
         }
         return result
     }
@@ -161,6 +178,14 @@ enum ChecklistMerge {
         // duplicate id, keep the first occurrence.
         let byID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return order.compactMap { byID[$0] }
+    }
+
+    private static func fieldWins(
+        revision: Int, date: Date, device: String,
+        overRevision: Int, overDate: Date, overDevice: String
+    ) -> Bool {
+        wins(revision: revision, date: date, device: device,
+             overRevision: overRevision, overDate: overDate, overDevice: overDevice)
     }
 
     private static func wins(revision: Int, date: Date, device: String? = nil,

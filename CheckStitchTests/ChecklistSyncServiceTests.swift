@@ -146,6 +146,46 @@ struct ChecklistSyncServiceTests {
     }
 
     @Test
+    func concurrentTitleAndDescriptionEditsBothSurviveReconcile() async throws {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let checklistID = UUID()
+        let itemID = UUID()
+        // Local device edited the title last: its title clock is 2/t20, its
+        // description clock is the pre-edit baseline.
+        let localItem = ChecklistItem(id: itemID, title: "A title", description: "",
+            modifiedAt: Date(timeIntervalSince1970: 20), revision: 2,
+            titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20))
+        let local = ChecklistEnvelope(deviceID: "device-a", checklists: [
+            Checklist(id: checklistID, name: "Groceries", items: [localItem],
+                      modifiedAt: Date(timeIntervalSince1970: 10), revision: 1)])
+        suite.defaults.set(try ChecklistCodec.encode(local), forKey: "checklists.v1")
+        let store = makeStore(defaults: suite.defaults)
+
+        // Remote device edited only the description: its title value is the
+        // pre-edit "Milk" and its title clock is the older baseline, so the
+        // local title edit wins that axis on clock alone.
+        let remoteItem = ChecklistItem(id: itemID, title: "Milk", description: "2 litres",
+            modifiedAt: Date(timeIntervalSince1970: 30), revision: 3,
+            titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
+            descriptionRevision: 3, descriptionModifiedAt: Date(timeIntervalSince1970: 30))
+        let sync = InMemoryChecklistSync(stored: envelopeData(device: "device-b", checklists: [
+            Checklist(id: checklistID, name: "Groceries", items: [remoteItem],
+                      modifiedAt: Date(timeIntervalSince1970: 10), revision: 1)]))
+        let service = makeService(sync: sync, store: store)
+
+        let outcome = await service.reconcile()
+
+        #expect(outcome == .synced)
+        #expect(store.checklists.first?.items.first?.title == "A title")
+        #expect(store.checklists.first?.items.first?.description == "2 litres")
+        let pushed = try #require(sync.stored)
+        #expect(ChecklistCodec.decode(pushed).first?.items.first?.title == "A title")
+        #expect(ChecklistCodec.decode(pushed).first?.items.first?.description == "2 litres")
+    }
+
+    @Test
     func bothNonEmptyMergeAndPush() async {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
