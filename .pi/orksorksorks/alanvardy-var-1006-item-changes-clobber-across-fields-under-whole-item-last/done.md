@@ -1,7 +1,8 @@
 # Done
 
 - **Branch / head SHA**: `alanvardy-var-1006-item-changes-clobber-across-fields-under-whole-item-last` @ `90fa7b4cd1be23e9ca95d7057186bd440067e1a0`
-  (rebased cleanly; working tree clean; pushed to origin)
+  (source-fix commit; the marker commit that adds this file follows it on the same
+  branch). Branch rebased cleanly, working tree clean, pushed to origin.
 - **Mechanical checks**: `./scripts/test.sh` → **`gate: ok`** (simulator build,
   `make test`, `make build-mac`, `make watch-build`, shell tests 17/17 passed,
   `shellcheck`), re-run after the review fixes. `make test-unit` → 212 tests in
