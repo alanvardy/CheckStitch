@@ -30,6 +30,31 @@ struct ChecklistSyncCoordinatorTests {
     }
 
     @Test
+    func perFieldClocksSurviveTheCoordinatorPush() {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let reference = Date(timeIntervalSinceReferenceDate: 20)
+        let older = Date(timeIntervalSinceReferenceDate: 10)
+        let checklists = [Checklist(name: "Groceries", items: [
+            ChecklistItem(id: UUID(), title: "Milk", modifiedAt: reference, revision: 2,
+                          titleRevision: 2, titleModifiedAt: reference,
+                          descriptionRevision: 1, descriptionModifiedAt: older,
+                          relativeDateRevision: 2, relativeDateModifiedAt: reference),
+        ])]
+        let coordinator = makeCoordinator(transport: transport, checklists: checklists, runner: runner)
+
+        coordinator.start()
+
+        let pushed = ChecklistCodec.decode(transport.sentContexts[0]).first?.items.first
+        #expect(pushed?.titleRevision == 2)
+        #expect(pushed?.titleModifiedAt == reference)
+        #expect(pushed?.descriptionRevision == 1)
+        #expect(pushed?.descriptionModifiedAt == older)
+        #expect(pushed?.relativeDateRevision == 2)
+        #expect(pushed?.relativeDateModifiedAt == reference)
+    }
+
+    @Test
     func storeChangePushesAgain() {
         let transport = FakeChecklistSyncTransport()
         let runner = SpyChecklistRunner()

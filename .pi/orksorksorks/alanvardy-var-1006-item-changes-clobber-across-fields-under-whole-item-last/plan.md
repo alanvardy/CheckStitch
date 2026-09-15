@@ -523,7 +523,7 @@ and assert all six clocks round-trip.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (merge + service + coordinator + watch suites)
+- [x] `make test-unit` passes (merge + service + coordinator + watch suites)
 - [ ] `./scripts/test.sh` prints `gate: ok` (includes `make watch-build`)
 
 #### Manual
