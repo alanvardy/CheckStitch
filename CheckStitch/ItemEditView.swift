@@ -1,32 +1,50 @@
 import CheckStitchCore
 import SwiftUI
 
-/// Edits one item's title, description and relative due date.
+/// Edits one item's title, description and relative due date ("days until
+/// due").
 ///
 /// Pushed from an `ItemRow` — the whole row is the link. Reads the item from the
 /// store each pass so an iCloud merge lands live, committing through the same
-/// per-field mutators as the detail screen.
+/// per-field mutators as the detail screen. The date field buffers its text (see
+/// `RelativeDateDraft`) so a half-typed `"-"` survives; the store no-ops an
+/// unchanged date.
 struct ItemEditView: View {
     let checklistID: UUID
     let itemID: UUID
 
     @Environment(ChecklistStore.self) private var store
+    @State private var draftDate = ""
+    @State private var didLoadDraft = false
 
     var body: some View {
         Group {
             if let item = store.checklist(id: checklistID)?
                 .items.first(where: { $0.id == itemID }) {
                 Form {
-                    Section {
-                        TextField("Item", text: titleBinding, axis: .vertical)
+                    Section("Title") {
+                        TextField("Title", text: titleBinding, axis: .vertical)
                             .accessibilityIdentifier("itemEditTitleField")
                     }
-                    Section {
+                    Section("Description") {
                         TextField("Description", text: descriptionBinding, axis: .vertical)
                             .accessibilityIdentifier("itemEditDescriptionField")
                     }
                     Section {
-                        dueDatePicker(current: item.relativeDate)
+                        dueDateField
+                    } header: {
+                        Text("Due date")
+                    } footer: {
+                        Text("0 means today, 1 means tomorrow, nothing means no date.")
+                    }
+                }
+                .onChange(of: item.relativeDate) { _, newValue in
+                    // An external (iCloud) change updates the buffer only when
+                    // it differs from what the buffer already represents, so a
+                    // padded `"05"` or a half-typed `"-"` is never rewritten.
+                    if let refreshed = RelativeDateDraft.text(
+                        afterExternalChange: newValue, current: draftDate) {
+                        draftDate = refreshed
                     }
                 }
             } else {
@@ -37,6 +55,12 @@ struct ItemEditView: View {
         .navigationTitle("Edit item")
         .toolbarTitleDisplayMode(.inline)
         .settingsSubscreenLayout()
+        .onAppear {
+            guard !didLoadDraft else { return }
+            let item = store.checklist(id: checklistID)?.items.first { $0.id == itemID }
+            draftDate = RelativeDateDraft.text(for: item?.relativeDate)
+            didLoadDraft = true
+        }
         .onDisappear { store.flushPendingSave() }
     }
 
@@ -69,34 +93,32 @@ struct ItemEditView: View {
         )
     }
 
-    /// The due-date row: a menu of spelled-out offsets rather than a typed day
-    /// count, so a bare `0` is never shown. `nil` is "No date". An offset the
-    /// item already carries that is not one of the presets keeps its own row, so
-    /// a value synced in from a device running an older build is displayed
-    /// rather than silently rewritten to the nearest preset.
-    private func dueDatePicker(current: Int?) -> some View {
-        Picker("Due date", selection: relativeDateBinding) {
-            Text("No date").tag(Int?.none)
-            ForEach(DueDateLabel.presets, id: \.self) { offset in
-                Text(DueDateLabel.text(for: offset)).tag(Int?.some(offset))
-            }
-            if let current, !DueDateLabel.presets.contains(current) {
-                Text(DueDateLabel.text(for: current)).tag(Int?.some(current))
-            }
-        }
-        .accessibilityIdentifier("itemEditDueDatePicker")
+    /// The typed day count: empty is "no date", a whole number is the offset.
+    /// Only complete values are committed, so a half-typed `"-"` never clears
+    /// the stored date. The numbers-and-punctuation keyboard is iOS-only (macOS
+    /// has no software keyboard) and is what keeps a leading `-` typeable; the
+    /// chain is duplicated under the guard because SwiftUI modifier calls return
+    /// distinct opaque view types.
+    private var dueDateField: some View {
+        #if os(iOS)
+            TextField("Due date", text: $draftDate)
+                .keyboardType(.numbersAndPunctuation)
+                .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("itemEditDueDateField")
+                .onChange(of: draftDate) { _, newValue in commitDate(newValue) }
+        #else
+            TextField("Due date", text: $draftDate)
+                .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("itemEditDueDateField")
+                .onChange(of: draftDate) { _, newValue in commitDate(newValue) }
+        #endif
     }
 
-    /// Per-selection write through the store, which no-ops an unchanged value.
-    private var relativeDateBinding: Binding<Int?> {
-        Binding(
-            get: {
-                store.checklist(id: checklistID)?
-                    .items.first { $0.id == itemID }?.relativeDate
-            },
-            set: {
-                store.updateItem(checklistID: checklistID, itemID: itemID, relativeDate: $0)
-            }
-        )
+    /// Commits the field's text through the store; in-progress text (a lone
+    /// `"-"`) is left for the next keystroke, and the store no-ops an unchanged
+    /// value.
+    private func commitDate(_ text: String) {
+        guard case .value(let relativeDate) = RelativeDateDraft.commit(for: text) else { return }
+        store.updateItem(checklistID: checklistID, itemID: itemID, relativeDate: relativeDate)
     }
 }

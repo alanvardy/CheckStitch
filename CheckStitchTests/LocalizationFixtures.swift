@@ -13,6 +13,7 @@ enum LocalizationFixtures {
         ("App", [
             "%lld days ago",
             "%lld%%",
+            "0 means today, 1 means tomorrow, nothing means no date.",
             "About",
             "Add Item",
             "Another checklist already uses %@ — choose a different name.",
@@ -46,7 +47,6 @@ enum LocalizationFixtures {
             "Name",
             "Name already in use",
             "No checklists",
-            "No date",
             "OK",
             "Photo by %@ on Unsplash",
             "Pin wallpaper",
@@ -70,6 +70,7 @@ enum LocalizationFixtures {
             "Keep Both",
             "Keep Existing",
             "Import and export",
+            "Title",
             "Today",
             "Tomorrow",
             "Yesterday",

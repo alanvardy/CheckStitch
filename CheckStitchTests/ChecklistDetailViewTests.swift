@@ -88,11 +88,58 @@ struct ChecklistDetailViewTests {
         #expect(DueDateLabel.text(for: -3).contains("3"))
     }
 
-    /// The menu's offsets: today, tomorrow and three days out, each spelled out.
+    /// The date field's text converts to a store value only when complete:
+    /// empty clears the date, a whole number sets it.
+    @Test(arguments: [
+        ("", Int?.none), ("  ", Int?.none),
+        ("0", 0), ("-3", -3), ("12", 12), ("05", 5),
+    ] as [(String, Int?)])
+    func completeDateTextCarriesItsOffset(_ text: String, _ expected: Int?) {
+        guard case .value(let offset) = RelativeDateDraft.commit(for: text) else {
+            Issue.record("\(text) should commit a value")
+            return
+        }
+        #expect(offset == expected)
+    }
+
+    /// In-progress text (a lone `"-"`, a decimal, junk) never commits, so an
+    /// invalid keystroke cannot silently clear or rewrite the stored date.
+    @Test(arguments: ["-", "1.5", "abc", "1 2", "--"])
+    func inProgressDateTextIsNotCommitted(_ text: String) {
+        #expect(RelativeDateDraft.commit(for: text) == .inProgress)
+    }
+
+    /// `nil` renders as the empty field; an offset renders its own digits.
+    @Test(arguments: [
+        (nil, ""), (0, "0"), (-3, "-3"),
+    ] as [(Int?, String)])
+    func dateTextRendersOffsetsAndEmptyForNoDate(_ value: Int?, _ expected: String) {
+        #expect(RelativeDateDraft.text(for: value) == expected)
+    }
+
+    /// An external (iCloud) change rewrites the buffer only when it differs from
+    /// what the buffer already represents; otherwise an in-progress or padded
+    /// value stays.
+    @Test(arguments: [
+        (5, "", "5"),
+        (5, "5", nil),
+        (nil, "", nil),
+        (7, "7", nil),
+        (7, "05", "7"),
+        (5, "-", "5"),
+    ] as [(Int?, String, String?)])
+    func dateTextOnlyAdoptsDifferingExternalChanges(
+        _ newValue: Int?, _ current: String, _ expected: String?
+    ) {
+        #expect(RelativeDateDraft.text(afterExternalChange: newValue, current: current) == expected)
+    }
+
+    /// The edit screen buffers its date text in a draft slot, so a half-typed
+    /// `"-"` survives long enough to be completed.
     @Test
-    func presetsSpellOutTodayTomorrowAndThreeDaysOut() {
-        #expect(DueDateLabel.presets == [0, 1, 3])
-        #expect(DueDateLabel.presets.allSatisfy { !DueDateLabel.text(for: $0).isEmpty })
+    func itemEditViewBuffersItsDateText() {
+        let described = String(describing: ItemEditView(checklistID: UUID(), itemID: UUID()))
+        #expect(described.contains("_draftDate"))
     }
 
     /// The row renders the description and date it is given, through the
