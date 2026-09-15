@@ -44,9 +44,9 @@ struct ChecklistDetailViewTests {
         #expect(described.contains("checklistID"))
     }
 
-    /// The description field is added to the Items rows; this stages a real render
-    /// pass against an injected store (the binding itself is private and
-    /// environment-bound, so its read/write behaviour is pinned by the store tests).
+    /// The Items rows render each item's description read-only; this stages a
+    /// real render pass against an injected store (the row's fields are private
+    /// to the view graph, so their commit behaviour is pinned by the store tests).
     @Test
     func detailViewRendersItemsWithDescriptions() {
         let defaults = makeIsolatedDefaults()
@@ -64,56 +64,68 @@ struct ChecklistDetailViewTests {
         #endif
     }
 
-    /// The date control's value graph: the row owns a text buffer, so a partial
-    /// `"-"` can survive long enough to be completed. The parse/format pair is
-    /// pure and asserted directly; commit behaviour is covered by the store
-    /// suite.
+    /// An absent date renders blank: "no date" is the absence of a phrase, not a
+    /// placeholder like "0".
     @Test
-    func itemRowBuffersItsDateText() {
-        let described = String(describing: ItemRow(
-            checklistID: UUID(), itemID: UUID(), title: .constant("Milk"),
-            relativeDate: 1, commitRelativeDate: { _ in }))
-        #expect(described.contains("relativeDate"))
-        #expect(described.contains("_draftDate"))
+    func missingDateRendersAsBlank() {
+        #expect(DueDateLabel.text(for: nil).isEmpty)
     }
 
-    @Test(arguments: [
-        ("", nil), ("-", nil), ("abc", nil),
-        ("0", 0), ("-3", -3), ("12", 12),
-    ] as [(String, Int?)])
-    func itemRowParsesDateText(_ text: String, _ expected: Int?) {
-        #expect(ItemRow.parse(text) == expected)
+    /// Every offset spells out to its own non-empty phrase, so no two offsets
+    /// collapse onto the same label.
+    @Test(arguments: [0, 1, -1, 3, -3, 12] as [Int])
+    func everyOffsetRendersItsOwnPhrase(_ offset: Int) {
+        let label = DueDateLabel.text(for: offset)
+        #expect(!label.isEmpty)
+        #expect(label != DueDateLabel.text(for: offset + 2))
     }
 
-    @Test(arguments: [
-        (nil, ""), (0, "0"), (-3, "-3"),
-    ] as [(Int?, String)])
-    func itemRowFormatsMissingDatesAsEmpty(_ value: Int?, _ expected: String) {
-        #expect(ItemRow.format(value) == expected)
+    /// The day count survives into the phrase, so "in 3 days" cannot silently
+    /// become "in 0 days".
+    @Test
+    func futureAndPastPhrasesCarryTheirDayCount() {
+        #expect(DueDateLabel.text(for: 3).contains("3"))
+        #expect(DueDateLabel.text(for: -3).contains("3"))
     }
 
-    /// An external change rewrites the buffer only when it differs from what the
-    /// buffer already parses to; otherwise an in-progress or padded value stays.
-    @Test(arguments: [
-        (5, "", "5"),
-        (5, "5", nil),
-        (nil, "", nil),
-        (7, "7", nil),
-        (7, "05", "7"),
-        (5, "-", "5"),
-    ] as [(Int?, String, String?)])
-    func itemRowAdoptsOnlyDifferingExternalDates(_ newValue: Int?, _ current: String, _ expected: String?) {
-        #expect(ItemRow.draft(afterExternalChange: newValue, current: current) == expected)
+    /// The menu's offsets: today, tomorrow and three days out, each spelled out.
+    @Test
+    func presetsSpellOutTodayTomorrowAndThreeDaysOut() {
+        #expect(DueDateLabel.presets == [0, 1, 3])
+        #expect(DueDateLabel.presets.allSatisfy { !DueDateLabel.text(for: $0).isEmpty })
+    }
+
+    /// The row renders the description and date it is given, through the
+    /// `DueDateLabel` seam rather than a typed field.
+    @Test
+    func itemRowRendersItsDescriptionAndDate() {
+        let row = ItemRow(
+            checklistID: UUID(), itemID: UUID(), title: "Milk",
+            description: "2 litres", relativeDate: 3)
+        #if os(macOS)
+        #expect(ImageRenderer(content: row).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: row).uiImage != nil)
+        #endif
+    }
+
+    /// A cleared title falls back to the placeholder rather than leaving the row
+    /// rendering blank.
+    @Test
+    func blankTitlesFallBackToTheItemPlaceholder() {
+        #expect(!ItemRow.displayTitle("").isEmpty)
+        #expect(ItemRow.displayTitle("Milk") == "Milk")
     }
 
     /// The row carries the checklist identity its pushed edit link needs.
     @Test
     func itemRowCarriesItsChecklistForTheEditLink() {
         let described = String(describing: ItemRow(
-            checklistID: UUID(), itemID: UUID(), title: .constant("Milk"),
-            relativeDate: 1, commitRelativeDate: { _ in }))
+            checklistID: UUID(), itemID: UUID(), title: "Milk",
+            description: "2 litres", relativeDate: 1))
         #expect(described.contains("checklistID"))
         #expect(described.contains("itemID"))
+        #expect(described.contains("relativeDate"))
     }
 
     /// The edit screen renders against an injected store for an existing item.
