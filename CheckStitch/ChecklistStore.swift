@@ -72,11 +72,16 @@ final class ChecklistStore {
                 self.tombstones = stored.tombstones
                 self.canOverwriteStoredPayload = true
             case .migratable(let from, let legacy):
-                if from == 1 {
+                switch from {
+                case 1:
                     // v1 carried no sync state: stamp it (unchanged behaviour).
                     self.checklists = legacy.checklists.map { $0.migrated(at: now()) }
-                } else {
-                    // v2 (and later legacy versions) already carry sync state; load it
+                case 2:
+                    // v2 carries sync state but no ordering state: seed ordering
+                    // without restamping revision/modifiedAt.
+                    self.checklists = legacy.checklists.map { $0.seededOrder() }
+                default:
+                    // v3+ already carries full sync and ordering state: load it
                     // verbatim so a stored revision/modifiedAt is never restamped.
                     self.checklists = legacy.checklists
                 }

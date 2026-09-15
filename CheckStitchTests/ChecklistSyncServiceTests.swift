@@ -101,6 +101,7 @@ struct ChecklistSyncServiceTests {
 
         #expect(outcome == .synced)
         #expect(store.checklists.first(where: { $0.id == remoteID })?.revision == 4, "v2 revisions are not restamped")
+        #expect(store.checklists.first(where: { $0.id == remoteID })?.orderRevision == 4, "v2 ordering is seeded")
         #expect(store.tombstones.contains(tombstone), "v2 tombstones are not dropped")
     }
 

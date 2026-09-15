@@ -63,6 +63,7 @@ struct ChecklistDetailView: View {
                 Section("Items") {
                     ForEach(checklist.items) { item in
                         ItemRow(
+                            itemID: item.id,
                             title: titleBinding(checklistID: checklistID, itemID: item.id),
                             description: descriptionBinding(checklistID: checklistID, itemID: item.id),
                             relativeDate: item.relativeDate,
@@ -268,6 +269,7 @@ struct ChecklistDetailView: View {
 /// change is safe because `ChecklistStore.updateItem(…, relativeDate:)` no-ops
 /// an unchanged value.
 struct ItemRow: View {
+    let itemID: UUID
     let title: Binding<String>
     let description: Binding<String>
     let relativeDate: Int?
@@ -307,6 +309,14 @@ struct ItemRow: View {
             draftDate = Self.format(relativeDate)
             didLoadDraft = true
         }
+        .onChange(of: relativeDate) { _, newValue in
+            // An external (iCloud) change updates the buffer; a value this row
+            // just committed parses back to the same value and is left alone, so
+            // a half-typed `"-"` or a padded `"05"` is never rewritten mid-edit.
+            if let refreshed = Self.draft(afterExternalChange: newValue, current: draftDate) {
+                draftDate = refreshed
+            }
+        }
     }
 
     /// The date field, committed on every change (the store no-ops unchanged
@@ -320,7 +330,7 @@ struct ItemRow: View {
                 .keyboardType(.numbersAndPunctuation)
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
-                .accessibilityIdentifier("itemRelativeDateField")
+                .accessibilityIdentifier("itemRelativeDateField-\(itemID.uuidString)")
                 .onChange(of: draftDate) { _, newValue in
                     commitRelativeDate(Self.parse(newValue))
                 }
@@ -328,7 +338,7 @@ struct ItemRow: View {
             TextField("Days", text: $draftDate)
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
-                .accessibilityIdentifier("itemRelativeDateField")
+                .accessibilityIdentifier("itemRelativeDateField-\(itemID.uuidString)")
                 .onChange(of: draftDate) { _, newValue in
                     commitRelativeDate(Self.parse(newValue))
                 }
@@ -340,4 +350,11 @@ struct ItemRow: View {
 
     /// `nil` renders as the empty field.
     static func format(_ value: Int?) -> String { value.map(String.init) ?? "" }
+
+    /// The buffer text to adopt after `relativeDate` changes externally, or
+    /// `nil` when `current` already represents `newValue` and must be preserved
+    /// (so a padded `"05"` or a half-typed `"-"` is never rewritten mid-edit).
+    static func draft(afterExternalChange newValue: Int?, current: String) -> String? {
+        parse(current) == newValue ? nil : format(newValue)
+    }
 }

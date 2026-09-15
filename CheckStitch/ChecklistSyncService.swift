@@ -127,11 +127,20 @@ final class ChecklistSyncService {
         case .loaded(let envelope):
             remote = envelope
         case .migratable(let from, let legacy):
-            if from == 1 {
+            switch from {
+            case 1:
                 remote = ChecklistEnvelope(deviceID: "", checklists: legacy.checklists.map { $0.migrated(at: .distantPast) })
-            } else {
-                // v2 is currently-shaped: keep its deviceID (LWW tie-break) and
-                // tombstones, and do not restamp revisions.
+            case 2:
+                // v2 carries sync state but no ordering state: seed ordering
+                // without restamping, and keep its deviceID (LWW tie-break)
+                // and tombstones.
+                remote = ChecklistEnvelope(
+                    deviceID: legacy.deviceID,
+                    checklists: legacy.checklists.map { $0.seededOrder() },
+                    tombstones: legacy.tombstones)
+            default:
+                // v3+ already carries full sync and ordering state; keep its
+                // deviceID and tombstones and do not restamp.
                 remote = ChecklistEnvelope(
                     deviceID: legacy.deviceID,
                     checklists: legacy.checklists,
