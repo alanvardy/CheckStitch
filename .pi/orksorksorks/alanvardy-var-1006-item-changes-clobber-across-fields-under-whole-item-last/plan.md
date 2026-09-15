@@ -310,7 +310,7 @@ let pushed = try #require(sync.stored)
 
 #### Automated
 - [x] `make test-unit` passes (all four touched suites green)
-- [ ] `./scripts/test.sh` prints `gate: ok`
+- [x] `./scripts/test.sh` prints `gate: ok`
 
 #### Manual
 - [ ] Two simulators (or a phone + simulator) signed into the same iCloud
@@ -422,7 +422,7 @@ Extend the `item(...)` fixture with `relativeDateRevision`/`relativeDateModified
 
 #### Automated
 - [x] `make test-unit` passes (all six clocks covered by codec + merge + store)
-- [ ] `./scripts/test.sh` prints `gate: ok`
+- [x] `./scripts/test.sh` prints `gate: ok`
 
 #### Manual
 - [ ] Two devices: set a relative date on one and edit the title on the other;
@@ -524,7 +524,7 @@ and assert all six clocks round-trip.
 
 #### Automated
 - [x] `make test-unit` passes (merge + service + coordinator + watch suites)
-- [ ] `./scripts/test.sh` prints `gate: ok` (includes `make watch-build`)
+- [x] `./scripts/test.sh` prints `gate: ok` (includes `make watch-build`)
 
 #### Manual
 - [ ] Install a fresh old-version build and a new build on two devices sharing
@@ -542,7 +542,7 @@ and assert all six clocks round-trip.
       `make test-unit` — do not start Phase 2 otherwise.
 - [ ] After Phase 2: all six clocks covered in codec + merge + store suites —
       the wire contract is frozen.
-- [ ] After Phase 3: full gate `./scripts/test.sh` prints `gate: ok`, including
+- [x] After Phase 3: full gate `./scripts/test.sh` prints `gate: ok`, including
       the watch compile leg.
 
 ## Files touched (completeness check against `structure.md`)
