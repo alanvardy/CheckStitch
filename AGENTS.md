@@ -68,9 +68,7 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 
 ## Simulator windows
 
-- **Why windows appear**: a running `Simulator.app` attaches a window to every
-  device booted while it is alive, from any worktree. No `simctl`/`xcodebuild`
-  headless flag exists on this toolchain; the GUI is the only lever.
+- **Why windows appear** and the dead ends: see the `simulator` skill.
 - **The gate** takes a bounded host lock (`${TMPDIR:-/tmp}/checkstitch-simulator.lock`),
   quits `Simulator.app` once before the simulator-touching part, pre-boots this
   worktree's `.simulator_id` UDID headlessly between `make build` and `make
@@ -87,12 +85,6 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   device boot attaches that device's window instead.
 - **Shell tests**: `bash scripts/tests/run.sh`, also run by the gate; stubs
   `xcrun`/`defaults`/`make`/`open`/`osascript` on `PATH`.
-- **Spike result (Phase 1)**: the `com.apple.iphonesimulator AutoOpenDevice`
-  preference is **ineffective** on this toolchain (Xcode 26.6 / iOS 27.0).
-  Booting a device still opened a window with the pref set to `0` — even
-  after relaunching `Simulator.app` with the pref already applied — so the
-  preference approach was dropped (`scripts/sim-windowless.sh` was deleted
-  during implementation) and the host lock above is used instead.
 
 ## Signing
 
@@ -113,6 +105,11 @@ CheckStitch/AppGroup.entitlements`) — the KVS entitlement is what lets
   functions (never `test`-prefixed), `@Test(arguments:)` for cases, `@MainActor` on any
   suite touching EventKit or the view model. Fakes live in `CheckStitchTests/TestFixtures.swift`.
 - Verify with `make test-unit` (fast) before `bash scripts/test.sh` (full gate).
+- SwiftUI API verification: the compiler is the oracle — edit, then `make build`
+  / `make test-unit`; read `ContentView.swift`/`CardPlate.swift` precedent before
+  SDK probing (see the `swiftui-sdk` skill).
+- Sync/icon/render tickets cannot close on static evidence — verify the installed
+  bundle on the target and state what the user should see (see `devicectl`).
 - `scripts/*.sh` are `#!/bin/bash` with `set -euo pipefail`, committed mode
   `100755` (`chmod +x` before committing). Keep the plural `run-devices.sh`
   name: the `r` fish alias runs `./scripts/run-devices.sh`.
