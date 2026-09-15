@@ -311,19 +311,28 @@ struct ItemRow: View {
 
     /// The date field, committed on every change (the store no-ops unchanged
     /// values). The numbers-and-punctuation keyboard is iOS-only — macOS has no
-    /// software keyboard — and is what keeps a leading `-` typeable.
+    /// software keyboard — and is what keeps a leading `-` typeable. The chain
+    /// is duplicated under the guard because SwiftUI modifier calls return
+    /// distinct opaque view types, so a guarded reassignment cannot type-check.
     private var dueDateField: some View {
-        var field = TextField("Days", text: $draftDate)
-            .multilineTextAlignment(.trailing)
-            .frame(maxWidth: 80)
-            .accessibilityIdentifier("itemRelativeDateField")
-            .onChange(of: draftDate) { _, newValue in
-                commitRelativeDate(Self.parse(newValue))
-            }
         #if os(iOS)
-            field = field.keyboardType(.numbersAndPunctuation)
+            TextField("Days", text: $draftDate)
+                .keyboardType(.numbersAndPunctuation)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 80)
+                .accessibilityIdentifier("itemRelativeDateField")
+                .onChange(of: draftDate) { _, newValue in
+                    commitRelativeDate(Self.parse(newValue))
+                }
+        #else
+            TextField("Days", text: $draftDate)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 80)
+                .accessibilityIdentifier("itemRelativeDateField")
+                .onChange(of: draftDate) { _, newValue in
+                    commitRelativeDate(Self.parse(newValue))
+                }
         #endif
-        return field
     }
 
     /// Unparseable text (including an in-progress `"-"`) means "no date".
