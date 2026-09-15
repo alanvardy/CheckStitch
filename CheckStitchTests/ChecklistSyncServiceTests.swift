@@ -186,6 +186,46 @@ struct ChecklistSyncServiceTests {
     }
 
     @Test
+    func fieldClocksDoNotCausePushChurn() async throws {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let checklistID = UUID()
+        let itemID = UUID()
+        // The local build writes explicit field clocks whose values are exactly
+        // what the legacy (clock-less) remote seeds on decode, so merging the
+        // two is a contentEquals no-op and nothing may be pushed back.
+        let reference = Date(timeIntervalSinceReferenceDate: 100)
+        let localItem = ChecklistItem(id: itemID, title: "Milk", description: "2 litres",
+            modifiedAt: reference, revision: 3,
+            titleRevision: 3, titleModifiedAt: reference,
+            descriptionRevision: 3, descriptionModifiedAt: reference,
+            relativeDateRevision: 3, relativeDateModifiedAt: reference)
+        let local = ChecklistEnvelope(deviceID: "device-a", checklists: [
+            Checklist(id: checklistID, name: "Groceries", items: [localItem],
+                      modifiedAt: reference, revision: 1)])
+        suite.defaults.set(try ChecklistCodec.encode(local), forKey: "checklists.v1")
+        let store = makeStore(defaults: suite.defaults)
+
+        // JSONEncoder's default `deferredToDate` strategy encodes `Date` as
+        // seconds since the 2001 reference date, so `100` decodes to
+        // `Date(timeIntervalSinceReferenceDate: 100)` — clock-less, so every
+        // field clock seeds from `revision`/`modifiedAt` on decode.
+        let remote = Data(#"{"version":4,"deviceID":"device-b","tombstones":[],"checklists":[{"id":"\#(checklistID.uuidString)","name":"Groceries","modifiedAt":100,"revision":1,"items":[{"id":"\#(itemID.uuidString)","title":"Milk","description":"2 litres","revision":3,"modifiedAt":100}]}]}"#.utf8)
+        let sync = InMemoryChecklistSync(stored: remote)
+        let service = makeService(sync: sync, store: store)
+
+        let outcome = await service.reconcile()
+
+        #expect(outcome == .synced)
+        #expect(sync.written.isEmpty, "seeded remote clocks equal the local clocks, so nothing is pushed")
+
+        let second = await service.reconcile()
+        #expect(second == .synced)
+        #expect(sync.written.isEmpty, "a second reconcile still writes nothing")
+    }
+
+    @Test
     func bothNonEmptyMergeAndPush() async {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

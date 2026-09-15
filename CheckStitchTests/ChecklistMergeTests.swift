@@ -296,6 +296,81 @@ struct ChecklistMergeTests {
     }
 
     @Test
+    func legacySeededClocksResolveOneWinningField() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        // A legacy build wrote no field clocks: the plain init seeds every
+        // field clock from the coarse clock (5/t50), and the upgraded record's
+        // description edit (6/t60) postdates the seeded one while its title
+        // clock (3/t30) predates it.
+        let legacy = item(id: itemID, title: "Milk", description: "old note",
+                          revision: 5, modifiedAt: Date(timeIntervalSince1970: 50))
+        let upgraded = item(id: itemID, title: "Milk (typo)", description: "new note",
+                            revision: 4, modifiedAt: Date(timeIntervalSince1970: 40),
+                            titleRevision: 3, titleModifiedAt: Date(timeIntervalSince1970: 30),
+                            descriptionRevision: 6, descriptionModifiedAt: Date(timeIntervalSince1970: 60))
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [legacy]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [upgraded]),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.title == "Milk", "the seeded title clock (5/t50) beats the stale 3/t30 title edit")
+        #expect(mergedItem?.description == "new note", "the newer description clock (6/t60) wins its own axis")
+        #expect(mergedItem?.revision == 5, "the whole-item winner's coarse clock survives")
+        #expect(mergedItem?.titleRevision == 5)
+        #expect(mergedItem?.titleModifiedAt == Date(timeIntervalSince1970: 50))
+        #expect(mergedItem?.descriptionRevision == 6)
+        #expect(mergedItem?.descriptionModifiedAt == Date(timeIntervalSince1970: 60))
+        // The losers' axes still win on replay: re-merging with the original
+        // remote must be a contentEquals no-op.
+        #expect(ChecklistMerge.merge(local: merged, remote: remote).contentEquals(merged))
+    }
+
+    @Test
+    func emptyDeviceIDsResolvePerFieldDeterministically() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let sameMoment = Date(timeIntervalSince1970: 1_700_000_000)
+        // Both sides carry equal clocks on every axis; only the values differ.
+        // With no device id in the tie-break (`"" < ""` is false), no axis may
+        // win, so each argument order keeps exactly its own local copy.
+        let fromA = item(id: itemID, title: "A title", description: "A note", revision: 1,
+                         modifiedAt: sameMoment,
+                         titleRevision: 1, titleModifiedAt: sameMoment,
+                         descriptionRevision: 1, descriptionModifiedAt: sameMoment,
+                         relativeDateRevision: 1, relativeDateModifiedAt: sameMoment)
+        let fromB = item(id: itemID, title: "B title", description: "B note", revision: 1,
+                         modifiedAt: sameMoment,
+                         titleRevision: 1, titleModifiedAt: sameMoment,
+                         descriptionRevision: 1, descriptionModifiedAt: sameMoment,
+                         relativeDateRevision: 1, relativeDateModifiedAt: sameMoment)
+        let local = envelope(device: "", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA]),
+        ])
+        let remote = envelope(device: "", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB]),
+        ])
+
+        let aFirst = ChecklistMerge.merge(local: local, remote: remote)
+        let bFirst = ChecklistMerge.merge(local: remote, remote: local)
+
+        // No win without a device id: each order reproduces its local input
+        // exactly, so the merge never spuriously reassigns a field.
+        #expect(aFirst.checklists == local.checklists)
+        #expect(bFirst.checklists == remote.checklists)
+        #expect(aFirst.checklists.first?.items.first?.title == "A title")
+        #expect(aFirst.checklists.first?.items.first?.description == "A note")
+        #expect(bFirst.checklists.first?.items.first?.title == "B title")
+        #expect(bFirst.checklists.first?.items.first?.description == "B note")
+        #expect(aFirst.tombstones == bFirst.tombstones)
+    }
+
+    @Test
     func distinctItemDescriptionsBothSurvive() {
         let checklistID = UUID()
         let a = item(id: UUID(), title: "Milk", description: "a note", revision: 1)

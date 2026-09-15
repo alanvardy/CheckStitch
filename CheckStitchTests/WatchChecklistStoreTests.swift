@@ -116,4 +116,29 @@ struct WatchChecklistStoreTests {
 
         #expect(store.checklists.first?.items.first?.description == "2 litres")
     }
+
+    @Test
+    func fieldClocksSurviveTheWatchContext() throws {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+
+        let reference = Date(timeIntervalSinceReferenceDate: 30)
+        let older = Date(timeIntervalSinceReferenceDate: 10)
+        let expected = [Checklist(name: "Groceries", items: [
+            ChecklistItem(id: UUID(), title: "Milk", modifiedAt: reference, revision: 3,
+                          titleRevision: 3, titleModifiedAt: reference,
+                          descriptionRevision: 2, descriptionModifiedAt: older,
+                          relativeDateRevision: 3, relativeDateModifiedAt: reference),
+        ])]
+        transport.deliver(.context(try ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: expected))))
+
+        let stored = try #require(store.checklists.first?.items.first)
+        #expect(stored.titleRevision == 3)
+        #expect(stored.titleModifiedAt == reference)
+        #expect(stored.descriptionRevision == 2)
+        #expect(stored.descriptionModifiedAt == older)
+        #expect(stored.relativeDateRevision == 3)
+        #expect(stored.relativeDateModifiedAt == reference)
+    }
 }
