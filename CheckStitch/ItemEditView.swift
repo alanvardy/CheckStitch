@@ -78,6 +78,7 @@ struct ItemEditView: View {
         #if os(iOS)
             TextField("Days", text: $draftDate)
                 .keyboardType(.numbersAndPunctuation)
+                .multilineTextAlignment(.trailing)
                 .accessibilityIdentifier("itemEditRelativeDateField")
                 .onChange(of: draftDate) { _, newValue in
                     store.updateItem(
@@ -86,6 +87,7 @@ struct ItemEditView: View {
                 }
         #else
             TextField("Days", text: $draftDate)
+                .multilineTextAlignment(.trailing)
                 .accessibilityIdentifier("itemEditRelativeDateField")
                 .onChange(of: draftDate) { _, newValue in
                     store.updateItem(

@@ -333,6 +333,7 @@ struct ItemRow: View {
                 .foregroundStyle(.secondary)
         }
         .buttonStyle(.borderless)
+        .accessibilityLabel("Edit item")
         .accessibilityIdentifier("editItemButton-\(itemID.uuidString)")
     }
 
