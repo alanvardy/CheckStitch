@@ -119,6 +119,13 @@ final class ChecklistStore {
         checklists.first { $0.id == id }
     }
 
+    /// The first checklist whose name collides with `name` under the store's
+    /// trimmed, case-insensitive comparison, or `nil` when the name is free. The
+    /// import flow's conflict primitive — `sameName` stays private.
+    func conflictingChecklist(named name: String) -> Checklist? {
+        checklists.first { Self.sameName($0.name, name) }
+    }
+
     /// Creates a checklist, disambiguating the name when another checklist
     /// already uses it: `"New checklist"`, `"New checklist 2"`,
     /// `"New checklist 3"`, … Creation therefore always succeeds and returns
@@ -159,6 +166,52 @@ final class ChecklistStore {
         checklists.append(copy)
         save()
         return copy
+    }
+
+    /// Fresh local identity for imported content: new checklist AND item UUIDs,
+    /// `revision: 1`, stamped now. Mirrors `duplicate`'s semantics and deliberately
+    /// drops the imported `destinationListIdentifier` — a Reminders list id from the
+    /// source device need not exist here.
+    private func freshCopy(of checklist: Checklist) -> Checklist {
+        Checklist(
+            name: checklist.name,
+            items: checklist.items.map {
+                ChecklistItem(title: $0.title, description: $0.description,
+                              modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate)
+            },
+            modifiedAt: now(),
+            revision: 1
+        )
+    }
+
+    /// Inserts imported content as a new local checklist. The name is disambiguated
+    /// through `uniqueName` (a no-op for a genuinely free name), which is the
+    /// non-destructive "Keep Both" path; pass `name` to force one. Never re-enters
+    /// the LWW merge. Returns the new id.
+    @discardableResult
+    func importInsert(_ checklist: Checklist, as name: String? = nil) -> UUID {
+        var copy = freshCopy(of: checklist)
+        copy.name = name ?? Self.uniqueName(basedOn: copy.name, taken: checklists.map(\.name))
+        checklists.append(copy)
+        save()
+        return copy.id
+    }
+
+    /// Replaces an existing checklist with imported content. Records the same
+    /// whole-checklist tombstone `delete(id:)` does (`itemID: nil`,
+    /// `revision + 1`) but commits delete + insert in a single `save()`, so a
+    /// replace is one push. Returns the new id, or `nil` when the local checklist
+    /// no longer exists (silent no-op, mirroring `delete`).
+    @discardableResult
+    func importReplace(id: UUID, with checklist: Checklist) -> UUID? {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return nil }
+        let removed = checklists.remove(at: index)
+        tombstones.append(ChecklistTombstone(
+            checklistID: id, itemID: nil, deletedAt: now(), revision: removed.revision + 1))
+        let copy = freshCopy(of: checklist)
+        checklists.append(copy)
+        save()
+        return copy.id
     }
 
     /// Renames a checklist and reports whether the name was applied. The
