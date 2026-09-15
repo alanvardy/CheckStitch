@@ -56,6 +56,17 @@ struct ViewRenderTests {
     }
 
     @Test
+    func settingsViewRendersWithImportAndExportRows() {
+        let view = SettingsView(
+            appearanceMode: .constant(.system),
+            bindings: SettingsBindings(),
+            backgroundImage: BackgroundImageStore(),
+            onExport: {},
+            onImport: {})
+        #expect(renders(view))
+    }
+
+    @Test
     func syncStatusIsSilentWhenSynced() {
         #expect(SyncStatusView(outcome: .synced, isSyncing: false).message == nil)
     }

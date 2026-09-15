@@ -19,6 +19,9 @@ struct ContentView: View {
     @State private var creating: Set<UUID> = []
     @State private var created: Set<UUID> = []
     @State private var isShowingSettings = false
+    /// Import/export chosen in the Settings menu, handed over once the settings
+    /// sheet has dismissed (see `requestDataAction`).
+    @State private var dataActionQueue = SettingsDataActionQueue()
     @State private var backgroundImage = BackgroundImageStore()
     @State private var settingsBag: SettingsBindings?
     /// Message for the run-failure alert; `nil` hides it. Set only when a run
@@ -57,12 +60,6 @@ struct ContentView: View {
                         // macOS window actions belong in the title bar, and a
                         // view-level overlay there drifts into the content area.
                         // Trailing keeps the gear in the corner beside create.
-                        ToolbarItem(placement: .primaryAction) {
-                            exportButton
-                        }
-                        ToolbarItem(placement: .primaryAction) {
-                            importButton
-                        }
                         ToolbarItem(placement: .primaryAction) {
                             settingsButton
                         }
@@ -111,16 +108,26 @@ struct ContentView: View {
                 }
             }
             .onChange(of: isShowingSettings) { _, showing in
-                if !showing { settingsBag = nil }
+                guard !showing else { return }
+                settingsBag = nil
+                guard let action = dataActionQueue.take() else { return }
+                // The file panels live on this root view: a sheet-nested
+                // `.fileExporter` never presents on macOS. So the settings
+                // sheet has to finish dismissing before the panel is asked for.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    perform(action)
+                }
             }
             #if os(iOS)
-                // Both chrome plates float as overlays instead of toolbar
+                // The chrome plates float as overlays instead of toolbar
                 // items: iOS 26's navigation toolbar paints a translucent
                 // chip plate behind its buttons (visible on device), and an
-                // overlay button does not. The equal top padding locks the
-                // two 52×52 plates to the same row; the empty-path guard
-                // keeps them off pushed screens, whose own toolbars own the
-                // top bar.
+                // overlay button does not. The matching top padding keeps the
+                // 52×52 plates on one row (create leading, settings trailing);
+                // the empty-path guard keeps them off pushed screens, whose
+                // own toolbars own the top bar. Import/export live in the
+                // settings sheet, not on the root chrome.
                 .overlay(alignment: .topLeading) {
                     if path.isEmpty {
                         createButton
@@ -130,12 +137,9 @@ struct ContentView: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     if path.isEmpty {
-                        VStack(spacing: 8) {
-                            settingsButton
-                            dataMenuButton
-                        }
-                        .padding(.top, 8)
-                        .padding(.trailing, 12)
+                        settingsButton
+                            .padding(.top, 8)
+                            .padding(.trailing, 12)
                     }
                 }
             #endif
@@ -275,45 +279,6 @@ struct ContentView: View {
         #endif
     }
 
-    private var exportButton: some View {
-        Button { beginExport() } label: {
-            Label("Export", systemImage: "square.and.arrow.up")
-        }
-        .accessibilityIdentifier("exportButton")
-    }
-
-    private var importButton: some View {
-        Button { isImporting = true } label: {
-            Label("Import", systemImage: "square.and.arrow.down")
-        }
-        .accessibilityIdentifier("importButton")
-    }
-
-    #if os(iOS)
-    private var dataMenuButton: some View {
-        Menu {
-            Button("Export") { beginExport() }
-            Button("Import") { isImporting = true }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(CardPlate.iconForeground(for: colorScheme))
-                .frame(width: 52, height: 52)
-                .background {
-                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                        .fill(CardPlate.iconPlateFill(for: colorScheme))
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                        .stroke(.tint, lineWidth: 2)
-                )
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel("Import and export")
-        .accessibilityIdentifier("dataMenuButton")
-    }
-    #endif
-
     private var checklistList: some View {
         GeometryReader { geometry in
             ScrollView {
@@ -437,7 +402,9 @@ extension ContentView {
         SettingsView(
             appearanceMode: $appearanceMode,
             bindings: bag,
-            backgroundImage: backgroundImage)
+            backgroundImage: backgroundImage,
+            onExport: { requestDataAction(.export) },
+            onImport: { requestDataAction(.importChecklists) })
             .onChange(of: bag.backgroundEnabled) { _, _ in writeBack(bag) }
             .onChange(of: bag.backgroundFadePercent) { _, _ in writeBack(bag) }
             .onChange(of: bag.backgroundPinned) { _, _ in writeBack(bag) }
@@ -457,6 +424,22 @@ extension ContentView {
             backgroundEnabled: backgroundEnabled,
             backgroundFadePercent: backgroundFadePercent,
             backgroundPinned: backgroundPinned)
+    }
+
+    /// Stages an import/export chosen in the Settings menu and closes the sheet,
+    /// so the root-owned file panel presents unobstructed.
+    private func requestDataAction(_ action: SettingsDataAction) {
+        dataActionQueue.stage(action)
+        isShowingSettings = false
+    }
+
+    /// Opens the panel the Settings menu staged, once the settings sheet has
+    /// dismissed.
+    private func perform(_ action: SettingsDataAction) {
+        switch action {
+        case .export: beginExport()
+        case .importChecklists: isImporting = true
+        }
     }
 
     private func beginExport() {
@@ -534,6 +517,29 @@ extension ContentView {
         DispatchQueue.main.async {
             conflict = importSession?.pending.first
         }
+    }
+}
+
+/// Import/export entry points offered by the Settings menu.
+enum SettingsDataAction: Equatable {
+    case export
+    case importChecklists
+}
+
+/// Stages a Settings-menu import/export request until the settings sheet has
+/// dismissed and the root-owned file panel can present.
+struct SettingsDataActionQueue {
+    private var pending: SettingsDataAction?
+
+    mutating func stage(_ action: SettingsDataAction) {
+        pending = action
+    }
+
+    /// Hands the staged action over exactly once, so a dismissal callback that
+    /// fires again cannot open a second panel.
+    mutating func take() -> SettingsDataAction? {
+        defer { pending = nil }
+        return pending
     }
 }
 
