@@ -67,7 +67,7 @@ struct ChecklistDetailView: View {
                             TextField("Description", text: descriptionBinding(checklistID: checklistID, itemID: item.id), axis: .vertical)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
-                                .accessibilityIdentifier("itemDescriptionField")
+                                .accessibilityIdentifier("itemDescriptionField-\(item.id.uuidString)")
                         }
                     }
                     .onDelete { offsets in

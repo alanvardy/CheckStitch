@@ -20,10 +20,14 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     public var modifiedAt: Date
     public var revision: Int
 
-    /// True when the item carries any description text. Whitespace is preserved
-    /// verbatim (matching `title`); only the empty string means "no description".
-    /// Consumed by the watch row and the reminder-notes normalisation.
-    public var hasDescription: Bool { !description.isEmpty }
+    /// True when the item carries description text. The stored value is
+    /// preserved verbatim (matching `title`), so surrounding whitespace on real
+    /// text is kept; a whitespace-only value reads as "no description", so it
+    /// neither renders on the watch nor reaches reminder notes. Consumed by the
+    /// watch row and the reminder-notes normalisation.
+    public var hasDescription: Bool {
+        !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     /// A title that is empty or whitespace/newlines only. Creation skips these
     /// so an emptied row can't produce a meaningless reminder.
