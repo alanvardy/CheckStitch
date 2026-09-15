@@ -1,6 +1,7 @@
 import CheckStitchCore
 import SwiftUI
 import CheckStitchCore
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(ChecklistStore.self) private var store
@@ -23,6 +24,15 @@ struct ContentView: View {
     /// Message for the run-failure alert; `nil` hides it. Set only when a run
     /// produced no reminders (missing destination, permission, or a thrown error).
     @State private var runErrorMessage: String?
+    @State private var isShowingExport = false
+    @State private var exportSelection: Set<UUID> = []
+    @State private var exportDocument: ChecklistExportDocument?
+    @State private var isExporting = false
+    @State private var isImporting = false
+    @State private var importSession: ChecklistImportSession?
+    @State private var conflict: ChecklistImportCandidate?
+    @State private var importErrorMessage: String?
+    @State private var exportErrorMessage: String?
 
     var body: some View {
         ZStack {
@@ -48,6 +58,12 @@ struct ContentView: View {
                         // view-level overlay there drifts into the content area.
                         // Trailing keeps the gear in the corner beside create.
                         ToolbarItem(placement: .primaryAction) {
+                            exportButton
+                        }
+                        ToolbarItem(placement: .primaryAction) {
+                            importButton
+                        }
+                        ToolbarItem(placement: .primaryAction) {
                             settingsButton
                         }
                     }
@@ -69,6 +85,11 @@ struct ContentView: View {
                 // device has no rows to pull down, and that is exactly when a
                 // manual force-refresh matters most.
                 .refreshable { await syncService.refresh() }
+                .alert("Couldn't import",
+                       isPresented: Binding(get: { importErrorMessage != nil },
+                                            set: { if !$0 { importErrorMessage = nil } })) {
+                    Button("OK", role: .cancel) {}
+                } message: { Text(importErrorMessage ?? "") }
             }
             .onChange(of: appearanceMode) { _, new in
                 #if os(iOS)
@@ -109,9 +130,12 @@ struct ContentView: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     if path.isEmpty {
-                        settingsButton
-                            .padding(.top, 8)
-                            .padding(.trailing, 12)
+                        VStack(spacing: 8) {
+                            settingsButton
+                            dataMenuButton
+                        }
+                        .padding(.top, 8)
+                        .padding(.trailing, 12)
                     }
                 }
             #endif
@@ -134,6 +158,36 @@ struct ContentView: View {
         } message: {
             Text(runErrorMessage ?? "")
         }
+        .sheet(isPresented: $isShowingExport) {
+            ExportChecklistsView(selection: $exportSelection) { exportSelected() }
+        }
+        .fileExporter(isPresented: $isExporting,
+                      document: exportDocument,
+                      contentType: .json,
+                      defaultFilename: ChecklistExport.filename()) { result in
+            if case .failure(let error) = result { exportErrorMessage = error.localizedDescription }
+        }
+        .fileImporter(isPresented: $isImporting,
+                      allowedContentTypes: [.json]) { result in
+            switch result {
+            case .success(let url): importFile(at: url)
+            case .failure(let error): importErrorMessage = error.localizedDescription
+            }
+        }
+        .confirmationDialog("Name conflict",
+                            isPresented: conflictPresented,
+                            presenting: conflict) { candidate in
+            Button("Replace") { choose(.replace) }
+            Button("Keep Both") { choose(.keepBoth) }
+            Button("Keep Existing", role: .cancel) { choose(.keepExisting) }
+        } message: { candidate in
+            Text("“\(candidate.checklist.name)” already exists.")
+        }
+        .alert("Couldn't export",
+               isPresented: Binding(get: { exportErrorMessage != nil },
+                                    set: { if !$0 { exportErrorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(exportErrorMessage ?? "") }
     }
 
     /// `topBarLeading` is iOS-only; on macOS the leading navigation slot is
@@ -220,6 +274,45 @@ struct ContentView: View {
             .accessibilityIdentifier("settingsButton")
         #endif
     }
+
+    private var exportButton: some View {
+        Button { beginExport() } label: {
+            Label("Export", systemImage: "square.and.arrow.up")
+        }
+        .accessibilityIdentifier("exportButton")
+    }
+
+    private var importButton: some View {
+        Button { isImporting = true } label: {
+            Label("Import", systemImage: "square.and.arrow.down")
+        }
+        .accessibilityIdentifier("importButton")
+    }
+
+    #if os(iOS)
+    private var dataMenuButton: some View {
+        Menu {
+            Button("Export") { beginExport() }
+            Button("Import") { isImporting = true }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(CardPlate.iconForeground(for: colorScheme))
+                .frame(width: 52, height: 52)
+                .background {
+                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                        .fill(CardPlate.iconPlateFill(for: colorScheme))
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                        .stroke(.tint, lineWidth: 2)
+                )
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Import and export")
+        .accessibilityIdentifier("dataMenuButton")
+    }
+    #endif
 
     private var checklistList: some View {
         GeometryReader { geometry in
@@ -364,6 +457,71 @@ extension ContentView {
             backgroundEnabled: backgroundEnabled,
             backgroundFadePercent: backgroundFadePercent,
             backgroundPinned: backgroundPinned)
+    }
+
+    private func beginExport() {
+        exportSelection = []
+        isShowingExport = true
+    }
+
+    private func exportSelected() {
+        isShowingExport = false
+        let selected = store.checklists.filter { exportSelection.contains($0.id) }
+        guard !selected.isEmpty else { return }
+        do {
+            exportDocument = try ChecklistExportDocument(checklists: selected)
+            isExporting = true
+        } catch {
+            exportErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func importFile(at url: URL) {
+        // Security-scoped URLs require an access/stop pair around the read; a
+        // missing pair silently yields unreadable data on device.
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            let session = ChecklistImportSession(store: store)
+            try session.prepare(data: data)
+            importSession = session
+            conflict = session.pending.first
+        } catch let error as ChecklistImportError {
+            importErrorMessage = error.message
+        } catch {
+            importErrorMessage = "This file isn't a CheckStitch export."
+        }
+    }
+
+    /// `conflict` is a snapshot of `pending.first`; each decision clears it before
+    /// advancing, so SwiftUI's own dismissal (setter fires `false`) cannot
+    /// double-handle the next candidate.
+    private var conflictPresented: Binding<Bool> {
+        Binding(
+            get: { conflict != nil },
+            set: { presented in
+                guard !presented, let current = conflict else { return }
+                conflict = nil
+                importSession?.decide(.keepExisting, for: current.id)
+                advanceConflict()
+            }
+        )
+    }
+
+    private func choose(_ decision: ImportDecision) {
+        guard let current = conflict else { return }
+        conflict = nil
+        importSession?.decide(decision, for: current.id)
+        advanceConflict()
+    }
+
+    /// Re-presents after the current dismissal completes, so the next conflict in
+    /// the FIFO queue is shown until the queue is empty.
+    private func advanceConflict() {
+        DispatchQueue.main.async {
+            conflict = importSession?.pending.first
+        }
     }
 }
 
