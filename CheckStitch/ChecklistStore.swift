@@ -313,9 +313,12 @@ final class ChecklistStore {
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
         guard checklists[checklistIndex].items[itemIndex].relativeDate != relativeDate else { return }
+        let revisedAt = now()
         checklists[checklistIndex].items[itemIndex].relativeDate = relativeDate
         checklists[checklistIndex].items[itemIndex].revision += 1
-        checklists[checklistIndex].items[itemIndex].modifiedAt = now()
+        checklists[checklistIndex].items[itemIndex].modifiedAt = revisedAt
+        checklists[checklistIndex].items[itemIndex].relativeDateRevision = checklists[checklistIndex].items[itemIndex].revision
+        checklists[checklistIndex].items[itemIndex].relativeDateModifiedAt = revisedAt
         scheduleSave()
     }
 

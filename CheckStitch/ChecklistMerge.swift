@@ -146,6 +146,12 @@ enum ChecklistMerge {
                 merged.descriptionRevision = remoteItem.descriptionRevision
                 merged.descriptionModifiedAt = remoteItem.descriptionModifiedAt
             }
+            if fieldWins(revision: remoteItem.relativeDateRevision, date: remoteItem.relativeDateModifiedAt, device: remoteDevice,
+                         overRevision: localItem.relativeDateRevision, overDate: localItem.relativeDateModifiedAt, overDevice: localDevice) {
+                merged.relativeDate = remoteItem.relativeDate
+                merged.relativeDateRevision = remoteItem.relativeDateRevision
+                merged.relativeDateModifiedAt = remoteItem.relativeDateModifiedAt
+            }
             result[index] = merged
         }
         return result

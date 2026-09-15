@@ -10,7 +10,8 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         id: UUID = UUID(), title: String, description: String = "",
         modifiedAt: Date = .distantPast, revision: Int = 0, relativeDate: Int? = nil,
         titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
-        descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil
+        descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil,
+        relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -24,6 +25,8 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         self.titleModifiedAt = titleModifiedAt ?? modifiedAt
         self.descriptionRevision = descriptionRevision ?? revision
         self.descriptionModifiedAt = descriptionModifiedAt ?? modifiedAt
+        self.relativeDateRevision = relativeDateRevision ?? revision
+        self.relativeDateModifiedAt = relativeDateModifiedAt ?? modifiedAt
     }
 
     public let id: UUID
@@ -41,6 +44,8 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     public var titleModifiedAt: Date
     public var descriptionRevision: Int
     public var descriptionModifiedAt: Date
+    public var relativeDateRevision: Int
+    public var relativeDateModifiedAt: Date
 
     /// True when the item carries description text. The stored value is
     /// preserved verbatim (matching `title`), so surrounding whitespace on real
@@ -60,6 +65,7 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id, title, description, modifiedAt, revision, relativeDate
         case titleRevision, titleModifiedAt, descriptionRevision, descriptionModifiedAt
+        case relativeDateRevision, relativeDateModifiedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -79,6 +85,8 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         titleModifiedAt = try container.decodeIfPresent(Date.self, forKey: .titleModifiedAt) ?? modifiedAt
         descriptionRevision = try container.decodeIfPresent(Int.self, forKey: .descriptionRevision) ?? revision
         descriptionModifiedAt = try container.decodeIfPresent(Date.self, forKey: .descriptionModifiedAt) ?? modifiedAt
+        relativeDateRevision = try container.decodeIfPresent(Int.self, forKey: .relativeDateRevision) ?? revision
+        relativeDateModifiedAt = try container.decodeIfPresent(Date.self, forKey: .relativeDateModifiedAt) ?? modifiedAt
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -100,6 +108,8 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         try container.encode(titleModifiedAt, forKey: .titleModifiedAt)
         try container.encode(descriptionRevision, forKey: .descriptionRevision)
         try container.encode(descriptionModifiedAt, forKey: .descriptionModifiedAt)
+        try container.encode(relativeDateRevision, forKey: .relativeDateRevision)
+        try container.encode(relativeDateModifiedAt, forKey: .relativeDateModifiedAt)
     }
 }
 
@@ -207,6 +217,8 @@ extension Checklist {
             upgraded.titleModifiedAt = date
             upgraded.descriptionRevision = upgraded.revision
             upgraded.descriptionModifiedAt = date
+            upgraded.relativeDateRevision = upgraded.revision
+            upgraded.relativeDateModifiedAt = date
             return upgraded
         }
         return copy
