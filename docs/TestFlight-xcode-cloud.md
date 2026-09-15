@@ -15,7 +15,8 @@ Connect distributes. The only local surface this touches is the shared
    - **App Groups** enabled, with `group.app.alanvardy.CheckStitch` assigned;
    - **iCloud** enabled with **Key-value storage**.
 
-   These must match `CheckStitch/AppGroup.entitlements` exactly. **Xcode Cloud
+   These must include exactly what `CheckStitch/AppGroup.entitlements` declares
+   (a superset is fine, never a subset). **Xcode Cloud
    cannot repair a capability mismatch** — the first Archive fails with a
    provisioning/entitlement error. Fix it in the portal, never in
    `project.pbxproj` or the entitlements file.
@@ -93,6 +94,8 @@ a separate watch workflow.
 - **Invalid pre-release train.** If a `1.0` train was opened and closed, uploads
   are rejected until `MARKETING_VERSION` is bumped in `project.pbxproj`. That is
   a build-config change — do it as a deliberate version bump, not as a fix.
+  (This ticket shipped no `1.0` train, so this is a future-operations note, not
+  a fix to apply now.)
 - **"Just archive locally instead."** Not a clean escape hatch: this machine's
   Xcode is a 27.0 beta host, and uploads from it can be rejected with
   `ITMS-90111`. Prefer fixing the cloud path.
