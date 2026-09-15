@@ -134,24 +134,33 @@ enum ChecklistMerge {
                 merged.revision = remoteItem.revision
                 merged.modifiedAt = remoteItem.modifiedAt
             }
-            if fieldWins(revision: remoteItem.titleRevision, date: remoteItem.titleModifiedAt, device: remoteDevice,
-                         overRevision: localItem.titleRevision, overDate: localItem.titleModifiedAt, overDevice: localDevice) {
+            if wins(revision: remoteItem.titleRevision, date: remoteItem.titleModifiedAt, device: remoteDevice,
+                    overRevision: localItem.titleRevision, overDate: localItem.titleModifiedAt, overDevice: localDevice) {
                 merged.title = remoteItem.title
                 merged.titleRevision = remoteItem.titleRevision
                 merged.titleModifiedAt = remoteItem.titleModifiedAt
             }
-            if fieldWins(revision: remoteItem.descriptionRevision, date: remoteItem.descriptionModifiedAt, device: remoteDevice,
-                         overRevision: localItem.descriptionRevision, overDate: localItem.descriptionModifiedAt, overDevice: localDevice) {
+            if wins(revision: remoteItem.descriptionRevision, date: remoteItem.descriptionModifiedAt, device: remoteDevice,
+                    overRevision: localItem.descriptionRevision, overDate: localItem.descriptionModifiedAt, overDevice: localDevice) {
                 merged.description = remoteItem.description
                 merged.descriptionRevision = remoteItem.descriptionRevision
                 merged.descriptionModifiedAt = remoteItem.descriptionModifiedAt
             }
-            if fieldWins(revision: remoteItem.relativeDateRevision, date: remoteItem.relativeDateModifiedAt, device: remoteDevice,
-                         overRevision: localItem.relativeDateRevision, overDate: localItem.relativeDateModifiedAt, overDevice: localDevice) {
+            if wins(revision: remoteItem.relativeDateRevision, date: remoteItem.relativeDateModifiedAt, device: remoteDevice,
+                    overRevision: localItem.relativeDateRevision, overDate: localItem.relativeDateModifiedAt, overDevice: localDevice) {
                 merged.relativeDate = remoteItem.relativeDate
                 merged.relativeDateRevision = remoteItem.relativeDateRevision
                 merged.relativeDateModifiedAt = remoteItem.relativeDateModifiedAt
             }
+            // Defensive: production stamping keeps every field clock at or below
+            // the coarse revision, but a hand-crafted or inconsistent payload
+            // must never let the merged coarse clock fall below a field clock it
+            // adopted — the tombstone invariant (`removed.revision + 1`) relies
+            // on the coarse clock being the item's high-water mark.
+            merged.revision = max(
+                merged.revision,
+                merged.titleRevision, merged.descriptionRevision, merged.relativeDateRevision
+            )
             result[index] = merged
         }
         return result
@@ -184,14 +193,6 @@ enum ChecklistMerge {
         // duplicate id, keep the first occurrence.
         let byID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return order.compactMap { byID[$0] }
-    }
-
-    private static func fieldWins(
-        revision: Int, date: Date, device: String,
-        overRevision: Int, overDate: Date, overDevice: String
-    ) -> Bool {
-        wins(revision: revision, date: date, device: device,
-             overRevision: overRevision, overDate: overDate, overDevice: overDevice)
     }
 
     private static func wins(revision: Int, date: Date, device: String? = nil,
