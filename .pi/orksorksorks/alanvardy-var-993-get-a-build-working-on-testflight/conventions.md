@@ -15,7 +15,7 @@ as-is; no recommendations.
 | `make test-unit` | `xcodebuild … -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO -only-testing:CheckStitchTests test` — fast pre-gate check | Makefile:64-71 |
 | `make test-ui` | `build-for-testing` then `test-without-building -only-testing:CheckStitchUITests`, both on `$(SIM)` | Makefile:75-86 |
 | `bash scripts/test.sh` | **The gate**: make build → sim lock/quit → pre-boot → make test → build-mac → watch-build → scripts/tests/run.sh → shellcheck → `gate: ok` | scripts/test.sh:33-121 |
-| `bash scripts/tests/run.sh` | Shell-stub regression suite (11 cases), stubs xcrun/defaults/make/open/osascript on PATH | scripts/tests/run.sh:18-223 |
+| `bash scripts/tests/run.sh` | Shell-stub regression suite (17 cases), stubs xcrun/defaults/make/open/osascript on PATH | scripts/tests/run.sh:1-311 |
 | `shellcheck scripts/*.sh scripts/tests/*.sh` | Static lint (fallback `bash -n` per file if shellcheck absent) | scripts/test.sh:114-118 |
 | `make clean` | `xcodebuild -scheme CheckStitch -destination '$(SIM)' clean` | Makefile:88-89 |
 
@@ -44,7 +44,7 @@ as-is; no recommendations.
 - **Destination pinning**: never leave a bare `name=` destination in a script — it selects a shared device. Precedence: explicit `SIM=` env > worktree `.simulator_id` (`platform=iOS Simulator,id=<udid>`) > shared fallback (Makefile:4-5). The gate enforces with `resolve-sim-udid.sh --require-id` (test.sh:24); a present-but-unresolvable `.simulator_id` is a hard error (test.sh:25-27).
 - **Simulator windows**: gate quits Simulator.app once (test.sh:88) and pre-boots only the resolved UDID; never `shutdown all/booted`; single EXIT trap (test.sh:87, :79-85). Bounded lock `${TMPDIR:-/tmp}/checkstitch-simulator.lock` (test.sh:40-41, `LOCK_TIMEOUT` default 60) serializes concurrent gates across worktrees; stale locks (dead PID) reaped (test.sh:49-54).
 - **Gate env hooks for tests**: `GATE_TESTS_SKIP=1` suppresses scripts/tests/run.sh (test.sh:111); `SIM`, `SIM_ID_FILE`, `TMPDIR`, `LOCK_TIMEOUT` all honored (test.sh:7, 13, 40-41).
-- **Sandbox egress pin**: every `ENABLE_APP_SANDBOX = YES` buildSettings block must also set `ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES` (pkxproj:497-498 et al; enforced by scripts/tests/run.sh:202-220).
+- **Sandbox egress pin**: every `ENABLE_APP_SANDBOX = YES` buildSettings block must also set `ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES` (pbxproj:497-498 et al; enforced by scripts/tests/run.sh:282-308).
 - **No provisioning profile specifiers in pbxproj**: signed legs rely on `-allowProvisioningUpdates` (Makefile:44, scripts/run-devices.sh:125, scripts/run-watch.sh:87) to fetch profiles for team `6NWX2DHB9Q`. The gate's machinery stays provisioning-free.
 - **Signed macOS leg** (`build-mac-signed`) is the only runnable macOS app; the unsigned `build-mac` is the gate's platform check. On a machine without the profile, add `-allowProvisioningUpdates` (already in the target).
 - **One-process-at-a-time**: gate holds the simulator; `make test-ui` runs the single UI smoke on the worktree simulator; `make build`/`test-unit` need no simulator boot.
