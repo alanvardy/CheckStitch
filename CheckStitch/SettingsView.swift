@@ -2,12 +2,16 @@ import SwiftUI
 
 /// Modal settings screen presented from the gear button. Holds the
 /// appearance (theme) picker, bound back to the `@AppStorage`-backed property
-/// on `ContentView`, plus the row that pushes the Background subscreen over a
-/// staged `SettingsBindings` bag.
+/// on `ContentView`, the row that pushes the Background subscreen over a
+/// staged `SettingsBindings` bag, and the import/export entry points.
 struct SettingsView: View {
     @Binding var appearanceMode: AppearanceMode
     @Bindable var bindings: SettingsBindings
     var backgroundImage: BackgroundImageStore
+    /// Both defer to `ContentView`, which owns the file panels. Defaulted so
+    /// previews and render suites can build the view without wiring them.
+    var onExport: () -> Void = {}
+    var onImport: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -39,6 +43,20 @@ struct SettingsView: View {
                         Label("Background", systemImage: "photo.on.rectangle")
                     }
                     .accessibilityIdentifier("settingsBackgroundRow")
+                }
+
+                Section {
+                    Button(action: onExport) {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                    .accessibilityIdentifier("settingsExportRow")
+
+                    Button(action: onImport) {
+                        Label("Import", systemImage: "square.and.arrow.down")
+                    }
+                    .accessibilityIdentifier("settingsImportRow")
+                } header: {
+                    Text("Import and Export")
                 }
 
                 Section {
