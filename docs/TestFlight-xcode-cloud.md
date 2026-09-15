@@ -75,6 +75,36 @@ a separate watch workflow.
    encryption").
 5. Testers install from the TestFlight app.
 
+## When it breaks
+
+- **Capability revoked / entitlement drift.** Symptom: an Archive that used to
+  succeed fails with an `ITMS-…` or "provisioning profile doesn't include"
+  error. Xcode Cloud cannot fix this: re-enable App Groups / iCloud KVS on the
+  App ID (`app.alanvardy.CheckStitch`) in the Developer portal so it again
+  matches `CheckStitch/AppGroup.entitlements`, then re-run.
+- **Builder image retired.** Xcode Cloud removes old Xcode images. Symptom: the
+  workflow fails because the pinned image no longer exists. Pick the newest
+  released **Xcode 26.x** image and re-run. Note the deployment-target exposure:
+  `WATCHOS_DEPLOYMENT_TARGET = 26.0` must be ≤ the image's watchOS SDK, and
+  `MACOSX_DEPLOYMENT_TARGET = 27.0` limits any future macOS workflow.
+- **Quota consumed.** Xcode Cloud compute hours are finite. Keep the start
+  condition **Manual**; do not add "any branch change". If builds stop queuing,
+  check App Store Connect → Xcode Cloud → Usage.
+- **Invalid pre-release train.** If a `1.0` train was opened and closed, uploads
+  are rejected until `MARKETING_VERSION` is bumped in `project.pbxproj`. That is
+  a build-config change — do it as a deliberate version bump, not as a fix.
+- **"Just archive locally instead."** Not a clean escape hatch: this machine's
+  Xcode is a 27.0 beta host, and uploads from it can be rejected with
+  `ITMS-90111`. Prefer fixing the cloud path.
+
+## Residual risk (accepted)
+
+There is **no committed regression signal**. If the workflow silently starts
+failing (signing drift, capability revocation, portal change), nothing in
+`bash scripts/test.sh` catches it — the failure surfaces only when someone looks
+at Xcode Cloud. This is accepted for now; a future ticket could add a scheduled
+workflow or a periodic manual check.
+
 ## Non-goals
 
 Deliberate gaps — do not "fix" them by adding a second release mechanism:
