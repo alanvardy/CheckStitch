@@ -52,16 +52,24 @@ final class ChecklistImportSession {
     }
 
     /// Decodes `data`, inserts every non-conflicting checklist immediately
-    /// (`importInsert`), and returns all candidates in file order. Throws — and
-    /// has mutated nothing — for a payload this build cannot read or does not
-    /// understand. Resets prior state, so one session per file is idempotent.
+    /// (`importInsert`), and returns all candidates in file order. Throws for a
+    /// payload this build cannot read or does not understand, leaving the store
+    /// untouched. Prior `pending`/`summary` are reset at entry, so one session
+    /// per file is idempotent even across a throwing call.
     @discardableResult
     func prepare(data: Data) throws -> [ChecklistImportCandidate] {
+        pending = []
+        summary = ImportSummary()
+
         let incoming: [Checklist]
         switch ChecklistCodec.classify(data) {
         case .loaded(let envelope):
             incoming = envelope.checklists
         case .migratable(let from, let envelope):
+            // Legacy shapes are normalised before conflict detection for
+            // symmetry with the store's own load path. `freshCopy` regenerates
+            // every id/revision/order field below, so this does not itself
+            // change what gets inserted.
             incoming = envelope.checklists.map { checklist in
                 switch from {
                 case 1: return checklist.migrated(at: now())
@@ -74,9 +82,6 @@ final class ChecklistImportSession {
         case .unreadable:
             throw ChecklistImportError.unreadable
         }
-
-        pending = []
-        summary = ImportSummary()
 
         var candidates: [ChecklistImportCandidate] = []
         for checklist in incoming {

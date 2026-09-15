@@ -481,17 +481,29 @@ extension ContentView {
         // missing pair silently yields unreadable data on device.
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        let data: Data
         do {
-            let data = try Data(contentsOf: url)
-            let session = ChecklistImportSession(store: store)
+            data = try Data(contentsOf: url)
+        } catch {
+            // A read failure (missing file, permissions) is not a format
+            // problem: report the system's description rather than mislabelling
+            // it as an unreadable export.
+            importErrorMessage = error.localizedDescription
+            return
+        }
+
+        let session = ChecklistImportSession(store: store)
+        do {
             try session.prepare(data: data)
-            importSession = session
-            conflict = session.pending.first
         } catch let error as ChecklistImportError {
             importErrorMessage = error.message
+            return
         } catch {
             importErrorMessage = "This file isn't a CheckStitch export."
+            return
         }
+        importSession = session
+        conflict = session.pending.first
     }
 
     /// `conflict` is a snapshot of `pending.first`; each decision clears it before
