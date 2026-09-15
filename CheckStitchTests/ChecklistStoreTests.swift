@@ -319,6 +319,12 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklists.count, 1)
         XCTAssertEqual(store.checklists.first?.revision, 1)
         XCTAssertEqual(store.checklists.first?.items.first?.revision, 1)
+        // Field clocks seed from the upgraded coarse clock, so legacy items keep
+        // today's whole-item semantics on every axis.
+        XCTAssertEqual(store.checklists.first?.items.first?.titleRevision, 1)
+        XCTAssertEqual(store.checklists.first?.items.first?.descriptionRevision, 1)
+        XCTAssertEqual(store.checklists.first?.items.first?.titleModifiedAt, store.checklists.first?.items.first?.modifiedAt)
+        XCTAssertEqual(store.checklists.first?.items.first?.descriptionModifiedAt, store.checklists.first?.items.first?.modifiedAt)
         // Ordering is seeded from the record's own sync state, granting no win.
         XCTAssertEqual(store.checklists.first?.orderRevision, 1)
         XCTAssertEqual(store.checklists.first?.itemOrder, store.checklists.first?.items.map(\.id))
@@ -433,6 +439,81 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklist(id: created.id)?.items.first?.modifiedAt, clock.now)
         XCTAssertEqual(store.checklist(id: created.id)?.revision, 1)                 // checklist untouched
         XCTAssertEqual(store.checklist(id: created.id)?.modifiedAt, created.modifiedAt)
+    }
+
+    func testTitleEditStampsTitleClockAndLeavesDescriptionClock() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItem(checklistID: created.id, itemID: item.id, title: "Milk")
+
+        let edited = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(edited?.revision, 2)
+        XCTAssertEqual(edited?.titleRevision, edited?.revision, "the title clock stamps the coarse revision")
+        XCTAssertEqual(edited?.titleModifiedAt, clock.now)
+        XCTAssertEqual(edited?.descriptionRevision, 1, "the description clock keeps the add-time stamp")
+        XCTAssertEqual(edited?.descriptionModifiedAt, Date(timeIntervalSince1970: 10))
+    }
+
+    func testDescriptionEditStampsDescriptionClockAndLeavesTitleClock() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItemDescription(checklistID: created.id, itemID: item.id, description: "2 litres")
+
+        let edited = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(edited?.revision, 2)
+        XCTAssertEqual(edited?.descriptionRevision, edited?.revision, "the description clock stamps the coarse revision")
+        XCTAssertEqual(edited?.descriptionModifiedAt, clock.now)
+        XCTAssertEqual(edited?.titleRevision, 1, "the title clock keeps the add-time stamp")
+        XCTAssertEqual(edited?.titleModifiedAt, Date(timeIntervalSince1970: 10))
+    }
+
+    func testCreateAddAndDuplicateSeedEveryFieldClock() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        let added = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(added?.revision, 1)
+        XCTAssertEqual(added?.modifiedAt, clock.now)
+        XCTAssertEqual(added?.titleRevision, added?.revision)
+        XCTAssertEqual(added?.titleModifiedAt, clock.now)
+        XCTAssertEqual(added?.descriptionRevision, added?.revision)
+        XCTAssertEqual(added?.descriptionModifiedAt, clock.now)
+
+        clock.now = Date(timeIntervalSince1970: 50)
+        let copy = store.duplicate(id: created.id, name: "Groceries copy")
+        let duplicated = try? XCTUnwrap(copy?.items.first)
+        XCTAssertEqual(duplicated?.revision, 1)
+        XCTAssertEqual(duplicated?.modifiedAt, clock.now)
+        XCTAssertEqual(duplicated?.titleRevision, 1, "a fresh duplicate seeds every field clock from its own now()/1")
+        XCTAssertEqual(duplicated?.titleModifiedAt, clock.now)
+        XCTAssertEqual(duplicated?.descriptionRevision, 1)
+        XCTAssertEqual(duplicated?.descriptionModifiedAt, clock.now)
     }
 
     func testDescriptionEditPersistsAndReloads() {
@@ -819,6 +900,31 @@ final class ChecklistStoreTests: XCTestCase {
         // Reload preserves the item tombstones.
         let reloaded = makeStore(defaults: suite.defaults)
         XCTAssertEqual(reloaded.tombstones.count, 2)
+    }
+
+    /// Guards the tombstone invariant against the new clock fields: a removed
+    /// item's tombstone still outlives any resurrected copy because its revision
+    /// is exactly `removed.revision + 1`.
+    func testTombstoneRevisionIsRemovedRevisionPlusOne() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        store.updateItem(checklistID: created.id, itemID: item.id, title: "Milk")
+        let removed = try? XCTUnwrap(store.checklist(id: created.id)?.items.first?.revision)
+
+        store.removeItems(from: created.id, at: IndexSet(integer: 0))
+
+        let tombstone = try? XCTUnwrap(store.tombstones.first)
+        XCTAssertEqual(tombstone?.itemID, item.id)
+        XCTAssertEqual(tombstone?.revision, (removed ?? 0) + 1)
+        XCTAssertEqual(store.tombstones.count, 1)
     }
 
     func testApplyMergesRemoteChecklist() {

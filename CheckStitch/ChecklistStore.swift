@@ -279,9 +279,12 @@ final class ChecklistStore {
         guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
+        let revisedAt = now()
         checklists[checklistIndex].items[itemIndex].title = title
         checklists[checklistIndex].items[itemIndex].revision += 1
-        checklists[checklistIndex].items[itemIndex].modifiedAt = now()
+        checklists[checklistIndex].items[itemIndex].modifiedAt = revisedAt
+        checklists[checklistIndex].items[itemIndex].titleRevision = checklists[checklistIndex].items[itemIndex].revision
+        checklists[checklistIndex].items[itemIndex].titleModifiedAt = revisedAt
         scheduleSave()
     }
 
@@ -292,9 +295,12 @@ final class ChecklistStore {
         guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
+        let revisedAt = now()
         checklists[checklistIndex].items[itemIndex].description = description
         checklists[checklistIndex].items[itemIndex].revision += 1
-        checklists[checklistIndex].items[itemIndex].modifiedAt = now()
+        checklists[checklistIndex].items[itemIndex].modifiedAt = revisedAt
+        checklists[checklistIndex].items[itemIndex].descriptionRevision = checklists[checklistIndex].items[itemIndex].revision
+        checklists[checklistIndex].items[itemIndex].descriptionModifiedAt = revisedAt
         scheduleSave()
     }
 

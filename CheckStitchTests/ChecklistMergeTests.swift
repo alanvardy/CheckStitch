@@ -115,37 +115,116 @@ struct ChecklistMergeTests {
     }
 
     @Test
-    func sameItemEditedOnBothDevicesUsesLWW() {
+    func titleAndDescriptionEditsOnDifferentDevicesBothSurvive() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        // Device A edited the title last (coarse revision 2); its description
+        // clock is the older baseline. Device B edited the description last
+        // (coarse revision 1); its title clock is the older baseline.
+        let fromA = item(id: itemID, title: "A title", description: "old note",
+                         revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20),
+                         descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10))
+        let fromB = item(id: itemID, title: "Milk", description: "B note",
+                         revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
+                         descriptionRevision: 2, descriptionModifiedAt: Date(timeIntervalSince1970: 30))
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB]),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.title == "A title", "the newer title clock wins")
+        #expect(mergedItem?.description == "B note", "the newer description clock wins")
+        #expect(mergedItem?.revision == 2, "the whole-item winner's coarse clock survives")
+        #expect(mergedItem?.modifiedAt == Date(timeIntervalSince1970: 20))
+        // The winner's per-field clocks are copied verbatim, not re-seeded.
+        #expect(mergedItem?.titleRevision == 2)
+        #expect(mergedItem?.titleModifiedAt == Date(timeIntervalSince1970: 20))
+        #expect(mergedItem?.descriptionRevision == 2)
+        #expect(mergedItem?.descriptionModifiedAt == Date(timeIntervalSince1970: 30))
+        // The loser's values still win their own axes on re-merge: replaying the
+        // merged result (and the original remote) is a contentEquals no-op.
+        #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
+        #expect(ChecklistMerge.merge(local: merged, remote: remote).contentEquals(merged))
+    }
+
+    @Test
+    func titleAndDescriptionEditsOnDifferentDevicesBothSurviveReversed() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let fromA = item(id: itemID, title: "A title", description: "old note",
+                         revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20),
+                         descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10))
+        let fromB = item(id: itemID, title: "Milk", description: "B note",
+                         revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
+                         descriptionRevision: 2, descriptionModifiedAt: Date(timeIntervalSince1970: 30))
+        let aFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB])]))
+        let bFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB])]),
+            remote: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA])]))
+
+        #expect(aFirst.checklists == bFirst.checklists, "the per-field merge is argument-order independent")
+        #expect(bFirst.checklists.first?.items.first?.title == "A title")
+        #expect(bFirst.checklists.first?.items.first?.description == "B note")
+    }
+
+    @Test
+    func sameFieldEditsStillResolveByFieldLWW() {
         let checklistID = UUID()
         let itemID = UUID()
         let local = envelope(device: "device-a", checklists: [
             checklist(id: checklistID, name: "single", revision: 1, items: [
-                item(id: itemID, title: "local edit", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20)),
+                item(id: itemID, title: "local edit", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                     titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20)),
             ]),
         ])
         let remote = envelope(device: "device-b", checklists: [
             checklist(id: checklistID, name: "single", revision: 1, items: [
-                item(id: itemID, title: "remote edit", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10)),
+                item(id: itemID, title: "remote edit", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                     titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10)),
             ]),
         ])
 
         let merged = ChecklistMerge.merge(local: local, remote: remote)
 
         #expect(merged.checklists.first?.items.count == 1)
-        #expect(merged.checklists.first?.items.first?.title == "local edit", "higher item revision wins")
+        #expect(merged.checklists.first?.items.first?.title == "local edit", "the higher titleRevision wins")
+        #expect(merged.checklists.first?.items.first?.revision == 2, "the winner's coarse clock is kept")
     }
 
     @Test
-    func descriptionFollowsTheWholeItemLWinner() {
-        let id = UUID()
-        let localItem = item(id: id, title: "Milk", description: "local note", revision: 2,
-                             modifiedAt: Date(timeIntervalSince1970: 2_000))
-        let remoteItem = item(id: id, title: "Milk", description: "remote note", revision: 3,
-                              modifiedAt: Date(timeIntervalSince1970: 3_000))
-        let merged = ChecklistMerge.merge(
-            local: envelope(device: "device-a", checklists: [checklist(id: id, name: "Groceries", revision: 1, items: [localItem])]),
-            remote: envelope(device: "device-b", checklists: [checklist(id: id, name: "Groceries", revision: 1, items: [remoteItem])]))
-        #expect(merged.checklists.first?.items.first?.description == "remote note")
+    func tombstoneBeatsANewerFieldClock() {
+        let checklistID = UUID()
+        let mayBeDeleted = UUID()
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: checklistID, name: "live", revision: 1, items: [
+                item(id: mayBeDeleted, title: "from a", revision: 5, modifiedAt: Date(timeIntervalSince1970: 500),
+                     titleRevision: 5, titleModifiedAt: Date(timeIntervalSince1970: 500)),
+            ]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: checklistID, name: "live", revision: 1, items: [
+                item(id: mayBeDeleted, title: "from b", revision: 4, modifiedAt: Date(timeIntervalSince1970: 400),
+                     descriptionRevision: 4, descriptionModifiedAt: Date(timeIntervalSince1970: 400)),
+            ]),
+        ], tombstones: [
+            tombstone(checklistID: checklistID, itemID: mayBeDeleted, revision: 2),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.checklists.first?.items.isEmpty == true, "a tombstone outlives any field clock")
+        #expect(merged.tombstones.map(\.itemID) == [mayBeDeleted], "the tombstone survives the merge")
     }
 
     @Test
@@ -430,8 +509,14 @@ func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distan
 }
 
 @MainActor
-func item(id: UUID, title: String, description: String = "", revision: Int, modifiedAt: Date = .distantPast) -> ChecklistItem {
-    ChecklistItem(id: id, title: title, description: description, modifiedAt: modifiedAt, revision: revision)
+func item(id: UUID, title: String, description: String = "", revision: Int,
+          modifiedAt: Date = .distantPast, relativeDate: Int? = nil,
+          titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
+          descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil) -> ChecklistItem {
+    ChecklistItem(id: id, title: title, description: description, modifiedAt: modifiedAt,
+                  revision: revision, relativeDate: relativeDate,
+                  titleRevision: titleRevision, titleModifiedAt: titleModifiedAt,
+                  descriptionRevision: descriptionRevision, descriptionModifiedAt: descriptionModifiedAt)
 }
 
 @MainActor
