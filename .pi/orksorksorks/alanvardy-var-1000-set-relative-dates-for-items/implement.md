@@ -43,3 +43,32 @@ ticket-start placeholder; no third-party commits were affected.
 - [ ] Phase 6 — `make run`; open a checklist; type `1` in an item's Days field → the value sticks; change it to `-2` (minus is typeable) → sticks; clear the field → date cleared; background the app and relaunch → the value persists
 - [ ] Phase 6 — Reminder check: run the checklist and confirm the same item shows the expected today-relative date in Reminders
 - [ ] Phases 1–4 list `None` manual items (fully covered by unit suites)
+
+## Post-review fixes (commit `745ebf9`)
+
+The pre-merge review found two blockers, both fallout from the mandated
+`git rebase origin/main`: the design/plan assumed the base was `currentVersion
+= 2`, but main was already **v3** (the itemOrder/VAR-969 ticket had consumed
+that bump) before this branch's Phase 2 ran. Consequent fixes:
+
+1. **Envelope v3 → v4.** `relativeDate` had been added to the v3 wire shape
+   while `currentVersion` stayed 3, so an existing v3 client would classify the
+   payload as `.loaded`, silently strip `relativeDate` on re-encode, and push
+   back. Now `currentVersion = 4`, `case 3` classifies as
+   `.migratable(from: 3, envelope:)` (v3 carries full sync + ordering state;
+   load verbatim, `relativeDate` decodes `nil`), and old v3 clients see v4 as
+   `.unsupportedVersion` and refuse to overwrite.
+2. **v2 ordering regression.** `itemOrder`/`orderRevision`/`orderModifiedAt`
+   arrived with v3, so a real v2 payload has none. The Phase 2 change loaded
+   v2 verbatim, leaving `orderRevision == 0` and losing every order LWW. Added
+   `Checklist.seededOrder()`, applied in both `ChecklistStore` and
+   `ChecklistSyncService`: it seeds ordering from the record's own sync state
+   **without** restamping item/checklist `revision`/`modifiedAt`. The v2 tests
+   now use a hand-built, key-less JSON payload rather than the current encoder.
+3. **Nits/optional.** Unique `itemRelativeDateField-<uuid>` accessibility ids;
+   `ItemRow` refreshes its buffered text on an external (iCloud) `relativeDate`
+   change without clobbering a padded/in-progress draft; trailing newlines;
+   doc comments.
+
+Full `bash scripts/test.sh` re-run green after the fixes (`gate: ok`, 187 unit
+tests).
