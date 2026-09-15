@@ -119,6 +119,17 @@ struct ChecklistRemindersTests {
         #expect(spy.createdNotes == [nil])
     }
 
+    @Test
+    func whitespaceOnlyDescriptionSendsNilNotes() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk", description: "   ")], destinationListIdentifier: "list-a")
+
+        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(spy.createdNotes == [nil])
+    }
+
     /// Sad path: the existing denial/missing-destination guards still create
     /// nothing, so no notes can leak.
     @Test

@@ -54,6 +54,16 @@ struct ChecklistItemTests {
         #expect(ChecklistItem(title: "  ", description: description).isBlank)
     }
 
+    @Test(arguments: [" ", "\t", "\n", "  \n "])
+    func whitespaceOnlyDescriptionReadsAsAbsent(_ description: String) {
+        #expect(!ChecklistItem(title: "Milk", description: description).hasDescription)
+    }
+
+    @Test(arguments: ["x", " x "])
+    func descriptionWithRealTextReadsAsPresent(_ description: String) {
+        #expect(ChecklistItem(title: "Milk", description: description).hasDescription)
+    }
+
     @Test
     func checklistDecodeDefaultsToDerivedOrder() throws {
         let first = UUID()
