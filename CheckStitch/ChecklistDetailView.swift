@@ -66,8 +66,7 @@ struct ChecklistDetailView: View {
                             itemID: item.id,
                             title: titleBinding(checklistID: checklistID, itemID: item.id),
                             description: descriptionBinding(checklistID: checklistID, itemID: item.id),
-                            relativeDate: item.relativeDate,
-                            itemID: item.id
+                            relativeDate: item.relativeDate
                         ) { newValue in
                             store.updateItem(checklistID: checklistID, itemID: item.id, relativeDate: newValue)
                         }
@@ -273,20 +272,19 @@ struct ItemRow: View {
     let title: Binding<String>
     let description: Binding<String>
     let relativeDate: Int?
-    let itemID: UUID
     let commitRelativeDate: (Int?) -> Void
 
     init(
+        itemID: UUID = UUID(),
         title: Binding<String>,
         description: Binding<String> = .constant(""),
         relativeDate: Int?,
-        itemID: UUID = UUID(),
         commitRelativeDate: @escaping (Int?) -> Void
     ) {
+        self.itemID = itemID
         self.title = title
         self.description = description
         self.relativeDate = relativeDate
-        self.itemID = itemID
         self.commitRelativeDate = commitRelativeDate
     }
 
