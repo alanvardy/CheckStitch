@@ -349,8 +349,8 @@ targets).
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make watch-build` passes (the Core protocol change compiles under the watchOS SDK)
+- [x] `make test-unit` passes
+- [x] `make watch-build` passes (the Core protocol change compiles under the watchOS SDK)
 
 #### Manual
 - [ ] `make run`; create an item, set it High, run the checklist; in Reminders.app the created reminder is flagged High (and a `none` item is not flagged)

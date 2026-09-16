@@ -30,6 +30,7 @@ enum ChecklistReminders {
                 try await targeting.create(
                     title: item.title,
                     notes: item.hasDescription ? item.description : nil,
+                    priority: item.priority,
                     in: destination,
                     dueDateComponents: dueDateComponents)
                 created += 1

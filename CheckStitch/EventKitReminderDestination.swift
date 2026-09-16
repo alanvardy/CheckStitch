@@ -28,7 +28,8 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
             defaultIdentifier: eventStore.defaultCalendarForNewReminders()?.calendarIdentifier)
     }
 
-    func create(title: String, notes: String?, in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {
+    func create(title: String, notes: String?, priority: ChecklistItemPriority,
+                in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {
         // Re-resolve by identifier: a list deleted between pre-validation and
         // creation must throw rather than silently fall back to a nil calendar.
         guard let calendar = eventStore.calendars(for: .reminder)
@@ -39,6 +40,7 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
         reminder.title = title
         if let notes { reminder.notes = notes }   // nil leaves notes unset
         reminder.calendar = calendar
+        reminder.priority = priority.rawValue   // raw value = EventKit's scale
         if let dueDateComponents {
             reminder.dueDateComponents = dueDateComponents
         }
