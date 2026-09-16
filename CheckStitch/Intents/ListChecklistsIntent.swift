@@ -26,6 +26,11 @@ enum ListChecklistsDialogue {
             return LocalizedStringResource(
                 "You don't have any checklists yet.", table: "Localizable", bundle: .main)
         }
+        guard names.count != 1 else {
+            return LocalizedStringResource(
+                "You have 1 checklist: \(names.joined(separator: ", ")).",
+                table: "Localizable", bundle: .main)
+        }
         return LocalizedStringResource(
             "You have \(names.count) checklists: \(names.joined(separator: ", ")).",
             table: "Localizable", bundle: .main)

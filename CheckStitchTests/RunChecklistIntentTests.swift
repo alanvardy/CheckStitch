@@ -45,6 +45,12 @@ struct RunChecklistIntentTests {
     }
 
     @Test
+    func runReportsSingularDialogueForOneReminder() {
+        #expect(RunChecklistDialogue.message(for: .created(count: 1), checklistName: "Groceries")
+            .resolved() == "Created 1 reminder for Groceries.")
+    }
+
+    @Test
     func staleChecklistIdThrowsWithItsMessage() async throws {
         let (intent, spy, _) = makeIntent()
         intent.checklist = ChecklistEntity(id: UUID().uuidString, name: "Ghost")
