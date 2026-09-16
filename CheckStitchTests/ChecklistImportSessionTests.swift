@@ -168,4 +168,31 @@ struct ChecklistImportSessionTests {
         #expect(store.checklists.count == 1)
         #expect(store.checklists.map(\.name) == ["A"])
     }
+
+    /// A payload whose item is `.medium` imports with that priority intact —
+    /// through the plain insert path and through a Replace decision. Rebuilds on
+    /// both go through the store's `freshCopy`, which is the drop this test
+    /// would have caught (priority resetting to `.none`).
+    @Test
+    func importPreservesPriority() throws {
+        let incoming = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", priority: .medium)])
+
+        // Insert path: a free name lands immediately.
+        let (session, store) = makeSession()
+        try session.prepare(data: payload([incoming]))
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.first?.items.first?.priority == .medium, "insert keeps the payload priority")
+        #expect(store.checklists.first?.items.first?.priorityRevision == store.checklists.first?.items.first?.revision)
+
+        // Replace path: the same name now conflicts, and replacing rebuilds the
+        // checklist from the same payload.
+        let (replacing, replaceStore) = makeSession()
+        replaceStore.create(name: "Groceries")
+        try replacing.prepare(data: payload([incoming]))
+        #expect(replacing.pending.count == 1)
+        replacing.decide(.replace, for: replacing.pending.first?.id ?? UUID())
+        #expect(replaceStore.checklists.count == 1)
+        #expect(replaceStore.checklists.first?.items.first?.priority == .medium, "replace keeps the payload priority")
+        #expect(replaceStore.checklists.first?.items.first?.priorityRevision == replaceStore.checklists.first?.items.first?.revision)
+    }
 }

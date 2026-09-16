@@ -42,6 +42,25 @@ final class ChecklistExportTests: XCTestCase {
         XCTAssertTrue(env.tombstones.isEmpty)
     }
 
+    /// A `.high` item exported, classified back `.loaded`, and decoded keeps its
+    /// priority and its priority clock riding the coarse revision.
+    func testExportPreservesPriority() throws {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", priority: .high)])
+        let data = try ChecklistExport.data(checklists: [checklist])
+
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(env.checklists, [checklist])
+        guard let item = env.checklists.first?.items.first else {
+            XCTFail("export lost the item")
+            return
+        }
+        XCTAssertEqual(item.priority, ChecklistItemPriority.high)
+        XCTAssertEqual(item.priorityRevision, item.revision)
+    }
+
     func testExportEmptySelectionClassifiesLoadedWithNoChecklists() throws {
         let data = try ChecklistExport.data(checklists: [])
 
