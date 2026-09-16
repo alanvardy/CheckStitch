@@ -201,10 +201,10 @@ prefer a generic destination.
 ### Verification
 
 #### Automated
-- [ ] `actionlint .github/workflows/dependabot-checks.yml` exits 0
-- [ ] `env SIM='generic/platform=iOS Simulator' make build` passes locally on a clean `DerivedData` (delete `DerivedData/` first)
-- [ ] `make watch-build` passes locally on a clean `DerivedData`
-- [ ] Step order assertion: `grep -nE 'name: Build \((iOS Simulator|macOS, unsigned|watchOS Simulator)\)' .github/workflows/dependabot-checks.yml` lists iOS, macOS, watchOS in that line order
+- [x] `actionlint .github/workflows/dependabot-checks.yml` exits 0
+- [x] `env SIM='generic/platform=iOS Simulator' make build` passes locally on a clean `DerivedData` (delete `DerivedData/` first)
+- [x] `make watch-build` passes locally on a clean `DerivedData`
+- [x] Step order assertion: `grep -nE 'name: Build \((iOS Simulator|macOS, unsigned|watchOS Simulator)\)' .github/workflows/dependabot-checks.yml` lists iOS, macOS, watchOS in that line order
 
 #### Manual
 - [ ] On the dependabot PR, the check is green and both new steps show as executed. Open the `Build (iOS Simulator)` step log and confirm xcodebuild accepted `-destination generic/platform=iOS Simulator`.

@@ -38,5 +38,11 @@ jobs:
           [[ "$sdk_version" == 27.* ]] \
             || { echo "expected macOS 27 SDK, got: $sdk_version" >&2; exit 1; }
 
+      - name: Build (iOS Simulator)
+        run: make build
+
       - name: Build (macOS, unsigned)
         run: make build-mac
+
+      - name: Build (watchOS Simulator)
+        run: make watch-build
