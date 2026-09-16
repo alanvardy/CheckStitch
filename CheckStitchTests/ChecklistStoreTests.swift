@@ -919,6 +919,49 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.checklist(id: created.id)?.items.first?.priority, ChecklistItemPriority.medium)
     }
 
+    /// End-to-end priority sync: a remote envelope whose priority axis is newer
+    /// is applied (merge), saved, then read back by a brand-new store — the
+    /// merge → persist → reload composition the pure merge and single-device
+    /// reload tests cover only in pieces.
+    func testRemotePrioritySurvivesMergePersistAndReload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let checklist = store.create(name: "Groceries")
+        store.addItem(to: checklist.id)
+        guard let localItem = store.checklist(id: checklist.id)?.items.first else {
+            XCTFail("expected the local item")
+            return
+        }
+        XCTAssertEqual(localItem.priority, ChecklistItemPriority.none)
+
+        // A second device picked `.high` (coarse revision 2) after the baseline.
+        let remoteItem = ChecklistItem(
+            id: localItem.id, title: localItem.title,
+            modifiedAt: Date(timeIntervalSince1970: 1_000), revision: 2, priority: .high)
+        let remote = ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: "other-device",
+            checklists: [Checklist(
+                id: checklist.id, name: checklist.name, items: [remoteItem],
+                modifiedAt: Date(timeIntervalSince1970: 1_000), revision: 2,
+                itemOrder: [remoteItem.id],
+                orderRevision: 2, orderModifiedAt: Date(timeIntervalSince1970: 1_000))])
+
+        XCTAssertTrue(store.apply(remote: remote))
+        let merged = try? XCTUnwrap(store.checklist(id: checklist.id)?.items.first)
+        XCTAssertEqual(merged?.priority, ChecklistItemPriority.high)
+        XCTAssertEqual(merged?.priorityRevision, 2)
+
+        // The applied merge is on disk, not just in memory.
+        let reloaded = makeStore(defaults: suite.defaults)
+        let reloadedItem = try? XCTUnwrap(reloaded.checklist(id: checklist.id)?.items.first)
+        XCTAssertEqual(reloadedItem?.priority, ChecklistItemPriority.high)
+        XCTAssertEqual(reloadedItem?.priorityRevision, 2)
+        XCTAssertEqual(reloadedItem?.priorityModifiedAt, Date(timeIntervalSince1970: 1_000))
+    }
+
     // MARK: - moveItems
 
     func testMoveReordersItemsWithinList() {

@@ -98,7 +98,11 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         descriptionModifiedAt = try container.decodeIfPresent(Date.self, forKey: .descriptionModifiedAt) ?? modifiedAt
         relativeDateRevision = try container.decodeIfPresent(Int.self, forKey: .relativeDateRevision) ?? revision
         relativeDateModifiedAt = try container.decodeIfPresent(Date.self, forKey: .relativeDateModifiedAt) ?? modifiedAt
-        // Additive, defaulted on absence — no version bump (relativeDate precedent).
+        // Additive key: absence decodes to `.none` with no version bump (the
+        // `relativeDate` precedent). Unlike `relativeDate` (`Int?`, any value),
+        // this enum is a closed domain — an unknown raw value throws, so adding
+        // a case later requires a v5 envelope bump (→ `.unsupportedVersion`,
+        // which refuses to overwrite) rather than riding this key.
         priority = try container.decodeIfPresent(ChecklistItemPriority.self, forKey: .priority) ?? .none
         priorityRevision = try container.decodeIfPresent(Int.self, forKey: .priorityRevision) ?? revision
         priorityModifiedAt = try container.decodeIfPresent(Date.self, forKey: .priorityModifiedAt) ?? modifiedAt
