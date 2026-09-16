@@ -546,9 +546,9 @@ Add to `LocalizationFixtures.requiredKeys["App"]`.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make build` succeeds — every `switch` over `ReminderRunOutcome` is exhaustive (`ContentView`, `ChecklistReminders`, `RunChecklistDialogue`)
-- [ ] `rg -n "case .destinationMissing" CheckStitch CheckStitchCore` shows both call sites updated
+- [x] `make test-unit` passes
+- [x] `make build` succeeds — every `switch` over `ReminderRunOutcome` is exhaustive (`ContentView`, `ChecklistReminders`, `RunChecklistDialogue`)
+- [x] `rg -n "case .destinationMissing" CheckStitch CheckStitchCore` shows both call sites updated
 
 #### Manual
 - [ ] Delete the destination list from Reminders *while* a multi-item run is in flight (or simulate with the spy in a test) → Siri says "Created N of M …"; the in-app alert shows the counts + reason
