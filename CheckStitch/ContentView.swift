@@ -15,6 +15,12 @@ struct ContentView: View {
     @AppStorage("backgroundPinned") var backgroundPinned = false
 
     @State private var path: [UUID] = []
+    /// Present when the main-screen rows are in edit mode (remove/move
+    /// controls instead of navigation and the run button).
+    @State private var isEditing = false
+    /// The checklist waiting for its confirm/cancel in the remove dialog;
+    /// `nil` hides it.
+    @State private var checklistPendingRemoval: UUID?
     /// Transient per-checklist reminder feedback, keyed by id — never persisted.
     @State private var creating: Set<UUID> = []
     @State private var created: Set<UUID> = []
@@ -62,6 +68,14 @@ struct ContentView: View {
                         // Trailing keeps the gear in the corner beside create.
                         ToolbarItem(placement: .primaryAction) {
                             settingsButton
+                        }
+                        // Edit is hidden while the list is empty: the empty
+                        // state owns that screen, and a stray edit toggle
+                        // there would edit nothing.
+                        if !store.checklists.isEmpty {
+                            ToolbarItem(placement: .primaryAction) {
+                                editToggleButton
+                            }
                         }
                     }
                 #endif
@@ -192,6 +206,27 @@ struct ContentView: View {
                                     set: { if !$0 { exportErrorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(exportErrorMessage ?? "") }
+        // Two-step removal gate, mirroring the detail screen: the per-row
+        // minus only raises this dialog, and its destructive button performs
+        // the removal.
+        .confirmationDialog(
+            "Remove Checklist",
+            isPresented: Binding(get: { checklistPendingRemoval != nil },
+                                 set: { if !$0 { checklistPendingRemoval = nil } }),
+            presenting: checklistPendingRemoval
+        ) { id in
+            Button("Remove", role: .destructive) { removeChecklist(id: id) }
+                .accessibilityIdentifier("confirmRemoveChecklistButton")
+            Button("Cancel", role: .cancel) { checklistPendingRemoval = nil }
+                .accessibilityIdentifier("cancelRemoveChecklistButton")
+        } message: { _ in
+            Text("This removes the checklist and all its items.")
+        }
+        // Leave edit mode when the last checklist goes: the empty state has no
+        // toggle, so a later create must not open into a stale edit state.
+        .onChange(of: store.checklists.isEmpty) { _, isEmpty in
+            if isEmpty { isEditing = false }
+        }
     }
 
     /// `topBarLeading` is iOS-only; on macOS the leading navigation slot is
@@ -279,29 +314,65 @@ struct ContentView: View {
         #endif
     }
 
+    /// Shared by the macOS toolbar and the iOS in-content header row. The bare
+    /// "Edit" key is new; "Done" is already registered.
+    private var editToggleButton: some View {
+        Button(isEditing ? "Done" : "Edit") {
+            withAnimation { isEditing.toggle() }
+        }
+        .accessibilityIdentifier("editChecklistsButton")
+    }
+
     private var checklistList: some View {
         GeometryReader { geometry in
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(store.checklists) { checklist in
-                        checklistRow(for: checklist)
-                        if checklist.id != store.checklists.last?.id {
-                            Divider()
+                VStack(spacing: 0) {
+                    #if os(iOS)
+                        // No toolbar on the iOS root, and both chrome corners
+                        // are taken by the create/settings plates, so the edit
+                        // toggle lives in the scroll content as a right-aligned
+                        // header row sharing the card's 32pt margins. Plated
+                        // like the chrome buttons so it stays legible over the
+                        // photo.
+                        HStack {
+                            Spacer()
+                            editToggleButton
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 6)
+                                .background {
+                                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                                        .fill(CardPlate.iconPlateFill(for: colorScheme))
+                                }
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                                        .stroke(.tint, lineWidth: 2)
+                                )
+                        }
+                        .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
+                        .padding(.horizontal, 32)
+                        .padding(.bottom, 8)
+                    #endif
+                    LazyVStack(spacing: 0) {
+                        ForEach(store.checklists) { checklist in
+                            checklistRow(for: checklist)
+                            if checklist.id != store.checklists.last?.id {
+                                Divider()
+                            }
                         }
                     }
+                    .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
+                    // Off-white/black plate keeps the rows readable over the photo —
+                    // SingleThread's card treatment at CheckStitch's 14pt radius.
+                    .background {
+                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                            .fill(CardPlate.plateFill(for: colorScheme))
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                            .stroke(.tint, lineWidth: 2)
+                    )
+                    .padding(.horizontal, 32)
                 }
-                .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
-                // Off-white/black plate keeps the rows readable over the photo —
-                // SingleThread's card treatment at CheckStitch's 14pt radius.
-                .background {
-                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                        .fill(CardPlate.plateFill(for: colorScheme))
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                        .stroke(.tint, lineWidth: 2)
-                )
-                .padding(.horizontal, 32)
                 #if os(iOS)
                     // Start below the floating 52×52 chrome plates (8pt top
                     // inset + 52pt tall) with extra headroom below them.
@@ -316,12 +387,31 @@ struct ContentView: View {
     }
 
     /// One checklist row inside the width-capped card: the name navigates to
-    /// the detail screen, the play button turns the list into reminders.
+    /// the detail screen, the play button turns the list into reminders. In
+    /// edit mode the row swaps to a leading remove control and plain name text,
+    /// so a tap can neither push the detail screen nor create reminders.
     private func checklistRow(for checklist: Checklist) -> some View {
         HStack(spacing: 12) {
-            NavigationLink(checklist.name, value: checklist.id)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            createRemindersButton(for: checklist.id)
+            if isEditing {
+                Button {
+                    checklistPendingRemoval = checklist.id
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove")
+                .accessibilityIdentifier("removeChecklist-\(checklist.id.uuidString)")
+            }
+            if isEditing {
+                Text(checklist.name)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                NavigationLink(checklist.name, value: checklist.id)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                createRemindersButton(for: checklist.id)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -392,6 +482,13 @@ struct ContentView: View {
                 runErrorMessage = outcome.errorMessage
             }
         }
+    }
+
+    /// Performs the destructive half of the removal gate: a single-row batch
+    /// into the store's `removeChecklists` (one tombstone, one save).
+    private func removeChecklist(id: UUID) {
+        guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
+        store.removeChecklists(at: IndexSet(integer: index))
     }
 }
 

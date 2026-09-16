@@ -35,6 +35,7 @@ enum LocalizationFixtures {
             "Due date",
             "Duplicate",
             "Duplicate Checklist",
+            "Edit",
             "Edit checklist",
             "Edit item",
             "How much the wallpaper fades for readability.",

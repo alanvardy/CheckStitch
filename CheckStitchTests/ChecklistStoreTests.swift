@@ -35,6 +35,13 @@ final class ChecklistStoreTests: XCTestCase {
         return (store: store, checklistID: checklistID)
     }
 
+    /// Three named checklists — the smallest fixture that exercises batch removal.
+    private func makeChecklistStore(defaults: UserDefaults, names: [String]) -> ChecklistStore {
+        let store = makeStore(defaults: defaults)
+        for name in names { _ = store.create(name: name) }
+        return store
+    }
+
     /// Deterministic clock so revision/timestamp assertions are exact.
     private final class Clock { var now = Date(timeIntervalSince1970: 0) }
 
@@ -939,6 +946,101 @@ final class ChecklistStoreTests: XCTestCase {
         let items = try? XCTUnwrap(reloaded.checklist(id: checklistID)?.items)
         XCTAssertEqual(items?.map(\.title), ["B", "A", "C"])
         XCTAssertEqual(reloaded.checklist(id: checklistID)?.orderRevision, 1)
+    }
+
+    // MARK: - removeChecklists
+
+    func testRemoveChecklistsDeletesRowsAndLeavesTombstones() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        let groceries = store.checklists.first { $0.name == "Groceries" }
+        let travel = store.checklists.first { $0.name == "Travel" }
+
+        store.removeChecklists(at: IndexSet([0, 2]))
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Hardware"])
+        XCTAssertEqual(store.tombstones.count, 2)
+        XCTAssertTrue(store.tombstones.allSatisfy { $0.itemID == nil })
+        let byID = Dictionary(uniqueKeysWithValues: store.tombstones.map { ($0.checklistID, $0) })
+        XCTAssertEqual(byID[groceries?.id ?? UUID()]?.revision, (groceries?.revision ?? 0) + 1)
+        XCTAssertEqual(byID[travel?.id ?? UUID()]?.revision, (travel?.revision ?? 0) + 1)
+        XCTAssertTrue(store.tombstones.allSatisfy { $0.deletedAt.timeIntervalSince1970 > 0 })
+    }
+
+    /// Removing a checklist with items must produce exactly one whole-checklist
+    /// tombstone (`itemID == nil`), never one per item.
+    func testRemoveChecklistsLeavesOnlyWholeChecklistTombstones() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create(name: "Groceries")
+        store.addItem(to: created.id)
+        store.addItem(to: created.id)
+
+        store.removeChecklists(at: IndexSet(integer: 0))
+
+        XCTAssertTrue(store.checklists.isEmpty)
+        XCTAssertEqual(store.tombstones.count, 1)
+        XCTAssertEqual(store.tombstones.first?.checklistID, created.id)
+        XCTAssertNil(store.tombstones.first?.itemID)
+        XCTAssertEqual(store.tombstones.first?.revision, 2)
+    }
+
+    func testRemoveChecklistsOutOfRangeIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        let before = try? XCTUnwrap(suite.defaults.data(forKey: key))
+
+        store.removeChecklists(at: IndexSet(integer: 7))
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Hardware", "Travel"])
+        XCTAssertTrue(store.tombstones.isEmpty)
+        XCTAssertEqual(suite.defaults.data(forKey: key), before)
+    }
+
+    func testRemoveChecklistsEmptyOffsetsIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        store.removeChecklists(at: IndexSet())
+
+        XCTAssertEqual(store.checklists.count, 3)
+        XCTAssertEqual(changes, 0, "an empty offset set must not schedule a save")
+    }
+
+    func testRemoveChecklistsSavesOnce() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel", "Chores"])
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        store.removeChecklists(at: IndexSet([0, 3]))
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Hardware", "Travel"])
+        XCTAssertEqual(changes, 1, "a multi-row removal is one save and one sync push")
+    }
+
+    func testRemoveChecklistsPersistsAcrossReload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        store.removeChecklists(at: IndexSet([0, 2]))
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.map(\.name), ["Hardware"])
+        XCTAssertEqual(reloaded.tombstones.count, 2)
     }
 
     // MARK: - itemOrder lockstep

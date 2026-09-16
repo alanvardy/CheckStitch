@@ -342,6 +342,25 @@ final class ChecklistStore {
         save()
     }
 
+    /// Removes whole checklists, one tombstone each. Mirrors
+    /// `removeItems(from:at:)`: every removal is stamped in a single batch and
+    /// persisted once, so a multi-row removal is one save and one sync push.
+    /// Out-of-range offsets are skipped; an all-out-of-range or empty set is a
+    /// silent no-op (no tombstone, no save).
+    func removeChecklists(at offsets: IndexSet) {
+        let removed = offsets.compactMap { checklists.indices.contains($0) ? checklists[$0] : nil }
+        guard !removed.isEmpty else { return }
+        for index in offsets.sorted(by: >) where checklists.indices.contains(index) {
+            checklists.remove(at: index)
+        }
+        for checklist in removed {
+            tombstones.append(ChecklistTombstone(
+                checklistID: checklist.id, itemID: nil, deletedAt: now(),
+                revision: checklist.revision + 1))
+        }
+        save()
+    }
+
     /// Applies SwiftUI's `move(fromOffsets:toOffset:)` index arithmetic: removes
     /// the offsets (descending) and re-inserts them at the destination adjusted
     /// by the number of removed elements that sat before it. Returns `nil` for
