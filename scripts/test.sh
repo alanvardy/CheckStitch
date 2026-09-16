@@ -4,6 +4,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Reclaim age-expired build/test caches before building — the moment
+# reclamation is cheapest, since nothing here is mid-build yet. The policy is
+# shared across repositories and age-gated so it can never disturb a concurrent
+# gate's in-flight artifacts; it is a no-op when the helper is not installed
+# (CI, any other machine), so a clean checkout behaves identically.
+command -v disk-clean >/dev/null 2>&1 && disk-clean || true
+
 SIM_ID_FILE="${SIM_ID_FILE:-.simulator_id}"
 GATE_UDID=""
 
