@@ -43,7 +43,9 @@ struct RunChecklistIntent: AppIntent {
         else { throw RunChecklistIntentError.checklistNotFound }
 
         // Status-only pre-check: a cold process may be unauthorized but must
-        // never prompt from inside an intent.
+        // never prompt from inside an intent. Residual TOCTOU: access revoked
+        // between here and `create` lets its `requestAccess()` re-prompt —
+        // accepted, same shape as the SingleThread reference.
         switch targeting.accessStatus() {
         case .fullAccess:
             break
@@ -73,6 +75,10 @@ enum RunChecklistDialogue {
     static func message(for outcome: ReminderRunOutcome, checklistName: String) -> LocalizedStringResource {
         switch outcome {
         case .created(let count):
+            guard count != 1 else {
+                return LocalizedStringResource(
+                    "Created 1 reminder for \(checklistName).", table: "Localizable", bundle: .main)
+            }
             return LocalizedStringResource(
                 "Created \(count) reminders for \(checklistName).", table: "Localizable", bundle: .main)
         case .destinationMissing:

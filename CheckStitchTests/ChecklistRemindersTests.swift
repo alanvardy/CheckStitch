@@ -179,6 +179,23 @@ struct ChecklistRemindersTests {
         #expect(spy.createdTitles.count == 3)
     }
 
+    /// `total` counts only non-blank items, matching the loop predicate — a
+    /// blank item never inflates the denominator of a partial report.
+    @Test
+    func midLoopThrowTotalExcludesBlankItems() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        spy.createFailureCount = 2
+        let checklist = Checklist(items: [
+            makeItem("Milk"), makeItem("   "), makeItem("Eggs"), makeItem("Bread"),
+        ], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .partiallyCreated(
+            created: 2, total: 3, reason: TestError.boom.localizedDescription))
+    }
+
     /// Throw on the very first create: zero items were committed, so the run is
     /// still a plain `.failed` — `.partiallyCreated` is only for real splits.
     @Test

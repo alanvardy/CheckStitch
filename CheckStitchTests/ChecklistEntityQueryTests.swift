@@ -37,6 +37,19 @@ struct ChecklistEntityQueryTests {
         #expect(entities[0].id == wanted)
     }
 
+    /// `entities(for:)` returns matches in the store's display order, not the
+    /// order of the requested identifiers.
+    @Test
+    func entitiesForIdentifiersReturnsStoreDisplayOrder() async throws {
+        let store = makeStore()
+        let query = ChecklistEntityQuery(store: store)
+        let reversed = store.checklists.reversed().map { $0.id.uuidString }
+
+        let entities = try await query.entities(for: reversed)
+
+        #expect(entities.map(\.name) == ["Groceries", "Packing", "Chores"])
+    }
+
     @Test
     func entitiesMatchingFiltersByNameCaseInsensitively() async throws {
         let store = makeStore()

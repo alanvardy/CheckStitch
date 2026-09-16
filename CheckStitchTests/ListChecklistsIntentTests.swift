@@ -30,6 +30,13 @@ struct ListChecklistsIntentTests {
         #expect(dialogue.resolved() == "You don't have any checklists yet.")
     }
 
+    @Test
+    func singleChecklistUsesSingularDialogue() {
+        let dialogue = ListChecklistsDialogue.message(for: ["Groceries"])
+
+        #expect(dialogue.resolved() == "You have 1 checklist: Groceries.")
+    }
+
     /// The query path builds a fresh store from the injected defaults and
     /// never writes: checklists and the persisted payload are byte-identical
     /// before and after `perform()`.

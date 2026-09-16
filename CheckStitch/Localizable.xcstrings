@@ -2789,6 +2789,47 @@
         }
       }
     },
+    "Created 1 reminder for %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created 1 reminder for %@."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 Erinnerung für %@ erstellt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se creó 1 recordatorio para %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 rappel créé pour %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ のリマインダーを 1 件作成しました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已为 %@ 创建 1 个提醒事项。"
+          }
+        }
+      }
+    },
     "That list no longer exists, so no reminders were created for %@." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3073,6 +3114,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你有 %lld 个清单：%@"
+          }
+        }
+      }
+    },
+    "You have 1 checklist: %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have 1 checklist: %@."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hast 1 Checkliste: %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tienes 1 lista: %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez 1 liste : %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 件のチェックリストがあります: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你有 1 个清单：%@"
           }
         }
       }
