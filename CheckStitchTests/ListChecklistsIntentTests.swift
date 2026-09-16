@@ -47,4 +47,15 @@ struct ListChecklistsIntentTests {
         #expect(store.checklists == before)
         #expect(defaults.data(forKey: key) == persistedBefore)
     }
+
+    /// Many long names survive the join whole, in display order — no truncation
+    /// for long or numerous names.
+    @Test
+    func manyChecklistsDialogueIsWhole() {
+        let names = (1...20).map { "Checklist \($0) " + String(repeating: "Item", count: 10) }
+
+        let dialogue = ListChecklistsDialogue.message(for: names).resolved()
+
+        #expect(dialogue == "You have 20 checklists: " + names.joined(separator: ", ") + ".")
+    }
 }

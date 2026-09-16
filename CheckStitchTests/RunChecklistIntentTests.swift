@@ -117,4 +117,73 @@ struct RunChecklistIntentTests {
             == "Created 3 of 7 reminders for Groceries; the rest were not created. "
                 + TestError.boom.localizedDescription)
     }
+
+    /// `perform()` reads the store at call time, so a mutation between two asks
+    /// is visible to the second ask (no cached snapshot).
+    @Test
+    func coldRunReadsFreshStoreEachPerform() async throws {
+        let (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+
+        _ = try await intent.perform()
+        #expect(spy.createdTitles.isEmpty)
+
+        store.addItem(to: checklistID, title: "Milk")
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles == ["Milk"])
+    }
+
+    /// The status-only pre-check runs on every `perform()`, so a grant made
+    /// between two asks is honoured by the next ask.
+    @Test
+    func accessGrantedBetweenAsksIsHonoured() async throws {
+        let (intent, spy, store) = makeIntent()
+        store.addItem(to: store.checklists[0].id, title: "Milk")
+
+        spy.accessStatusValue = .denied
+        _ = try await intent.perform()
+        #expect(spy.createdTitles.isEmpty)
+
+        spy.accessStatusValue = .fullAccess
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles == ["Milk"])
+    }
+
+    /// Each state owns its exact dialogue constant, even after the status
+    /// flips between asks.
+    @Test
+    func notDeterminedAfterPriorDenialIsStable() async throws {
+        let (intent, spy, _) = makeIntent()
+
+        spy.accessStatusValue = .denied
+        _ = try await intent.perform()
+        #expect(RunChecklistDialogue.denied.resolved()
+            == "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again.")
+        #expect(spy.createdTitles.isEmpty)
+
+        spy.accessStatusValue = .notDetermined
+        _ = try await intent.perform()
+        #expect(RunChecklistDialogue.notDetermined.resolved()
+            == "Open CheckStitch and allow Reminders access, then ask again.")
+        #expect(spy.createdTitles.isEmpty)
+
+        spy.accessStatusValue = .denied
+        _ = try await intent.perform()
+        #expect(RunChecklistDialogue.denied.resolved()
+            == "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again.")
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    /// A very long name must survive the dialogue helper whole — no truncation
+    /// assumptions in the resolver.
+    @Test
+    func longChecklistNameDialogueIsWhole() {
+        let longName = String(repeating: "A", count: 120)
+
+        let dialogue = RunChecklistDialogue.message(for: .created(count: 2), checklistName: longName).resolved()
+
+        #expect(dialogue == "Created 2 reminders for " + longName + ".")
+    }
 }

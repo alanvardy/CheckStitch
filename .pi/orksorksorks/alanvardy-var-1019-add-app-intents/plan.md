@@ -704,9 +704,9 @@ report; do not add watch exclusions by hand.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `bash scripts/tests/run.sh` passes (shell tests unchanged)
-- [ ] `bash scripts/test.sh` prints `gate: ok` (includes `make build`, `make test`, `make build-mac`, `make watch-build`, shellcheck)
+- [x] `make test-unit` passes
+- [x] `bash scripts/tests/run.sh` passes (shell tests unchanged)
+- [x] `bash scripts/test.sh` prints `gate: ok` (includes `make build`, `make test`, `make build-mac`, `make watch-build`, shellcheck)
 
 #### Manual
 - [ ] `make build-mac-signed` + `bash scripts/run-devices.sh` (or the signed macOS build): install the bundle, confirm both actions in Shortcuts.app, run one spoken checklist end-to-end and confirm the reminders appear with titles/notes/due dates, and confirm the not-determined path produces no prompt
