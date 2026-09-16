@@ -51,15 +51,15 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
-    func runSendsExactlyOneRunRequestAndRecordsIt() {
+    func runSendsOneRunRequestCarryingAFreshRunID() throws {
         let transport = FakeChecklistSyncTransport()
         let store = WatchChecklistStore(transport: transport)
         let checklist = Checklist(name: "Groceries")
 
-        store.run(checklist)
+        let runID = try #require(store.run(checklist))
 
-        #expect(transport.sentMessages == [.runChecklist(checklist.id)])
-        #expect(store.pendingRunID == checklist.id)
+        #expect(transport.sentMessages == [.runChecklist(id: checklist.id, runID: runID)])
+        #expect(store.pendingRunID == runID)
     }
 
     @Test
@@ -84,13 +84,12 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
-    func rejectedRunIsNotRecordedAsPending() {
+    func aRejectedSendStartsNoRun() {
         let transport = FakeChecklistSyncTransport()
         transport.acceptsSends = false
         let store = WatchChecklistStore(transport: transport)
-        let checklist = Checklist(name: "Groceries")
 
-        #expect(store.run(checklist) == false)
+        #expect(store.run(Checklist(name: "Groceries")) == nil)
         #expect(store.pendingRunID == nil)
     }
 

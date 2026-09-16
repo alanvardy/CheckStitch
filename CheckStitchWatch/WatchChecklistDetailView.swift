@@ -27,7 +27,7 @@ struct WatchChecklistDetailView: View {
             Button(sent
                 ? String(localized: "Sent", table: "Localizable", bundle: .main)
                 : String(localized: "Create reminders", table: "Localizable", bundle: .main)) {
-                sent = store.run(checklist)
+                sent = store.run(checklist) != nil
             }
             .disabled(sent || visibleItems.isEmpty)
         }

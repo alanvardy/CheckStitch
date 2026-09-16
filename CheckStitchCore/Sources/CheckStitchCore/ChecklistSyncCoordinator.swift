@@ -7,7 +7,7 @@ public final class ChecklistSyncCoordinator {
     public init(
         transport: ChecklistSyncTransport,
         snapshot: @escaping () -> [Checklist],
-        createReminders: @escaping (Checklist) async -> Void
+        createReminders: @escaping (Checklist) async -> ReminderRunOutcome
     ) {
         self.transport = transport
         self.snapshot = snapshot
@@ -33,17 +33,31 @@ public final class ChecklistSyncCoordinator {
     }
 
     private func handle(_ message: ChecklistSyncMessage) {
+        ChecklistSyncDiagnostics.log(.phoneHandle, ["message": message.diagnosticName])
         switch message {
         case .requestChecklists:
             pushContext()
-        case .runChecklist(let id):
-            guard let checklist = snapshot().first(where: { $0.id == id }) else { return }
+        case .runChecklist(let id, let runID):
+            guard let checklist = snapshot().first(where: { $0.id == id }) else {
+                ChecklistSyncDiagnostics.log(.snapshotLookup, [
+                    "run": runID.uuidString, "checklist": id.uuidString, "result": "miss",
+                ])
+                return
+            }
+            ChecklistSyncDiagnostics.log(.snapshotLookup, [
+                "run": runID.uuidString, "checklist": id.uuidString, "result": "hit",
+            ])
             // Chain runs so overlapping requests never hold two EventKit stores
             // open at once (EKCADErrorDomain 1021).
             let previous = pendingRun
             pendingRun = Task { [createReminders] in
                 await previous?.value
-                await createReminders(checklist)
+                let outcome = await createReminders(checklist)
+                ChecklistSyncDiagnostics.log(.createOutcome, [
+                    "run": runID.uuidString,
+                    "checklist": id.uuidString,
+                    "outcome": String(describing: outcome),
+                ])
             }
         case .context:
             break // watch-only direction
@@ -52,7 +66,7 @@ public final class ChecklistSyncCoordinator {
 
     private let transport: ChecklistSyncTransport
     private let snapshot: () -> [Checklist]
-    private let createReminders: (Checklist) async -> Void
+    private let createReminders: (Checklist) async -> ReminderRunOutcome
     /// Tail of the serialized run queue; see `handle`.
     private var pendingRun: Task<Void, Never>?
 }

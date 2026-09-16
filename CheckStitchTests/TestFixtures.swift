@@ -174,9 +174,14 @@ final class FakeChecklistSyncTransport: ChecklistSyncTransport {
 }
 
 /// Spy for the coordinator's `createReminders` closure: records every checklist
-/// the coordinator hands over for reminder creation.
+/// the coordinator hands over and returns a configurable outcome.
 @MainActor
 final class SpyChecklistRunner {
     private(set) var created: [Checklist] = []
-    func run(_ checklist: Checklist) async { created.append(checklist) }
+    /// Returned by `run`; set to drive the sad paths.
+    var outcome: ReminderRunOutcome = .created(count: 1)
+    func run(_ checklist: Checklist) async -> ReminderRunOutcome {
+        created.append(checklist)
+        return outcome
+    }
 }

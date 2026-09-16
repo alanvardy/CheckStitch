@@ -12,7 +12,14 @@ struct ChecklistSyncMessageTests {
     @Test
     func runChecklistRoundTripsThroughUserInfo() {
         let id = UUID()
-        #expect(ChecklistSyncMessage(userInfo: ChecklistSyncMessage.runChecklist(id).userInfo) == .runChecklist(id))
+        let runID = UUID()
+        #expect(ChecklistSyncMessage(userInfo: ChecklistSyncMessage.runChecklist(id: id, runID: runID).userInfo)
+            == .runChecklist(id: id, runID: runID))
+    }
+
+    @Test
+    func runChecklistWithoutARunIDIsRejected() {
+        #expect(ChecklistSyncMessage(userInfo: [ChecklistSyncKey.runChecklist: UUID().uuidString]) == nil)
     }
 
     @Test
