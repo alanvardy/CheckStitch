@@ -518,6 +518,25 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(duplicated?.descriptionModifiedAt, clock.now)
     }
 
+    /// A title passed through the new create lands on the item without a second
+    /// revision/clock bump: the add-item alert performs this single create with
+    /// the typed name.
+    func testAddItemWithTitleCreatesOnceUnderThatTitle() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id, title: "Milk")
+
+        let added = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(added?.title, "Milk")
+        XCTAssertEqual(added?.revision, 1)
+        XCTAssertEqual(added?.modifiedAt, clock.now)
+        XCTAssertEqual(added?.titleRevision, added?.revision, "the typed title is the add-time title, so its clock is untouched")
+    }
+
     func testDescriptionEditPersistsAndReloads() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

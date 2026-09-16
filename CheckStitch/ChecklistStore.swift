@@ -267,12 +267,20 @@ final class ChecklistStore {
             .caseInsensitiveCompare(b.trimmingCharacters(in: CharacterSet.whitespaces)) == .orderedSame
     }
 
-    func addItem(to id: UUID) {
+    /// Adds an item to a checklist under the caller-supplied title, creating it
+    /// once with that name: a single `revision: 1` create, so the title clock
+    /// records add-time. Existing callers without a name to offer keep the
+    /// generic default through the `addItem(to:)` overload.
+    func addItem(to id: UUID, title: String) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
-        let item = ChecklistItem(title: "New item", modifiedAt: now(), revision: 1)
+        let item = ChecklistItem(title: title, modifiedAt: now(), revision: 1)
         checklists[index].items.append(item)
         checklists[index].itemOrder.append(item.id)
         save()
+    }
+
+    func addItem(to id: UUID) {
+        addItem(to: id, title: "New item")
     }
 
     func updateItem(checklistID: UUID, itemID: UUID, title: String) {
