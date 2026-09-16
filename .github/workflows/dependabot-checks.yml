@@ -41,8 +41,14 @@ jobs:
       - name: Build (iOS Simulator)
         run: make build
 
+      - name: Unit tests (macOS host)
+        run: make test-unit
+
       - name: Build (macOS, unsigned)
         run: make build-mac
 
       - name: Build (watchOS Simulator)
         run: make watch-build
+
+      - name: Shell suite
+        run: bash scripts/tests/run.sh

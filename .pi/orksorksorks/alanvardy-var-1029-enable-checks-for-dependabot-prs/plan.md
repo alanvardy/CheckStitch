@@ -251,10 +251,10 @@ the runner needs no isolation changes.
 ### Verification
 
 #### Automated
-- [ ] `actionlint .github/workflows/dependabot-checks.yml` exits 0
-- [ ] `make test-unit` passes locally
-- [ ] `bash scripts/tests/run.sh` passes locally and exits 0
-- [ ] No test selector in YAML: `! grep -E 'only-testing|test-ui|make test($|[^-])' .github/workflows/dependabot-checks.yml` (expects no match; `make test-unit` is allowed)
+- [x] `actionlint .github/workflows/dependabot-checks.yml` exits 0
+- [x] `make test-unit` passes locally
+- [x] `bash scripts/tests/run.sh` passes locally and exits 0
+- [x] No test selector in YAML: `! grep -E 'only-testing|test-ui|make test($|[^-])' .github/workflows/dependabot-checks.yml` (expects no match; `make test-unit` is allowed)
 
 #### Manual
 - [ ] On the dependabot PR, both new steps execute and the check is green.
