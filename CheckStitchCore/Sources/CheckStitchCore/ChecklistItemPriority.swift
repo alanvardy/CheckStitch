@@ -18,4 +18,17 @@ public enum ChecklistItemPriority: Int, Codable, CaseIterable, Hashable, Sendabl
         case .high: return "High"
         }
     }
+
+    /// Exclamation-marker prefix rendered before the item's name in the row:
+    /// `!!!` high, `!!` medium, `!` low, empty for none. Mirrors
+    /// `SingleThread`'s `ReminderPriority.Level.marker` so both apps speak the
+    /// same visual language; kept on the model so no view branches over cases.
+    public var marker: String {
+        switch self {
+        case .none: return ""
+        case .low: return "!"
+        case .medium: return "!!"
+        case .high: return "!!!"
+        }
+    }
 }

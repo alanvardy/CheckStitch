@@ -72,7 +72,8 @@ struct ChecklistDetailView: View {
                             itemID: item.id,
                             title: item.title,
                             description: item.description,
-                            relativeDate: item.relativeDate
+                            relativeDate: item.relativeDate,
+                            priority: item.priority
                         )
                     }
                     .onDelete { offsets in
@@ -254,18 +255,19 @@ struct ChecklistDetailView: View {
     }
 }
 
-/// One item row: the item's title, its human-readable due date and its
-/// description, all read-only. The whole row is the link into the pushed
-/// `ItemEditView`, so the tap target is the row rather than a small pencil icon.
-/// That is why the row no longer hosts editable fields: a `NavigationLink` row
-/// makes its inline controls inert, so title/description editing moved onto the
-/// edit screen with the date.
+/// One item row: the item's priority marker, its title, its human-readable due
+/// date and its description, all read-only. The whole row is the link into the
+/// pushed `ItemEditView`, so the tap target is the row rather than a small
+/// pencil icon. That is why the row no longer hosts editable fields: a
+/// `NavigationLink` row makes its inline controls inert, so title/description
+/// editing moved onto the edit screen with the date.
 struct ItemRow: View {
     let checklistID: UUID
     let itemID: UUID
     let title: String
     let description: String
     let relativeDate: Int?
+    let priority: ChecklistItemPriority
 
     var body: some View {
         NavigationLink {
@@ -273,6 +275,18 @@ struct ItemRow: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    // The coloured exclamation marker SingleThread uses: the
+                    // same font as the title, only the level's colour
+                    // (red/yellow/green) distinguishes high/medium/low. No
+                    // marker for an unprioritised item, so its row is
+                    // unchanged.
+                    if !priority.marker.isEmpty {
+                        Text(priority.marker)
+                            .font(.body)
+                            .foregroundStyle(Self.priorityColor(priority))
+                            .accessibilityLabel(priority.label)
+                            .accessibilityIdentifier("priorityMarker")
+                    }
                     Text(Self.displayTitle(title))
                     Spacer(minLength: 0)
                     // Blank when the item carries no date, per the product ask.
@@ -287,6 +301,17 @@ struct ItemRow: View {
             }
         }
         .accessibilityIdentifier("itemRow-\(itemID.uuidString)")
+    }
+
+    /// The marker colour per priority level, matching `SingleThread`'s
+    /// red/yellow/green so the two apps read the same at a glance.
+    static func priorityColor(_ priority: ChecklistItemPriority) -> Color {
+        switch priority {
+        case .none: .secondary
+        case .low: .green
+        case .medium: .yellow
+        case .high: .red
+        }
     }
 
     /// The row's title. An empty title (the user cleared it on the edit screen)
