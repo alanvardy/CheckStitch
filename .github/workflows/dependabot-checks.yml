@@ -21,7 +21,7 @@ jobs:
       DEVELOPMENT_TEAM: ""
       SIM: generic/platform=iOS Simulator
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Select Xcode 27
         run: |
