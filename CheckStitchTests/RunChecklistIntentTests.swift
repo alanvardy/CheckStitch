@@ -95,4 +95,26 @@ struct RunChecklistIntentTests {
             .resolved() == "That list no longer exists, so no reminders were created for Groceries.")
         #expect(spy.createdTitles.isEmpty)
     }
+
+    /// A mid-loop failure must speak the exact split (N of M created), not a
+    /// generic failure — the committed items are real reminders.
+    @Test
+    func partialCreationReportsExactSplitDialogue() async throws {
+        let (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        for title in ["Milk", "Eggs", "Bread", "Butter", "Cheese", "Yogurt", "Juice"] {
+            store.addItem(to: checklistID, title: title)
+        }
+        spy.createFailureCount = 3
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles.count == 3)
+        #expect(spy.createdTitles == ["Milk", "Eggs", "Bread"])
+        #expect(RunChecklistDialogue.message(
+            for: .partiallyCreated(created: 3, total: 7, reason: TestError.boom.localizedDescription),
+            checklistName: "Groceries").resolved()
+            == "Created 3 of 7 reminders for Groceries; the rest were not created. "
+                + TestError.boom.localizedDescription)
+    }
 }

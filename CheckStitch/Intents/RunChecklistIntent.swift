@@ -81,6 +81,10 @@ enum RunChecklistDialogue {
                 table: "Localizable", bundle: .main)
         case .permissionDenied:
             return denied
+        case .partiallyCreated(let created, let total, let reason):
+            return LocalizedStringResource(
+                "Created \(created) of \(total) reminders for \(checklistName); the rest were not created. \(reason)",
+                table: "Localizable", bundle: .main)
         case .failed(let reason):
             return LocalizedStringResource(
                 "Couldn't create reminders for \(checklistName): \(reason)", table: "Localizable", bundle: .main)

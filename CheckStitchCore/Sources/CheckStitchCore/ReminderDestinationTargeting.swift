@@ -59,6 +59,9 @@ public enum ReminderRunOutcome: Equatable, Sendable {
     case created(count: Int)
     case destinationMissing
     case permissionDenied
+    /// At least one item was created before the run failed. `.failed` is now
+    /// only reachable with zero created items.
+    case partiallyCreated(created: Int, total: Int, reason: String)
     case failed(String)
 
     /// User-facing text for every non-success outcome, `nil` on success. Kept
@@ -68,6 +71,8 @@ public enum ReminderRunOutcome: Equatable, Sendable {
         case .created: return nil
         case .destinationMissing: return "That list no longer exists; no reminders were created."
         case .permissionDenied: return "CheckStitch doesn't have permission to access Reminders; no reminders were created."
+        case .partiallyCreated(let created, let total, let reason):
+            return "Created \(created) of \(total) reminders; the rest were not created. \(reason)"
         case .failed(let message): return message
         }
     }

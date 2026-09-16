@@ -2993,6 +2993,47 @@
           }
         }
       }
+    },
+    "Created %lld of %lld reminders for %@; the rest were not created. %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created %lld of %lld reminders for %@; the rest were not created. %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld von %lld Erinnerungen für %@ erstellt; der Rest wurde nicht erstellt. %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se crearon %lld de %lld recordatorios para %@; el resto no se creó. %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld rappels sur %lld créés pour %@ ; le reste n'a pas été créé. %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ のリマインダーを %lld 件中 %lld 件作成しました。残りは作成されませんでした。%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已为 %@ 创建 %lld 个（共 %lld 个）提醒事项；其余未创建。%@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -506,8 +506,8 @@ struct ContentView: View {
                 created.insert(id)
                 try? await Task.sleep(for: .seconds(1))
                 created.remove(id)
-            case .destinationMissing, .permissionDenied, .failed:
-                // Never flash success: nothing was created (or the run failed).
+            case .destinationMissing, .permissionDenied, .partiallyCreated, .failed:
+                // Never flash success: nothing (or only part) was created.
                 runErrorMessage = outcome.errorMessage
             }
         }

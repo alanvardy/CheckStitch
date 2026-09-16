@@ -14,6 +14,7 @@ enum ChecklistReminders {
     }
 
     static func create(from checklist: Checklist, targeting: ReminderDestinationTargeting) async -> ReminderRunOutcome {
+        var created = 0
         do {
             guard try await targeting.requestAccess() else { return .permissionDenied }
             let snapshot = try await targeting.reminderLists()
@@ -21,7 +22,6 @@ enum ChecklistReminders {
                 // All-or-nothing: validate existence before the first create.
                 return .destinationMissing
             }
-            var created = 0
             for item in checklist.items where !item.isBlank {
                 // Both paths compute the date from the same pure Core function;
                 // `Date()` is the device-local today, matching the SingleThread
@@ -38,6 +38,12 @@ enum ChecklistReminders {
             return .created(count: created)
         } catch {
             logger.error("Failed to create checklist reminders: \(error.localizedDescription, privacy: .public)")
+            let total = checklist.items.filter { !$0.isBlank }.count
+            if created > 0 {
+                // Mid-loop throw: earlier items are already committed. Report the
+                // exact split instead of a generic failure.
+                return .partiallyCreated(created: created, total: total, reason: error.localizedDescription)
+            }
             return .failed(error.localizedDescription)
         }
     }

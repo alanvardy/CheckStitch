@@ -160,6 +160,40 @@ struct ChecklistRemindersTests {
         }
     }
 
+    /// Mid-loop throw after some creates: the committed items are reported as an
+    /// exact split, never as a generic failure.
+    @Test
+    func midLoopThrowAfterSomeCreatesReportsPartiallyCreated() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        spy.createFailureCount = 3
+        let checklist = Checklist(items: [
+            makeItem("Milk"), makeItem("Eggs"), makeItem("Bread"),
+            makeItem("Butter"), makeItem("Cheese"), makeItem("Yogurt"), makeItem("Juice"),
+        ], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .partiallyCreated(
+            created: 3, total: 7, reason: TestError.boom.localizedDescription))
+        #expect(spy.createdTitles.count == 3)
+    }
+
+    /// Throw on the very first create: zero items were committed, so the run is
+    /// still a plain `.failed` — `.partiallyCreated` is only for real splits.
+    @Test
+    func midLoopThrowBeforeAnyCreateStillReportsFailed() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        spy.createFailureCount = 0
+        let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .failed(TestError.boom.localizedDescription))
+        #expect(spy.createdTitles.isEmpty)
+    }
+
     @Test
     func errorMessagesDescribeEachFailure() {
         #expect(ReminderRunOutcome.created(count: 1).errorMessage == nil)
