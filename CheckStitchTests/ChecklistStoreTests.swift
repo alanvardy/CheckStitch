@@ -349,6 +349,41 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.checklists.first?.name, "Groceries")
     }
 
+    /// A v1 payload (no priority keys, no sync state) and a current-version
+    /// payload (priority keys written by the live encoder) for the same
+    /// revision-1 item must agree on priority: `.none` with the priority clock
+    /// seeded to the coarse revision on both paths.
+    func testV1AndV4MigrationAgreeOnPriority() throws {
+        let v1Suite = makeDefaults()
+        defer { v1Suite.defaults.removePersistentDomain(forName: v1Suite.suiteName) }
+        v1Suite.defaults.set(
+            Data(#"{"version":1,"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk"}]}]}"#.utf8),
+            forKey: key)
+        let migrated = makeStore(defaults: v1Suite.defaults)
+        guard let v1Item = migrated.checklists.first?.items.first else {
+            XCTFail("expected the migrated v1 item")
+            return
+        }
+
+        let v4 = try ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: "",
+            checklists: [Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", revision: 1)])]))
+        guard case .loaded(let env) = ChecklistCodec.classify(v4) else {
+            XCTFail("expected the v4 payload to classify as loaded")
+            return
+        }
+        guard let v4Item = env.checklists.first?.items.first else {
+            XCTFail("expected the decoded v4 item")
+            return
+        }
+
+        XCTAssertEqual(v1Item.priority, ChecklistItemPriority.none)
+        XCTAssertEqual(v1Item.priorityRevision, v1Item.revision)
+        XCTAssertEqual(v4Item.priority, ChecklistItemPriority.none)
+        XCTAssertEqual(v4Item.priorityRevision, v4Item.revision)
+    }
+
     func testDeviceIDIsStableAcrossInstances() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
@@ -772,10 +807,14 @@ final class ChecklistStoreTests: XCTestCase {
         store.addItem(to: source.id)
         guard let item = store.checklist(id: source.id)?.items.first else { return }
         store.updateItem(checklistID: source.id, itemID: item.id, relativeDate: 2)
+        store.updateItem(checklistID: source.id, itemID: item.id, priority: .high)
 
         let copy = store.duplicate(id: source.id, name: "Groceries copy")
 
         XCTAssertEqual(copy?.items.first?.relativeDate, 2)
+        // The priority pick rides along on the fresh copy's re-seeded clock.
+        XCTAssertEqual(copy?.items.first?.priority, ChecklistItemPriority.high)
+        XCTAssertEqual(copy?.items.first?.priorityRevision, 1)
     }
 
     // MARK: - Priority
@@ -1591,6 +1630,51 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertNil(store.duplicate(id: UUID(), name: "x"))
         XCTAssertTrue(store.checklists.isEmpty)
         XCTAssertEqual(changes, 0, "an unknown id must not schedule a save")
+    }
+
+    /// Duplicate and the import primitives (`freshCopy`) rebuild every item with
+    /// fresh identity and fresh clocks; the priority value rides along on both
+    /// paths — the "and import" half is what used to reset priority to `.none`.
+    func testPrioritySurvivesDuplicateAndImport() throws {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.addItem(to: source.id)
+        guard let item = store.checklist(id: source.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        store.updateItem(checklistID: source.id, itemID: item.id, priority: .high)
+
+        let copy = store.duplicate(id: source.id, name: "Groceries copy")
+        XCTAssertEqual(copy?.items.first?.priority, ChecklistItemPriority.high)
+        XCTAssertEqual(copy?.items.first?.priorityRevision, copy?.items.first?.revision)
+
+        let incoming = Checklist(name: "Packing",
+                                 items: [ChecklistItem(title: "Suitcase", priority: .medium)],
+                                 modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
+        let inserted = store.importInsert(incoming)
+        guard let insertedItem = store.checklist(id: inserted)?.items.first else {
+            XCTFail("expected the imported item")
+            return
+        }
+        XCTAssertEqual(insertedItem.priority, ChecklistItemPriority.medium)
+        XCTAssertEqual(insertedItem.priorityRevision, insertedItem.revision)
+        XCTAssertEqual(insertedItem.revision, 1, "imported content never carries the source revision")
+
+        let local = store.create(name: "Trip")
+        guard let replaced = store.importReplace(id: local.id, with: incoming) else {
+            XCTFail("expected the replace to land")
+            return
+        }
+        guard let replacedItem = store.checklist(id: replaced)?.items.first else {
+            XCTFail("expected the replaced item")
+            return
+        }
+        XCTAssertEqual(replacedItem.priority, ChecklistItemPriority.medium)
+        XCTAssertEqual(replacedItem.priorityRevision, replacedItem.revision)
     }
 
     func testSetDestinationUpdatesRevisionAndPersists() {

@@ -391,8 +391,8 @@ forward `priority`/`priorityRevision`/`priorityModifiedAt` there.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `bash scripts/test.sh` prints `gate: ok` (all four platform legs + shell tests + shellcheck)
+- [x] `make test-unit` passes
+- [x] `bash scripts/test.sh` prints `gate: ok` (all four platform legs + shell tests + shellcheck)
 
 #### Manual
 - [ ] Install the built app on this worktree's pinned simulator and confirm the **Priority** row renders the current value with a working menu — static evidence is not sufficient for this ticket (see the `devicectl`/`simulator` skills). Expected: item screen shows `Priority` section, label on the left, a tappable info control on the right, checkmark on the selected option.

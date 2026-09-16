@@ -192,4 +192,17 @@ struct ChecklistItemTests {
         #expect(ChecklistItemPriority.high.rawValue == 1)
         #expect(ChecklistItemPriority.allCases == [.none, .low, .medium, .high])
     }
+
+    /// Store rebuilds (duplicate, import) ship their payloads through this same
+    /// codec path; a priority set on a source item must survive a whole
+    /// checklist encode/decode unchanged, with the priority clock riding the
+    /// coarse revision. Pure codec closure for the rebuild path.
+    @Test
+    func prioritySurvivesChecklistRebuildRoundTrip() throws {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", priority: .high)])
+        let decoded = try JSONDecoder().decode(Checklist.self, from: JSONEncoder().encode(checklist))
+        #expect(decoded == checklist)
+        #expect(decoded.items.first?.priority == .high)
+        #expect(decoded.items.first?.priorityRevision == decoded.items.first?.revision)
+    }
 }
