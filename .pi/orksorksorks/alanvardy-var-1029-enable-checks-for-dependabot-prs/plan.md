@@ -146,12 +146,12 @@ the Select-Xcode + Guard steps.
 ### Verification
 
 #### Automated
-- [ ] `python3 -c "import yaml; yaml.safe_load(open('.github/dependabot.yml'))"` exits 0
-- [ ] `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/dependabot-checks.yml'))"` exits 0
-- [ ] `actionlint .github/workflows/dependabot-checks.yml` exits 0 (actionlint is installed locally at `/opt/homebrew/bin/actionlint`)
-- [ ] `grep -F "github.event.pull_request.user.login == 'dependabot[bot]'" .github/workflows/dependabot-checks.yml` prints the `if:` line (guard expression assertion)
-- [ ] `grep -F 'Build (macOS, unsigned)' .github/workflows/dependabot-checks.yml` prints the step name
-- [ ] `env DEVELOPMENT_TEAM= make build-mac` passes locally (the leg CI runs; `make build-mac` already sets `CODE_SIGNING_ALLOWED=NO`)
+- [x] `python3 -c "import yaml; yaml.safe_load(open('.github/dependabot.yml'))"` exits 0
+- [x] `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/dependabot-checks.yml'))"` exits 0
+- [x] `actionlint .github/workflows/dependabot-checks.yml` exits 0 (actionlint is installed locally at `/opt/homebrew/bin/actionlint`)
+- [x] `grep -F "github.event.pull_request.user.login == 'dependabot[bot]'" .github/workflows/dependabot-checks.yml` prints the `if:` line (guard expression assertion)
+- [x] `grep -F 'Build (macOS, unsigned)' .github/workflows/dependabot-checks.yml` prints the step name
+- [x] `env DEVELOPMENT_TEAM= make build-mac` passes locally (the leg CI runs; `make build-mac` already sets `CODE_SIGNING_ALLOWED=NO`)
 - [ ] `bash scripts/test.sh` prints `gate: ok` (the repo gate still passes with the new files present; nothing in the gate reads `.github/`)
 
 #### Manual
