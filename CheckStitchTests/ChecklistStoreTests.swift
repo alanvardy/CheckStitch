@@ -1043,6 +1043,97 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.tombstones.count, 2)
     }
 
+    // MARK: - moveChecklists
+
+    func testMoveChecklistsReordersWithinList() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        store.moveChecklists(from: IndexSet(integer: 0), to: 2)
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Hardware", "Groceries", "Travel"])
+    }
+
+    func testMoveChecklistsToEnd() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        store.moveChecklists(from: IndexSet(integer: 0), to: 3)
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Hardware", "Travel", "Groceries"])
+    }
+
+    func testMoveChecklistsOutOfRangeIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        let before = try? XCTUnwrap(suite.defaults.data(forKey: key))
+
+        store.moveChecklists(from: IndexSet(integer: 5), to: 0)
+        store.moveChecklists(from: IndexSet(integer: 0), to: 99)
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Hardware", "Travel"])
+        XCTAssertEqual(suite.defaults.data(forKey: key), before)
+    }
+
+    func testMoveChecklistsEmptyOffsetsIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        store.moveChecklists(from: IndexSet(), to: 1)
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Hardware", "Travel"])
+        XCTAssertEqual(changes, 0, "an empty offset set must not schedule a save")
+    }
+
+    /// A reorder is never mistaken for a checklist edit: every checklist keeps
+    /// its `id`, `name`, `revision`, `modifiedAt`, `items` and `itemOrder` —
+    /// only the top-level array order changes, so a reorder must not win an
+    /// LWW round against another device's edit.
+    func testMoveChecklistsPreservesChecklistIdentity() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let groceries = store.create(name: "Groceries")
+        store.addItem(to: groceries.id)
+        store.updateItem(checklistID: groceries.id, itemID: store.checklist(id: groceries.id)?.items.first?.id ?? UUID(), title: "Apples")
+        let hardware = store.create(name: "Hardware")
+        let travel = store.create(name: "Travel")
+        let beforeByID = Dictionary(uniqueKeysWithValues: store.checklists.map { ($0.id, $0) })
+
+        store.moveChecklists(from: IndexSet(integer: 0), to: 3)
+
+        XCTAssertEqual(store.checklists.map(\.name), ["Hardware", "Travel", "Groceries"])
+        for checklist in store.checklists {
+            let before = beforeByID[checklist.id]
+            XCTAssertEqual(checklist.id, before?.id)
+            XCTAssertEqual(checklist.name, before?.name)
+            XCTAssertEqual(checklist.revision, before?.revision)
+            XCTAssertEqual(checklist.modifiedAt, before?.modifiedAt)
+            XCTAssertEqual(checklist.items, before?.items)
+            XCTAssertEqual(checklist.itemOrder, before?.itemOrder)
+        }
+    }
+
+    func testMoveChecklistsPersistsAcrossReload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeChecklistStore(defaults: suite.defaults, names: ["Groceries", "Hardware", "Travel"])
+        store.moveChecklists(from: IndexSet(integer: 0), to: 2)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.map(\.name), ["Hardware", "Groceries", "Travel"])
+    }
+
     // MARK: - itemOrder lockstep
 
     func testAddItemAppendsToItemOrder() {
