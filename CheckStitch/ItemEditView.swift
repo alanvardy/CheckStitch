@@ -1,8 +1,8 @@
 import CheckStitchCore
 import SwiftUI
 
-/// Edits one item's title, description and relative due date ("days until
-/// due").
+/// Edits one item's title, description, priority and relative due date ("days
+/// until due").
 ///
 /// Pushed from an `ItemRow` — the whole row is the link. Reads the item from the
 /// store each pass so an iCloud merge lands live, committing through the same
