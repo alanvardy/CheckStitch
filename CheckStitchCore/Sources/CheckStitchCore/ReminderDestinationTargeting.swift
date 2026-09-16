@@ -79,10 +79,13 @@ public enum ReminderRunOutcome: Equatable, Sendable {
 ///
 /// `dueDateComponents` is the date-only reminder date (or `nil` for none); see
 /// `ChecklistItem.dueDateComponents` — the run path never does offset arithmetic
-/// itself.
+/// itself. `priority`'s raw value is written straight through to
+/// `EKReminder.priority` (none→0, low→9, medium→5, high→1), so no case mapping
+/// exists at this boundary.
 @MainActor
 public protocol ReminderDestinationTargeting {
     func requestAccess() async throws -> Bool
     func reminderLists() async throws -> ReminderListsSnapshot
-    func create(title: String, notes: String?, in list: ReminderListOption, dueDateComponents: DateComponents?) async throws
+    func create(title: String, notes: String?, priority: ChecklistItemPriority,
+                in list: ReminderListOption, dueDateComponents: DateComponents?) async throws
 }

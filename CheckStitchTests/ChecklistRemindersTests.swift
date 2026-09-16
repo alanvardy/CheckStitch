@@ -168,6 +168,43 @@ struct ChecklistRemindersTests {
         #expect(ReminderRunOutcome.failed("boom").errorMessage == "boom")
     }
 
+    /// The enum's raw value is `EKReminder.priority`'s scale (none→0, low→9,
+    /// medium→5, high→1), so the run path forwards the pick unchanged and the
+    /// adapter writes the raw value straight through.
+    @Test(arguments: ChecklistItemPriority.allCases)
+    func prioritiesCarryToTheSeam(_ priority: ChecklistItemPriority) async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [ChecklistItem(title: "Milk", priority: priority)],
+            destinationListIdentifier: "list-a")
+
+        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(spy.createdPriorities == [priority])
+        var expectedRawValue = 0
+        switch priority {
+        case .none: expectedRawValue = 0
+        case .low: expectedRawValue = 9
+        case .medium: expectedRawValue = 5
+        case .high: expectedRawValue = 1
+        }
+        #expect(priority.rawValue == expectedRawValue)
+    }
+
+    /// Items without a pick default to `.none` (raw value 0) at the seam.
+    @Test
+    func defaultItemsSendNonePriority() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(spy.createdPriorities == [.none])
+        #expect(ChecklistItemPriority.none.rawValue == 0)
+    }
+
     /// Parity for the live path: the run orchestrator must pass the item's
     /// date-only components to the seam. The real `Date()` today is not pinned,
     /// so only structural properties are asserted — present and time-less when
@@ -186,6 +223,7 @@ struct ChecklistRemindersTests {
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
+        #expect(spy.createdPriorities == [.none, .none], "every create carries a priority, index-aligned with createdTitles")
         guard let date = spy.createdDates[0] else {
             Issue.record("expected a date on the relative-date item")
             return
