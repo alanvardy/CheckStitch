@@ -1,0 +1,67 @@
+# Research Findings
+
+## Q1: How the gate `scripts/test.sh` is structured and its host-local dependencies
+
+### Findings
+- Whole gate: `set -euo pipefail` (`scripts/test.sh:1-2`), `cd` to repo root (`:4`), `SIM_ID_FILE="${SIM_ID_FILE:-.simulator_id}"` (`:7`).
+- Destination resolution (`:17-33`): `SIM` env/var wins (`:19-20`); else `.simulator_id` → `platform=iOS Simulator,id=<udid>` (`:21-24`). With a destination, UDID resolved via `bash scripts/resolve-sim-udid.sh --require-id "$GATE_DEST"` (`:27-28`). `.simulator_id` source + resolution failure → hard `exit 1` (`:29-32`); `SIM=` source + failure → `GATE_UDID=""` degrade (`:33-34`); no destination → silent skip.
+- Steps in order: `make build` (`:35`) → lock (`:44-67`) → EXIT trap + `osascript` Simulator quit (`:69-73, :74-81`) → pre-boot `xcrun simctl boot` + `bootstatus -b` (`:75-80`) → `make test` (`:82`) → release lock (`:83`) → `make build-mac` (`:89-90`) → `make watch-build` (`:95`) → `scripts/tests/run.sh` (skip with `GATE_TESTS_SKIP=1`, `:97-99`) → `shellcheck scripts/*.sh scripts/tests/*.sh` or `bash -n` fallback (`:101-107`) → `echo "gate: ok"` (`:109`).
+- `resolve-sim-udid.sh --require-id` (mode at `scripts/resolve-sim-udid.sh:13-18`) demands a `,id=`-pinned destination (`:26-30` UUID regex); bare `name=` forms are rejected — so a `name=`-style `SIM` on a host necessarily yields `GATE_UDID=""` (no pre-boot, no shutdown). See Q2 for the Makefile's own `SIM` handling.
+- Host-local state, enumerated: per-worktree `.simulator_id` (gitignored, `.gitignore:13-14`; currently `38410DA1-19E2-44DB-923B-772FDF269DC2`); lock dir `${TMPDIR:-/tmp}/checkstitch-simulator.lock` with `pid` child and stale-PID reaping (`scripts/test.sh:44-67`), `LOCK_TIMEOUT` default 60s degrades to warning (`:59-62`); `osascript` quit of Simulator.app (`:73`, failures swallowed with `|| true`); `simctl shutdown` trap-scoped to the resolved UDID only, never `all`/`booted` (`:69-71, :80`).
+- Degradation paths keep the gate runnable without host sims: no destination → skip pre-boot/shutdown (`:79-80`); missing `shellcheck` → `bash -n` (`:105-106`); `GATE_TESTS_SKIP=1` → skip shell suite (`:97`); `LOCK_TIMEOUT` exceeded → warn and proceed (`:59-62`).
+
+## Q2: What the `Makefile` exposes
+
+### Findings
+- Variables (`Makefile:1-13`): `SIM` `?=` precedence — explicit override wins, else `.simulator_id`-derived `platform=iOS Simulator,id=…` (`Makefile:4`), else `platform=iOS Simulator,name=iPhone 17` (`Makefile:5`). `MAC_SIM := platform=macOS` (`:6`), `WATCH_SIM := generic/platform=watchOS Simulator` (`:7`), `WATCH_SCHEME := CheckStitchWatch` (`:8`), `SCHEME := CheckStitch` (`:9`), `CONFIGURATION := Debug` (`:10`), `DERIVED_DATA := DerivedData` (`:11`), `APP`/`MAC_APP` product paths (`:12-13`).
+- Nine phony targets (`Makefile:15`):
+  - `build` (`:17-24`): `xcodebuild -scheme CheckStitch -destination $(SIM) -configuration Debug -derivedDataPath DerivedData build` — iOS simulator, no signing flags.
+  - `build-mac` (`:30-37`): `-destination platform=macOS` + `CODE_SIGNING_ALLOWED=NO` build — "the gate's unsigned compile leg". No sim, no signing.
+  - `build-mac-signed` (`:40-47`): `-destination platform=macOS` + `-allowProvisioningUpdates` build — team-signed so `AppGroup.entitlements`/KVS land in the profile (`CheckStitch/AppGroup.entitlements`); only target needing provisioning.
+  - `watch-build` (`:50-55`): `-scheme CheckStitchWatch -destination generic/platform=watchOS Simulator` build — "unsigned and sim-free".
+  - `run` (`:57-58`): `build` + `bash scripts/run-simulator.sh '$(SIM)' '$(APP)'` — requires booted sim.
+  - `test` (`:60-62`): aggregate of `test-unit test-ui`.
+  - `test-unit` (`:64-72`): `-destination platform=macOS`, `CODE_SIGNING_ALLOWED=NO`, `-only-testing:CheckStitchTests`, action `test` — macOS host, unsigned, no sim boot (`Makefile:63-66` comment).
+  - `test-ui` (`:75-86`): two invocations on `$(SIM)` — `build-for-testing` (`:76-80`), then `-only-testing:CheckStitchUITests test-without-building` (`:81-86`). Comment: exactly one UI smoke case, never a bare `name=` destination.
+  - `clean` (`:88-89`): `xcodebuild … -destination $(SIM) clean`.
+- Makefile has zero `simctl`/`xcrun` calls — all simctl usage lives in `scripts/`.
+- Signing/device-state grouping: unsigned + no sim state = `build-mac`, `test-unit`, `watch-build`; requires signing = `build-mac-signed`; touches simulator destination = `build`, `run`, `test-ui`, `clean`.
+
+## Q3: Test-suite inventory, schemes, and portability
+
+### Findings
+- `CheckStitchTests` (one macOS-hosted unit bundle) holds two suite styles:
+  - Swift Testing suites (`struct …Tests`, `@Test`/`#expect`): `SmokeTests.swift:4-6` canary plus ~29 suites across `ChecklistItem/…`, sync (`ChecklistSyncServiceTests.swift:7`, `UbiquitousChecklistSyncTests.swift:5`, `ChecklistSyncCoordinatorTests.swift:6`, `ChecklistSyncMessageTests.swift:5`), EventKit (`EventKitReminderCreatorTests.swift:6`, `EventKitReminderDestinationTests.swift:6`, `ReminderListsSnapshotTests.swift:6`, `ChecklistRemindersTests.swift:7`), UI/view (`ViewRenderTests.swift:7`, `ChecklistViewModelTests.swift:5`, `CardPlateTests.swift:8`, `ExportChecklistsViewTests.swift:11`, …), settings/appearance (`AppearanceModeTests.swift:5`, `BackgroundFadeTests.swift:7`, `BackgroundImageStoreTests.swift:9`, `SettingsBindingsTests.swift:7`, …), and watch-store (`WatchChecklistStoreTests.swift:6`).
+  - XCTest suites: `ChecklistStoreTests.swift:5-6` (`@MainActor final class … XCTestCase`), `ChecklistCodecTests.swift:6`, `ChecklistExportTests.swift:6` — suite-level pins like `-only-testing:CheckStitchTests/ChecklistStoreTests` evidenced in prior var (`.pi/…/alanvardy-var-971-sync-with-icloud/plan.md:274, :747`).
+- `CheckStitchUITests`: one bundle, one case `testLaunchAndAccessibilitySmoke` (`CheckStitchUITests/CheckStitchUITests.swift:14`), `runsForEachTargetApplicationUIConfiguration = false` (`:6`), `continueAfterFailure = false` (`:9`), `@MainActor` (`:12`), accessibility audit `#if os(iOS)`-gated (`:34-37`).
+- Committed schemes: only `CheckStitch.xcodeproj/xcshareddata/xcschemes/{CheckStitch,CheckStitchWatch}.xcscheme`; **no `.xctestplan` files** (git ls-files + find). `CheckStitch.xcscheme`: `parallelizeBuildables="YES"` (`:6`), `shouldAutocreateTestPlan="YES"` (`:25-30`), both TestableReferences `parallelizable="NO"` (`:32-42`, `:43-53`). `-only-testing:` pins are Makefile-side (`Makefile:70`, `Makefile:85`), not in the scheme.
+- Per-suite platform/signing is entirely Makefile-invocation-determined: `test-unit` = macOS host unsigned; `test-ui` = iOS simulator via `$(SIM)`.
+- `scripts/tests/run.sh` portability pattern: `new_stubs` (`:20-34`) writes no-op logging stubs to a `mktemp -d` tree, prepends to `PATH`; `stub_gate_command` (`:87-98`) stubs `make xcrun defaults open osascript`; gate cases run `bash scripts/test.sh` with private `TMPDIR` + `SIM_ID_FILE` in the stub tree (`:99-160`) so host locks/sims are never touched; `stub_watch_command` (`:163-183`) replaces `xcrun` with a JSON-fixture stub for `devicectl list devices`; non-tool regression `macos_slice_requests_outgoing_network` (`:241-262`) awk-walks `project.pbxproj` for the App-Sandbox/egress entitlement pairing. Runs standalone (`run_case` dispatch at `:36-45`, summary `:263-264`).
+
+## Q4: CI precedent (SingleThread) and CheckStitch's automation surface
+
+### Findings
+- SingleThread has exactly one workflow, `SingleThread/.github/workflows/ci.yml`. Trigger: `on: push: branches: [main]` only (`:3-5`) — **no `pull_request` event**; `concurrency: {group: ci-${{ github.ref }}, cancel-in-progress: true}` (`:7-9`).
+- Jobs (all `runs-on: macos-26`, except secret-scan on ubuntu-latest):
+  - `unit-tests` (`:12-78`): matrix `device: ["iPhone 17", "iPad (A16)"]`; env `SIM: platform=iOS Simulator,name=${{ matrix.device }}` (`:18`), `DERIVED_DATA: ${{ github.workspace }}/DerivedData` (`:19`). checkout@v4 (`:21`); `maxim-lobanov/setup-xcode@v1` `xcode-version: '26.6'` (`:23-26`); "Override development team" `echo "DEVELOPMENT_TEAM=" >> $GITHUB_ENV` (`:28-29`); `actions/cache@v4` DerivedData keyed on `hashFiles(...)` (`:31-38`); pre-boot via `simctl list devices available | grep -F "${{ matrix.device }} ("` → UDID sed-extract → `simctl boot "$SIM_UDID" || true` + `bootstatus -b` (`:39-43`); `build-for-testing -only-testing:SingleThreadTests -showBuildTimingSummary` timeout 20 (`:45-55`); `test-without-building -only-testing:SingleThreadTests -maximum-test-execution-time-allowance 900 -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 -resultBundlePath TestResults.xcresult` timeout 35 (`:56-71`); comment: parallel sim clones disabled due to timeout/SIGTRAP on virtualized runners; `upload-artifact@v4` on failure (`:73-77`).
+  - `ui-tests-smoke` (`:80-139`): same env/override/cache/pre-boot; `-retry-tests-on-failure` and `-only-testing:SingleThreadUITests/SingleThreadUITests/testLaunchAndRenderSmoke` (`:124-138`).
+  - `mac-tests` (`:141-191`): `-destination "platform=macOS" CODE_SIGNING_ALLOWED=NO build` (`:164-173`); `CODE_SIGNING_ALLOWED=NO test -only-testing:SingleThreadTests` (`:175-184`); `DEVELOPMENT_TEAM=` override also present (`:153-154`).
+  - `lint` (`:193-239`): `brew install mise`, mise cache, `swiftformat --lint`, `swiftlint lint --strict`, watch build via `xcodebuild -destination "generic/platform=watchOS Simulator"` (`:227-235`), `periphery scan --strict`.
+  - `watch-ui-tests` (`:240-310`): creates a standalone unpaired watch sim via `xcrun simctl create "CI Watch S11" "com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Series-11-46mm" <newest watchOS runtime>` (`:262-272`), boots it, `build-for-testing` + `test-without-building` with same parallel-off/retry flags.
+  - `secret-scan` (`:311-331`): `ubuntu-latest`, `fetch-depth: 0`, `gitleaks/gitleaks-action@dcedce43…` pinned, `GITLEAKS_VERSION: "8.30.1"`, SARIF upload disabled; comment notes dependabot tracks the action pin but not the version env.
+- SingleThread also has `.github/dependabot.yml` (`:1-13`): `version: 2`, `package-ecosystem: github-actions`, `directory: "/"`, weekly Monday `08:00` `America/Vancouver`, reviewers `[alanvardy]`, `open-pull-requests-limit: 5` — only the github-actions ecosystem.
+- CheckStitch automation surface: **no `.github/` directory, no workflow, no dependabot, no other CI config files** (find for `*.yml`/`*.yaml` outside `.pi/` returns nothing). The only CI surface is **Xcode Cloud, configured entirely out-of-repo**: `docs/TestFlight-xcode-cloud.md:4` ("CI config in this repository: Xcode Cloud builds, signs and submits"), `:44-47` ("One workflow, configured in Xcode's Cloud tab… Nothing in the repository configures it"), `:115-116` ("No `ci_scripts/`, no `ci_post_clone.sh`… No `.github/workflows`; Xcode Cloud is the CI").
+
+## Cross-Cutting Observations
+- **Portable vs host-bound gate legs**: `build-mac` (unsigned macOS compile), `test-unit` (macOS-hosted, unsigned), `watch-build` (generic destination), and `scripts/tests/run.sh` (fully stubbed) are portable to a hosted macOS runner as-is. The simulator-dependent parts (`build`, `test-ui`) need a destination; the gate's pre-boot/shutdown/lock/osascript machinery exists only because the local gate manages windows — on a runner it can be bypassed (no `.simulator_id` → skip pre-boot) or replaced by the SingleThread-style `simctl list`-grep + `boot || true` + `bootstatus -b` pre-boot.
+- **`name=` destinations are rejected by `--require-id`** (`scripts/resolve-sim-udid.sh:13-18`), so a `SIM=platform=iOS Simulator,name=…` env on CI yields no pre-boot locally but is still consumed by the Makefile's xcodebuild invocations — SingleThread sets exactly that.
+- **Signing-off precedent, two shapes**: project-level `DEVELOPMENT_TEAM` in pbxproj (CheckStitch uses `6NWX2DHB9Q`, per repo AGENTS.md) is neutralized on CI by `echo "DEVELOPMENT_TEAM=" >> $GITHUB_ENV` (SingleThread ci.yml:28-29, :153-154); macOS legs additionally pass `CODE_SIGNING_ALLOWED=NO` (singleTestThread ci.yml:164-173, :175-184; mirrors `Makefile:36, :70`).
+- **Virtualized-runner test flags**: `-parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1` (+ `-maximum-test-execution-time-allowance 900`) and `-retry-tests-on-failure` for UI — mirror the scheme/makefile's `parallelizable="NO"` ethos (CheckStitch.xcscheme:32-53).
+- **Runner image/Xcode pinning precedent**: `macos-26` + `maxim-lobanov/setup-xcode@v1` with `26.6`; DerivedData caching with a `hashFiles`-style key and tiered restore-keys.
+- **Dependabot surface**: SingleThread tracks a `dependabot.yml` for the github-actions ecosystem; CheckStitch has none yet (task premise is that dependabot PRs will exist).
+
+## Open Areas
+- Which simulators/SDK versions exist on the `macos-26` hosted image at runtime (SingleThread assumes `iPhone 17` / `iPad (A16)` exist there; CheckStitch's Makefile default is `name=iPhone 17`).
+- Whether xcodebuild's iOS-sim test/build auto-boots a destination simulator on a hosted runner or requires the explicit pre-boot step (SingleThread pre-boots explicitly).
+- `shellcheck` availability on the hosted image (the gate degrades to `bash -n` if absent; SingleThread's lint job installs tools via mise/brew).
+- CheckStitch's Dependabot configuration itself (none committed today) — the ticket only concerns checks running on dependabot PRs.
