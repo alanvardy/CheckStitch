@@ -52,3 +52,9 @@ jobs:
 
       - name: Shell suite
         run: bash scripts/tests/run.sh
+
+      - name: Install shellcheck
+        run: brew install shellcheck
+
+      - name: Lint (shellcheck)
+        run: shellcheck scripts/*.sh scripts/tests/*.sh
