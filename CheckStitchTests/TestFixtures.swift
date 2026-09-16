@@ -59,6 +59,12 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
     var accessError: Error?
     var lists = ReminderListsSnapshot(options: [], defaultIdentifier: nil)
     var createError: Error?
+    /// Status served by `accessStatus()`; defaults to `.fullAccess` so the 13
+    /// existing ChecklistReminders suites stay green.
+    var accessStatusValue: ReminderAccessStatus = .fullAccess
+    /// Throw once `create` has already succeeded this many times (`0` = before any
+    /// create). `nil` never throws here; `createError` still throws unconditionally.
+    var createFailureCount: Int?
     private(set) var createdTitles: [String] = []
     private(set) var createdNotes: [String?] = []
     /// The priority passed to each `create`. Index-aligned with `createdTitles`.
@@ -70,11 +76,14 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
         return accessGranted
     }
 
+    func accessStatus() -> ReminderAccessStatus { accessStatusValue }
+
     func reminderLists() async throws -> ReminderListsSnapshot { lists }
 
     func create(title: String, notes: String?, priority: ChecklistItemPriority,
                 in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {
         if let createError { throw createError }
+        if let createFailureCount, createdTitles.count >= createFailureCount { throw TestError.boom }
         createdTitles.append(title)
         createdNotes.append(notes)
         createdPriorities.append(priority)

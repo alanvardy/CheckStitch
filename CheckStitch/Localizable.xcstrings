@@ -2747,6 +2747,252 @@
           }
         }
       }
+    },
+    "Created %lld reminders for %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created %lld reminders for %@."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Erinnerungen für %@ erstellt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se crearon %lld recordatorios para %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld rappels créés pour %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ のリマインダーを %lld 件作成しました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已为 %@ 创建 %lld 个提醒事项。"
+          }
+        }
+      }
+    },
+    "That list no longer exists, so no reminders were created for %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That list no longer exists, so no reminders were created for %@."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Liste existiert nicht mehr, daher wurden für %@ keine Erinnerungen erstellt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa lista ya no existe, así que no se crearon recordatorios para %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette liste n'existe plus, aucun rappel n'a été créé pour %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのリストは存在しないため、%@ のリマインダーは作成されませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该列表已不存在，因此未为 %@ 创建任何提醒事项。"
+          }
+        }
+      }
+    },
+    "Open CheckStitch and allow Reminders access, then ask again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open CheckStitch and allow Reminders access, then ask again."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne CheckStitch und erlaube den Zugriff auf Erinnerungen, und frage dann erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre CheckStitch y permite el acceso a Recordatorios, y vuelve a pedirlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrez CheckStitch et autorisez l'accès aux Rappels, puis redemandez."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch を開いてリマインダーへのアクセスを許可してから、もう一度話しかけてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请打开 CheckStitch 并允许访问提醒事项，然后再问一次。"
+          }
+        }
+      }
+    },
+    "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch hat keine Berechtigung für Erinnerungen. Aktiviere sie in den Einstellungen und frage dann erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch no tiene permiso para acceder a Recordatorios. Actívalo en Ajustes y vuelve a pedirlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch n'a pas l'autorisation d'accéder aux Rappels. Activez-la dans Réglages, puis redemandez."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch にリマインダーへのアクセス権限がありません。設定で有効にしてから、もう一度話しかけてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch 无权访问提醒事项。请在设置中开启，然后再问一次。"
+          }
+        }
+      }
+    },
+    "Couldn't create reminders for %@: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't create reminders for %@: %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erinnerungen für %@ konnten nicht erstellt werden: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron crear recordatorios para %@: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de créer des rappels pour %@ : %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ のリマインダーを作成できませんでした: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法为 %@ 创建提醒事项：%@"
+          }
+        }
+      }
+    },
+    "That checklist no longer exists." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That checklist no longer exists."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Checkliste existiert nicht mehr."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa lista ya no existe."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette liste n'existe plus."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのチェックリストは存在しません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该清单已不存在。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
