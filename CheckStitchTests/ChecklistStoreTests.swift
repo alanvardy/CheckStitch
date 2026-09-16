@@ -334,6 +334,9 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklists.first?.items.first?.titleModifiedAt, store.checklists.first?.items.first?.modifiedAt)
         XCTAssertEqual(store.checklists.first?.items.first?.descriptionModifiedAt, store.checklists.first?.items.first?.modifiedAt)
         XCTAssertEqual(store.checklists.first?.items.first?.relativeDateModifiedAt, store.checklists.first?.items.first?.modifiedAt)
+        XCTAssertEqual(store.checklists.first?.items.first?.priority, ChecklistItemPriority.none)
+        XCTAssertEqual(store.checklists.first?.items.first?.priorityRevision, 1)
+        XCTAssertEqual(store.checklists.first?.items.first?.priorityModifiedAt, store.checklists.first?.items.first?.modifiedAt)
         // Ordering is seeded from the record's own sync state, granting no win.
         XCTAssertEqual(store.checklists.first?.orderRevision, 1)
         XCTAssertEqual(store.checklists.first?.itemOrder, store.checklists.first?.items.map(\.id))
@@ -773,6 +776,108 @@ final class ChecklistStoreTests: XCTestCase {
         let copy = store.duplicate(id: source.id, name: "Groceries copy")
 
         XCTAssertEqual(copy?.items.first?.relativeDate, 2)
+    }
+
+    // MARK: - Priority
+
+    /// A changed priority stamps only its own clock (and the coarse clock it
+    /// rides on); the title/description/relative-date clocks keep their stamps.
+    func testUpdateItemPriorityStampsBothClocks() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItem(checklistID: created.id, itemID: item.id, title: "Milk")
+        clock.now = Date(timeIntervalSince1970: 30)
+        store.updateItemDescription(checklistID: created.id, itemID: item.id, description: "2 litres")
+        clock.now = Date(timeIntervalSince1970: 40)
+        store.updateItem(checklistID: created.id, itemID: item.id, relativeDate: 2)
+        let titleRevision = store.checklist(id: created.id)?.items.first?.titleRevision
+        let titleModifiedAt = store.checklist(id: created.id)?.items.first?.titleModifiedAt
+        let descriptionRevision = store.checklist(id: created.id)?.items.first?.descriptionRevision
+        let descriptionModifiedAt = store.checklist(id: created.id)?.items.first?.descriptionModifiedAt
+        let relativeDateRevision = store.checklist(id: created.id)?.items.first?.relativeDateRevision
+        let relativeDateModifiedAt = store.checklist(id: created.id)?.items.first?.relativeDateModifiedAt
+
+        clock.now = Date(timeIntervalSince1970: 50)
+        store.updateItem(checklistID: created.id, itemID: item.id, priority: .high)
+
+        let edited = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(edited?.priority, ChecklistItemPriority.high)
+        XCTAssertEqual(edited?.revision, 5, "1 add + title + description + relative-date + priority edits")
+        XCTAssertEqual(edited?.priorityRevision, edited?.revision, "the priority clock stamps the coarse revision")
+        XCTAssertEqual(edited?.priorityModifiedAt, clock.now)
+        XCTAssertEqual(edited?.titleRevision, titleRevision, "the title clock keeps its own stamp")
+        XCTAssertEqual(edited?.titleModifiedAt, titleModifiedAt)
+        XCTAssertEqual(edited?.descriptionRevision, descriptionRevision, "the description clock keeps its own stamp")
+        XCTAssertEqual(edited?.descriptionModifiedAt, descriptionModifiedAt)
+        XCTAssertEqual(edited?.relativeDateRevision, relativeDateRevision, "the relative-date clock keeps its own stamp")
+        XCTAssertEqual(edited?.relativeDateModifiedAt, relativeDateModifiedAt)
+    }
+
+    /// Re-committing an unchanged priority must not bump any clock — not the
+    /// coarse clock and none of the field clocks — so it can never win a
+    /// spurious LWW round (the discrete-pick no-op guard).
+    func testUpdateItemPriorityNoOpsWhenUnchanged() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItem(checklistID: created.id, itemID: item.id, priority: .high)
+        guard let before = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the edited item")
+            return
+        }
+
+        clock.now = Date(timeIntervalSince1970: 30)
+        store.updateItem(checklistID: created.id, itemID: item.id, priority: .high)
+
+        let after = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(after?.revision, before.revision)
+        XCTAssertEqual(after?.modifiedAt, before.modifiedAt)
+        XCTAssertEqual(after?.priority, before.priority)
+        XCTAssertEqual(after?.priorityRevision, before.priorityRevision)
+        XCTAssertEqual(after?.priorityModifiedAt, before.priorityModifiedAt)
+        XCTAssertEqual(after?.titleRevision, before.titleRevision)
+        XCTAssertEqual(after?.titleModifiedAt, before.titleModifiedAt)
+        XCTAssertEqual(after?.descriptionRevision, before.descriptionRevision)
+        XCTAssertEqual(after?.descriptionModifiedAt, before.descriptionModifiedAt)
+        XCTAssertEqual(after?.relativeDateRevision, before.relativeDateRevision)
+        XCTAssertEqual(after?.relativeDateModifiedAt, before.relativeDateModifiedAt)
+    }
+
+    func testUpdateItemPriorityPersistsAndReloads() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+
+        store.updateItem(checklistID: created.id, itemID: item.id, priority: .medium)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.items.first?.priority, ChecklistItemPriority.medium)
     }
 
     // MARK: - moveItems

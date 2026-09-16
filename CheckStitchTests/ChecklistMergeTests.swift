@@ -271,6 +271,84 @@ struct ChecklistMergeTests {
     }
 
     @Test
+    func priorityRemoteEditWins() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let fromA = item(id: itemID, title: "Milk", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         priority: .none,
+                         priorityRevision: 1, priorityModifiedAt: Date(timeIntervalSince1970: 10))
+        let fromB = item(id: itemID, title: "Milk", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         priority: .high,
+                         priorityRevision: 2, priorityModifiedAt: Date(timeIntervalSince1970: 20))
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB])]))
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.priority == ChecklistItemPriority.high, "the newer priority clock wins")
+        #expect(mergedItem?.priorityRevision == 2)
+        #expect(mergedItem?.priorityModifiedAt == Date(timeIntervalSince1970: 20))
+        #expect(mergedItem?.revision == 2, "the whole-item winner's coarse clock survives")
+        #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
+    }
+
+    @Test
+    func concurrentTitleAndPriorityEditsBothSurvive() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        // Device A edited the title last (coarse revision 2); its priority
+        // clock is the older baseline. Device B picked the priority last
+        // (coarse revision 1); its title clock is the older baseline.
+        let fromA = item(id: itemID, title: "A title", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         priority: .none,
+                         titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20),
+                         priorityRevision: 1, priorityModifiedAt: Date(timeIntervalSince1970: 10))
+        let fromB = item(id: itemID, title: "Milk", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         priority: .low,
+                         titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
+                         priorityRevision: 2, priorityModifiedAt: Date(timeIntervalSince1970: 30))
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA]),
+        ])
+        let remote = envelope(device: "device-b", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB]),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.title == "A title", "the newer title clock wins")
+        #expect(mergedItem?.priority == ChecklistItemPriority.low, "the newer priority clock wins its own axis")
+        #expect(mergedItem?.revision == 2, "the whole-item winner's coarse clock survives")
+        #expect(mergedItem?.titleRevision == 2)
+        #expect(mergedItem?.priorityRevision == 2, "the priority clock stamps the coarse revision")
+        #expect(ChecklistMerge.merge(local: merged, remote: remote).contentEquals(merged))
+    }
+
+    @Test
+    func priorityMergeIsArgumentOrderIndependent() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let edited = item(id: itemID, title: "Milk", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                          priority: .high,
+                          priorityRevision: 2, priorityModifiedAt: Date(timeIntervalSince1970: 20))
+        let baseline = item(id: itemID, title: "Milk", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                            priority: .none,
+                            priorityRevision: 1, priorityModifiedAt: Date(timeIntervalSince1970: 10))
+        let a = envelope(device: "device-a", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [edited]),
+        ])
+        let b = envelope(device: "device-b", checklists: [
+            checklist(id: checklistID, name: "Groceries", revision: 1, items: [baseline]),
+        ])
+
+        // Content equality (ignores the producer device id), so both argument
+        // orders must produce the same merged content for a priority-only edit.
+        #expect(ChecklistMerge.merge(local: a, remote: b).contentEquals(ChecklistMerge.merge(local: b, remote: a)))
+        #expect(ChecklistMerge.merge(local: b, remote: a).checklists.first?.items.first?.priority == ChecklistItemPriority.high)
+    }
+
+    @Test
     func tombstoneBeatsANewerFieldClock() {
         let checklistID = UUID()
         let mayBeDeleted = UUID()
@@ -343,12 +421,14 @@ struct ChecklistMergeTests {
                              modifiedAt: Date(timeIntervalSince1970: 10),
                              titleRevision: 1, titleModifiedAt: Date(timeIntervalSince1970: 10),
                              descriptionRevision: 1, descriptionModifiedAt: Date(timeIntervalSince1970: 10),
-                             relativeDateRevision: 1, relativeDateModifiedAt: Date(timeIntervalSince1970: 10))
+                             relativeDateRevision: 1, relativeDateModifiedAt: Date(timeIntervalSince1970: 10),
+                             priorityRevision: 1, priorityModifiedAt: Date(timeIntervalSince1970: 10))
         let skewedItem = item(id: itemID, title: "Milk", description: "note", revision: 2,
                               modifiedAt: Date(timeIntervalSince1970: 20),
                               titleRevision: 9, titleModifiedAt: Date(timeIntervalSince1970: 90),
                               descriptionRevision: 8, descriptionModifiedAt: Date(timeIntervalSince1970: 80),
-                              relativeDateRevision: 7, relativeDateModifiedAt: Date(timeIntervalSince1970: 70))
+                              relativeDateRevision: 7, relativeDateModifiedAt: Date(timeIntervalSince1970: 70),
+                              priorityRevision: 6, priorityModifiedAt: Date(timeIntervalSince1970: 60))
         let merged = ChecklistMerge.merge(
             local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [localItem])]),
             remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [skewedItem])]))
@@ -358,6 +438,7 @@ struct ChecklistMergeTests {
         #expect(mergedItem?.titleRevision == 9)
         #expect(mergedItem?.descriptionRevision == 8)
         #expect(mergedItem?.relativeDateRevision == 7)
+        #expect(mergedItem?.priorityRevision == 6)
         #expect(mergedItem?.title == "Milk", "the skewed remote title still wins its own axis")
         #expect(mergedItem?.description == "note")
         #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
@@ -686,14 +767,17 @@ func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distan
 @MainActor
 func item(id: UUID, title: String, description: String = "", revision: Int,
           modifiedAt: Date = .distantPast, relativeDate: Int? = nil,
+          priority: ChecklistItemPriority = .none,
           titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
           descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil,
-          relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil) -> ChecklistItem {
+          relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil,
+          priorityRevision: Int? = nil, priorityModifiedAt: Date? = nil) -> ChecklistItem {
     ChecklistItem(id: id, title: title, description: description, modifiedAt: modifiedAt,
-                  revision: revision, relativeDate: relativeDate,
+                  revision: revision, relativeDate: relativeDate, priority: priority,
                   titleRevision: titleRevision, titleModifiedAt: titleModifiedAt,
                   descriptionRevision: descriptionRevision, descriptionModifiedAt: descriptionModifiedAt,
-                  relativeDateRevision: relativeDateRevision, relativeDateModifiedAt: relativeDateModifiedAt)
+                  relativeDateRevision: relativeDateRevision, relativeDateModifiedAt: relativeDateModifiedAt,
+                  priorityRevision: priorityRevision, priorityModifiedAt: priorityModifiedAt)
 }
 
 @MainActor
