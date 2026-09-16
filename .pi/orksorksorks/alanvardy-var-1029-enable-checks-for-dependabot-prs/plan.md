@@ -303,9 +303,9 @@ after the install step, the run fails (nothing in the workflow substitutes
 ### Verification
 
 #### Automated
-- [ ] `actionlint .github/workflows/dependabot-checks.yml` exits 0
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` passes locally
-- [ ] `! grep -F 'bash -n' .github/workflows/dependabot-checks.yml` (no fallback in CI)
+- [x] `actionlint .github/workflows/dependabot-checks.yml` exits 0
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` passes locally
+- [x] `! grep -F 'bash -n' .github/workflows/dependabot-checks.yml` (no fallback in CI)
 
 #### Manual
 - [ ] On the dependabot PR the `Lint (shellcheck)` step log shows shellcheck output (and is **not** the `bash -n` fallback); confirm by searching the step log for a shellcheck run, not merely trusting the step name (design Open Risk 5).
