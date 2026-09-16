@@ -5,6 +5,7 @@ import Observation
 public enum ChecklistSyncKey {
     public static let context = "checklists"
     public static let runChecklist = "runChecklist"
+    public static let runChecklistRunID = "runChecklistRunID"
     public static let requestChecklists = "requestChecklists"
 }
 
@@ -13,8 +14,10 @@ public enum ChecklistSyncKey {
 public enum ChecklistSyncMessage: Equatable, Sendable {
     /// Phone → watch, via `updateApplicationContext` (latest state wins).
     case context(Data)
-    /// Watch → phone, via `transferUserInfo` (queued command).
-    case runChecklist(UUID)
+    /// Watch → phone, via `transferUserInfo` (queued command). `runID` is a
+    /// fresh per-tap id: the correlation key for logs and the de-dup key for
+    /// re-sent runs.
+    case runChecklist(id: UUID, runID: UUID)
     /// Watch → phone, via `transferUserInfo` (cold launch re-push request).
     case requestChecklists
 
@@ -22,8 +25,10 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
         if let data = userInfo[ChecklistSyncKey.context] as? Data {
             self = .context(data)
         } else if let raw = userInfo[ChecklistSyncKey.runChecklist] as? String,
-                  let id = UUID(uuidString: raw) {
-            self = .runChecklist(id)
+                  let id = UUID(uuidString: raw),
+                  let runRaw = userInfo[ChecklistSyncKey.runChecklistRunID] as? String,
+                  let runID = UUID(uuidString: runRaw) {
+            self = .runChecklist(id: id, runID: runID)
         } else if userInfo[ChecklistSyncKey.requestChecklists] as? Bool == true {
             self = .requestChecklists
         } else {
@@ -35,10 +40,20 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
         switch self {
         case .context(let data):
             [ChecklistSyncKey.context: data]
-        case .runChecklist(let id):
-            [ChecklistSyncKey.runChecklist: id.uuidString]
+        case .runChecklist(let id, let runID):
+            [ChecklistSyncKey.runChecklist: id.uuidString,
+             ChecklistSyncKey.runChecklistRunID: runID.uuidString]
         case .requestChecklists:
             [ChecklistSyncKey.requestChecklists: true]
+        }
+    }
+
+    /// Compact description for the `ChecklistSyncDiagnostics` records.
+    public var diagnosticName: String {
+        switch self {
+        case .context(let data): "context(\(data.count))b"
+        case .runChecklist(let id, let runID): "runChecklist(id:\(id.uuidString),run:\(runID.uuidString))"
+        case .requestChecklists: "requestChecklists"
         }
     }
 }
@@ -80,14 +95,21 @@ public final class WatchChecklistStore {
         transport.activate()
     }
 
-    /// Asks the phone to create reminders for `checklist` and remembers it.
-    /// Returns whether the transport accepted the request; `false` means nothing
-    /// was sent and the UI must not report success.
+    /// Asks the phone to create reminders for `checklist` and remembers the
+    /// run. Returns the new `runID`, or `nil` when the transport rejected the
+    /// send — `nil` means nothing was sent and the UI must not report success.
     @discardableResult
-    public func run(_ checklist: Checklist) -> Bool {
-        guard transport.sendUserInfo(.runChecklist(checklist.id)) else { return false }
-        pendingRunID = checklist.id
-        return true
+    public func run(_ checklist: Checklist) -> UUID? {
+        let runID = UUID()
+        let accepted = transport.sendUserInfo(.runChecklist(id: checklist.id, runID: runID))
+        ChecklistSyncDiagnostics.log(.watchSend, [
+            "run": runID.uuidString,
+            "checklist": checklist.id.uuidString,
+            "accepted": accepted ? "true" : "false",
+        ])
+        guard accepted else { return nil }
+        pendingRunID = runID
+        return runID
     }
 
     /// Cold launch: the phone re-pushes its context on receipt.

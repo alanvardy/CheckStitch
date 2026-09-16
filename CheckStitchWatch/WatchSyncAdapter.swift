@@ -15,7 +15,10 @@ final class WatchSyncAdapter: NSObject, ChecklistSyncTransport {
     }
 
     func activate() {
-        guard WCSession.isSupported() else { return }
+        guard WCSession.isSupported() else {
+            ChecklistSyncDiagnostics.log(.watchActivation, ["supported": "false"])
+            return
+        }
         session.delegate = self
         session.activate()
     }
@@ -25,7 +28,13 @@ final class WatchSyncAdapter: NSObject, ChecklistSyncTransport {
 
     @discardableResult
     func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool {
-        guard session.activationState == .activated else { return false }
+        let state = session.activationState
+        let accepted = state == .activated
+        ChecklistSyncDiagnostics.log(.watchSend, [
+            "message": message.diagnosticName,
+            "activationState": String(describing: state),
+        ])
+        guard accepted else { return false }
         session.transferUserInfo(message.userInfo)
         return true
     }
@@ -35,6 +44,10 @@ final class WatchSyncAdapter: NSObject, ChecklistSyncTransport {
 
 extension WatchSyncAdapter: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {
+        ChecklistSyncDiagnostics.log(.watchActivation, [
+            "state": String(describing: activationState),
+            "error": error?.localizedDescription ?? "none",
+        ])
         guard activationState == .activated else { return }
         // `receivedApplicationContext` is already populated when activation
         // completes, so a cold launch still sees the phone's last push.

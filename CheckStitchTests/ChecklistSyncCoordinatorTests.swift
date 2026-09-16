@@ -74,23 +74,38 @@ struct ChecklistSyncCoordinatorTests {
         let coordinator = makeCoordinator(transport: transport, checklists: [checklist], runner: runner)
         coordinator.start()
 
-        transport.deliver(.runChecklist(checklist.id))
+        transport.deliver(.runChecklist(id: checklist.id, runID: UUID()))
         for _ in 0..<50 where runner.created.isEmpty { await Task.yield() }
 
         #expect(runner.created == [checklist])
     }
 
     @Test
-    func runRequestForUnknownIDCreatesNothing() async {
+    func runRequestForUnknownIDStillCreatesNothing() async {
         let transport = FakeChecklistSyncTransport()
         let runner = SpyChecklistRunner()
         let coordinator = makeCoordinator(transport: transport, checklists: [], runner: runner)
         coordinator.start()
 
-        transport.deliver(.runChecklist(UUID()))
-        await Task.yield()
+        transport.deliver(.runChecklist(id: UUID(), runID: UUID()))
+        for _ in 0..<50 where runner.created.isEmpty { await Task.yield() }
 
         #expect(runner.created.isEmpty)
+    }
+
+    @Test(arguments: [ReminderRunOutcome.permissionDenied, .failed("boom"), .destinationMissing])
+    func aSadOutcomeStillReachesTheRunClosure(outcome: ReminderRunOutcome) async {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        runner.outcome = outcome
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])
+        let coordinator = makeCoordinator(transport: transport, checklists: [checklist], runner: runner)
+        coordinator.start()
+
+        transport.deliver(.runChecklist(id: checklist.id, runID: UUID()))
+        for _ in 0..<50 where runner.created.isEmpty { await Task.yield() }
+
+        #expect(runner.created == [checklist])
     }
 
     @Test
