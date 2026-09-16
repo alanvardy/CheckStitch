@@ -10,5 +10,10 @@ struct CheckStitchShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Run Checklist",
             systemImageName: "checklist")
+        AppShortcut(
+            intent: ListChecklistsIntent(),
+            phrases: ["List my checklists in \(.applicationName)"],
+            shortTitle: "List Checklists",
+            systemImageName: "list.bullet")
     }
 }

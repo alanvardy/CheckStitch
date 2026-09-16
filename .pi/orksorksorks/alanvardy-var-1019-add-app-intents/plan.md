@@ -638,8 +638,8 @@ Add both to `LocalizationFixtures.requiredKeys["App"]`.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make build` succeeds
+- [x] `make test-unit` passes
+- [x] `make build` succeeds
 
 #### Manual
 - [ ] Both phrases resolve in Shortcuts.app and via Siri
