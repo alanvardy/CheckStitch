@@ -148,4 +148,48 @@ struct ChecklistItemTests {
         #expect(normalized.itemOrder == [a.id, c.id, b.id])
         #expect(normalized.items.map(\.id) == [a.id, c.id, b.id])
     }
+
+    // MARK: - Priority
+
+    /// A v-current item object without a `priority` key: an additive key, so
+    /// absence decodes to `.none` rather than failing (the relativeDate precedent).
+    @Test
+    func priorityDefaultsToNoneWhenKeyAbsent() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"id":"\#(id)","title":"one"}"#.utf8)
+        let decoded = try JSONDecoder().decode(ChecklistItem.self, from: data)
+        #expect(decoded.priority == .none)
+    }
+
+    @Test(arguments: ChecklistItemPriority.allCases)
+    func priorityRoundTripsThroughCodable(_ priority: ChecklistItemPriority) throws {
+        let item = ChecklistItem(title: "one", priority: priority)
+        let decoded = try JSONDecoder().decode(ChecklistItem.self, from: JSONEncoder().encode(item))
+        #expect(decoded.priority == priority)
+        #expect(decoded == item)
+    }
+
+    /// The encoder always writes the `priority` key, non-optional in the model.
+    @Test
+    func encodeAlwaysEmitsPriorityKey() throws {
+        let data = try JSONEncoder().encode(ChecklistItem(title: "one"))
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(object?.keys.contains("priority") == true)
+    }
+
+    @Test(arguments: ChecklistItemPriority.allCases)
+    func everyPriorityHasALabel(_ priority: ChecklistItemPriority) {
+        #expect(!priority.label.isEmpty)
+    }
+
+    /// The raw value is `EKReminder.priority`'s scale (0/9/5/1), so writing a
+    /// reminder needs no switch; declaration order is the menu order.
+    @Test
+    func priorityRawValuesAreTheEventKitScale() {
+        #expect(ChecklistItemPriority.none.rawValue == 0)
+        #expect(ChecklistItemPriority.low.rawValue == 9)
+        #expect(ChecklistItemPriority.medium.rawValue == 5)
+        #expect(ChecklistItemPriority.high.rawValue == 1)
+        #expect(ChecklistItemPriority.allCases == [.none, .low, .medium, .high])
+    }
 }

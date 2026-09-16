@@ -30,6 +30,30 @@ struct ItemEditView: View {
                         TextField("Description", text: descriptionBinding, axis: .vertical)
                             .accessibilityIdentifier("itemEditDescriptionField")
                     }
+                    Section("Priority") {
+                        Menu {
+                            ForEach(ChecklistItemPriority.allCases, id: \.self) { priority in
+                                Button {
+                                    priorityBinding.wrappedValue = priority
+                                } label: {
+                                    if priority == item.priority {
+                                        Label(priority.label, systemImage: "checkmark")
+                                    } else {
+                                        Text(priority.label)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text(item.priority.label)
+                                Spacer()
+                                Image(systemName: "info.circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .accessibilityIdentifier("itemEditPriorityMenu")
+                        }
+                        .accessibilityIdentifier("itemEditPriorityRow")
+                    }
                     Section {
                         dueDateField
                     } header: {
@@ -75,6 +99,19 @@ struct ItemEditView: View {
             },
             set: {
                 store.updateItem(checklistID: checklistID, itemID: itemID, title: $0)
+            }
+        )
+    }
+
+    /// Writes through the store's no-op-guarded priority mutator.
+    private var priorityBinding: Binding<ChecklistItemPriority> {
+        Binding(
+            get: {
+                store.checklist(id: checklistID)?
+                    .items.first { $0.id == itemID }?.priority ?? .none
+            },
+            set: {
+                store.updateItem(checklistID: checklistID, itemID: itemID, priority: $0)
             }
         )
     }

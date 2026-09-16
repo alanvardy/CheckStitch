@@ -206,6 +206,28 @@ struct ChecklistDetailViewTests {
         #endif
     }
 
+    /// The edit screen renders the priority row for an existing item: builds
+    /// the store (isolated defaults), sets a priority through the store's
+    /// no-op-guarded mutator, then stages a real render pass against an
+    /// injected store. `String(describing:)` cannot see body identifiers, so
+    /// `ImageRenderer` is the row oracle.
+    @Test
+    func itemEditViewRendersPriorityRow() throws {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let checklist = store.create(name: "Groceries")
+        store.addItem(to: checklist.id)
+        let itemID = try #require(store.checklist(id: checklist.id)?.items.first?.id)
+        store.updateItem(checklistID: checklist.id, itemID: itemID, priority: .high)
+
+        let view = ItemEditView(checklistID: checklist.id, itemID: itemID).environment(store)
+        #if os(macOS)
+        #expect(ImageRenderer(content: view).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: view).uiImage != nil)
+        #endif
+    }
+
     /// A deleted item (e.g. an iCloud merge) renders the not-found placeholder
     /// instead of a form bound to a missing item.
     @Test

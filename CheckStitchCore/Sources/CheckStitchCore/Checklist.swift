@@ -9,9 +9,11 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     public init(
         id: UUID = UUID(), title: String, description: String = "",
         modifiedAt: Date = .distantPast, revision: Int = 0, relativeDate: Int? = nil,
+        priority: ChecklistItemPriority = .none,
         titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
         descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil,
-        relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil
+        relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil,
+        priorityRevision: Int? = nil, priorityModifiedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -27,6 +29,9 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         self.descriptionModifiedAt = descriptionModifiedAt ?? modifiedAt
         self.relativeDateRevision = relativeDateRevision ?? revision
         self.relativeDateModifiedAt = relativeDateModifiedAt ?? modifiedAt
+        self.priority = priority
+        self.priorityRevision = priorityRevision ?? revision
+        self.priorityModifiedAt = priorityModifiedAt ?? modifiedAt
     }
 
     public let id: UUID
@@ -46,6 +51,11 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     public var descriptionModifiedAt: Date
     public var relativeDateRevision: Int
     public var relativeDateModifiedAt: Date
+    /// The user's priority pick. Its raw value is `EKReminder.priority`'s scale
+    /// (0/9/5/1), so writing a created reminder needs no switch.
+    public var priority: ChecklistItemPriority
+    public var priorityRevision: Int
+    public var priorityModifiedAt: Date
 
     /// True when the item carries description text. The stored value is
     /// preserved verbatim (matching `title`), so surrounding whitespace on real
@@ -66,6 +76,7 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         case id, title, description, modifiedAt, revision, relativeDate
         case titleRevision, titleModifiedAt, descriptionRevision, descriptionModifiedAt
         case relativeDateRevision, relativeDateModifiedAt
+        case priority, priorityRevision, priorityModifiedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -87,6 +98,10 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         descriptionModifiedAt = try container.decodeIfPresent(Date.self, forKey: .descriptionModifiedAt) ?? modifiedAt
         relativeDateRevision = try container.decodeIfPresent(Int.self, forKey: .relativeDateRevision) ?? revision
         relativeDateModifiedAt = try container.decodeIfPresent(Date.self, forKey: .relativeDateModifiedAt) ?? modifiedAt
+        // Additive, defaulted on absence — no version bump (relativeDate precedent).
+        priority = try container.decodeIfPresent(ChecklistItemPriority.self, forKey: .priority) ?? .none
+        priorityRevision = try container.decodeIfPresent(Int.self, forKey: .priorityRevision) ?? revision
+        priorityModifiedAt = try container.decodeIfPresent(Date.self, forKey: .priorityModifiedAt) ?? modifiedAt
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -110,6 +125,9 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         try container.encode(descriptionModifiedAt, forKey: .descriptionModifiedAt)
         try container.encode(relativeDateRevision, forKey: .relativeDateRevision)
         try container.encode(relativeDateModifiedAt, forKey: .relativeDateModifiedAt)
+        try container.encode(priority, forKey: .priority)
+        try container.encode(priorityRevision, forKey: .priorityRevision)
+        try container.encode(priorityModifiedAt, forKey: .priorityModifiedAt)
     }
 }
 
@@ -219,6 +237,8 @@ extension Checklist {
             upgraded.descriptionModifiedAt = date
             upgraded.relativeDateRevision = upgraded.revision
             upgraded.relativeDateModifiedAt = date
+            upgraded.priorityRevision = upgraded.revision
+            upgraded.priorityModifiedAt = date
             return upgraded
         }
         return copy

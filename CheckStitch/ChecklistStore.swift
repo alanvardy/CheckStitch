@@ -159,7 +159,7 @@ final class ChecklistStore {
             : name
         let copy = Checklist(
             name: Self.uniqueName(basedOn: requested, taken: checklists.map(\.name)),
-            items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate) },
+            items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate, priority: $0.priority) },
             modifiedAt: now(),
             revision: 1
         )
@@ -177,7 +177,8 @@ final class ChecklistStore {
             name: checklist.name,
             items: checklist.items.map {
                 ChecklistItem(title: $0.title, description: $0.description,
-                              modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate)
+                              modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate,
+                              priority: $0.priority)
             },
             modifiedAt: now(),
             revision: 1
@@ -327,6 +328,23 @@ final class ChecklistStore {
         checklists[checklistIndex].items[itemIndex].modifiedAt = revisedAt
         checklists[checklistIndex].items[itemIndex].relativeDateRevision = checklists[checklistIndex].items[itemIndex].revision
         checklists[checklistIndex].items[itemIndex].relativeDateModifiedAt = revisedAt
+        scheduleSave()
+    }
+
+    /// Sets an item's priority. A discrete pick, so like `relativeDate` an
+    /// unchanged value is a no-op (never a spurious LWW win), and the save
+    /// debounces like the other field edits.
+    func updateItem(checklistID: UUID, itemID: UUID, priority: ChecklistItemPriority) {
+        guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
+              let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
+        else { return }
+        guard checklists[checklistIndex].items[itemIndex].priority != priority else { return }
+        let revisedAt = now()
+        checklists[checklistIndex].items[itemIndex].priority = priority
+        checklists[checklistIndex].items[itemIndex].revision += 1
+        checklists[checklistIndex].items[itemIndex].modifiedAt = revisedAt
+        checklists[checklistIndex].items[itemIndex].priorityRevision = checklists[checklistIndex].items[itemIndex].revision
+        checklists[checklistIndex].items[itemIndex].priorityModifiedAt = revisedAt
         scheduleSave()
     }
 

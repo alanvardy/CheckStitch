@@ -252,8 +252,8 @@ No `ItemRow`/`ChecklistDetailView` change.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (compile + all new cases green)
-- [ ] `make build` passes — the `Menu`-in-`Form` compile is the API oracle
+- [x] `make test-unit` passes (compile + all new cases green)
+- [x] `make build` passes — the `Menu`-in-`Form` compile is the API oracle
 
 #### Manual
 - [ ] `make run`; open a checklist → item → confirm a **Priority** section shows `None` with an info icon on the right; tapping it opens a menu listing None/Low/Medium/High with a checkmark on the current value; picking `High` updates the row label

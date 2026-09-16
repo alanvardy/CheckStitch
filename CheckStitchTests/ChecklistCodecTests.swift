@@ -195,14 +195,42 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.classify(data), .unreadable)
     }
 
+    /// A current-version (v4) envelope whose item carries no `priority` key:
+    /// must stay `.loaded` with `.none` priority (the additive-field
+    /// guarantee), mirroring `testItemWithoutDescriptionClassifiesLoadedAsEmpty`.
+    func testPriorityKeyAbsentStaysLoaded() throws {
+        let itemID = UUID().uuidString
+        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        let item = try XCTUnwrap(envelope.checklists.first?.items.first)
+        XCTAssertEqual(item.priority, ChecklistItemPriority.none)
+    }
+
+    /// Sad path: a malformed priority throws, so the whole payload is
+    /// `.unreadable` — only whole-key absence is tolerant. A string is malformed
+    /// (the key is the raw EventKit int), and so is an unknown raw value.
+    func testMalformedPriorityMakesPayloadUnreadable() {
+        let asString = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"x","items":[{"id":"\#(UUID().uuidString)","title":"Milk","priority":"high"}]}]}"#.utf8)
+        XCTAssertEqual(ChecklistCodec.classify(asString), .unreadable)
+
+        let unknownRaw = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"x","items":[{"id":"\#(UUID().uuidString)","title":"Milk","priority":99}]}]}"#.utf8)
+        XCTAssertEqual(ChecklistCodec.classify(unknownRaw), .unreadable)
+    }
+
     func testFieldClocksSurviveEnvelopeRoundTrip() throws {
         let item = ChecklistItem(
             id: UUID(), title: "Milk", description: "2 litres",
             modifiedAt: Date(timeIntervalSince1970: 20), revision: 2,
             relativeDate: 3,
+            priority: .high,
             titleRevision: 2, titleModifiedAt: Date(timeIntervalSince1970: 20),
             descriptionRevision: 3, descriptionModifiedAt: Date(timeIntervalSince1970: 30),
-            relativeDateRevision: 4, relativeDateModifiedAt: Date(timeIntervalSince1970: 40))
+            relativeDateRevision: 4, relativeDateModifiedAt: Date(timeIntervalSince1970: 40),
+            priorityRevision: 6, priorityModifiedAt: Date(timeIntervalSince1970: 60))
         let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [
             Checklist(id: UUID(), name: "Groceries", items: [item],
                       modifiedAt: Date(timeIntervalSince1970: 10), revision: 1),
@@ -218,15 +246,19 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(decoded.descriptionModifiedAt, Date(timeIntervalSince1970: 30))
         XCTAssertEqual(decoded.relativeDateRevision, 4)
         XCTAssertEqual(decoded.relativeDateModifiedAt, Date(timeIntervalSince1970: 40))
+        XCTAssertEqual(decoded.priority, ChecklistItemPriority.high)
+        XCTAssertEqual(decoded.priorityRevision, 6)
+        XCTAssertEqual(decoded.priorityModifiedAt, Date(timeIntervalSince1970: 60))
         let raw = try XCTUnwrap(String(data: data, encoding: .utf8))
         for key in ["titleRevision", "titleModifiedAt", "descriptionRevision", "descriptionModifiedAt",
-                    "relativeDateRevision", "relativeDateModifiedAt"] {
+                    "relativeDateRevision", "relativeDateModifiedAt",
+                    "priority", "priorityRevision", "priorityModifiedAt"] {
             XCTAssertTrue(raw.contains("\"\(key)\""), "the \(key) key is written unconditionally")
         }
     }
 
     /// A v4 payload whose item carries `revision`/`modifiedAt` but none of the
-    /// six per-field clock keys: it must stay `.loaded` and seed every field
+    /// per-field clock keys: it must stay `.loaded` and seed every field
     /// clock from the item's coarse clock, matching pre-upgrade semantics.
     func testItemWithoutFieldClocksSeedsFromCoarseClock() throws {
         let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","revision":3,"modifiedAt":100}]}]}"#.utf8)
@@ -239,9 +271,12 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(item.titleRevision, 3)
         XCTAssertEqual(item.descriptionRevision, 3)
         XCTAssertEqual(item.relativeDateRevision, 3)
+        XCTAssertEqual(item.priorityRevision, 3)
+        XCTAssertEqual(item.priority, ChecklistItemPriority.none)
         XCTAssertEqual(item.titleModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
         XCTAssertEqual(item.descriptionModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
         XCTAssertEqual(item.relativeDateModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
+        XCTAssertEqual(item.priorityModifiedAt, Date(timeIntervalSinceReferenceDate: 100))
     }
 
     /// The new per-field keys ride the v4 envelope, so legacy classifications
