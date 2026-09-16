@@ -160,12 +160,36 @@ struct ChecklistDetailViewTests {
     func itemRowRendersItsDescriptionAndDate() {
         let row = ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", relativeDate: 3)
+            description: "2 litres", relativeDate: 3, priority: .high)
         #if os(macOS)
         #expect(ImageRenderer(content: row).nsImage != nil)
         #else
         #expect(ImageRenderer(content: row).uiImage != nil)
         #endif
+    }
+
+    /// Every priority level renders its row: a prioritised item gains the
+    /// coloured exclamation marker, an unprioritised one renders without it.
+    /// The render pass is the oracle for both branches.
+    @Test(arguments: ChecklistItemPriority.allCases)
+    func itemRowRendersForEveryPriority(_ priority: ChecklistItemPriority) {
+        let row = ItemRow(
+            checklistID: UUID(), itemID: UUID(), title: "Milk",
+            description: "2 litres", relativeDate: 3, priority: priority)
+        #if os(macOS)
+        #expect(ImageRenderer(content: row).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: row).uiImage != nil)
+        #endif
+    }
+
+    /// The marker palette comes from `SingleThread`: red high, yellow medium,
+    /// green low. The unprioritised case never renders a marker.
+    @Test
+    func priorityMarkerColoursMatchSingleThread() {
+        #expect(ItemRow.priorityColor(.high) == .red)
+        #expect(ItemRow.priorityColor(.medium) == .yellow)
+        #expect(ItemRow.priorityColor(.low) == .green)
     }
 
     /// A cleared title falls back to the placeholder rather than leaving the row
@@ -176,15 +200,17 @@ struct ChecklistDetailViewTests {
         #expect(ItemRow.displayTitle("Milk") == "Milk")
     }
 
-    /// The row carries the checklist identity its pushed edit link needs.
+    /// The row carries the checklist identity its pushed edit link needs, plus
+    /// the priority whose marker it renders.
     @Test
     func itemRowCarriesItsChecklistForTheEditLink() {
         let described = String(describing: ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", relativeDate: 1))
+            description: "2 litres", relativeDate: 1, priority: .high))
         #expect(described.contains("checklistID"))
         #expect(described.contains("itemID"))
         #expect(described.contains("relativeDate"))
+        #expect(described.contains("priority"))
     }
 
     /// The edit screen renders against an injected store for an existing item.

@@ -182,6 +182,16 @@ struct ChecklistItemTests {
         #expect(!priority.label.isEmpty)
     }
 
+    /// The row marker mirrors `SingleThread`'s `!!!`/`!!`/`!` scale, and an
+    /// unprioritised item contributes no marker at all.
+    @Test
+    func priorityMarkersFollowTheSingleThreadScale() {
+        #expect(ChecklistItemPriority.high.marker == "!!!")
+        #expect(ChecklistItemPriority.medium.marker == "!!")
+        #expect(ChecklistItemPriority.low.marker == "!")
+        #expect(ChecklistItemPriority.none.marker.isEmpty)
+    }
+
     /// The raw value is `EKReminder.priority`'s scale (0/9/5/1), so writing a
     /// reminder needs no switch; declaration order is the menu order.
     @Test
