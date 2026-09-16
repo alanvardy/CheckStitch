@@ -152,7 +152,7 @@ the Select-Xcode + Guard steps.
 - [x] `grep -F "github.event.pull_request.user.login == 'dependabot[bot]'" .github/workflows/dependabot-checks.yml` prints the `if:` line (guard expression assertion)
 - [x] `grep -F 'Build (macOS, unsigned)' .github/workflows/dependabot-checks.yml` prints the step name
 - [x] `env DEVELOPMENT_TEAM= make build-mac` passes locally (the leg CI runs; `make build-mac` already sets `CODE_SIGNING_ALLOWED=NO`)
-- [ ] `bash scripts/test.sh` prints `gate: ok` (the repo gate still passes with the new files present; nothing in the gate reads `.github/`)
+- [x] `bash scripts/test.sh` prints `gate: ok` (the repo gate still passes with the new files present; nothing in the gate reads `.github/`)
 
 #### Manual
 - [ ] Commit and push the branch; open its PR. The branch PR is a **human** PR, so confirm GitHub shows the `Dependabot checks` workflow as a single `Skipped` entry and that **no** step executed.
@@ -349,10 +349,10 @@ updates to open.
 ### Verification
 
 #### Automated
-- [ ] `actionlint .github/workflows/dependabot-checks.yml` exits 0
-- [ ] `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/dependabot-checks.yml'))"` exits 0
-- [ ] `grep -F 'permissions:' .github/workflows/dependabot-checks.yml` and `grep -F 'timeout-minutes: 45' .github/workflows/dependabot-checks.yml` both match
-- [ ] Full local six-step reproduction on clean `DerivedData` matches CI order:
+- [x] `actionlint .github/workflows/dependabot-checks.yml` exits 0
+- [x] `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/dependabot-checks.yml'))"` exits 0
+- [x] `grep -F 'permissions:' .github/workflows/dependabot-checks.yml` and `grep -F 'timeout-minutes: 45' .github/workflows/dependabot-checks.yml` both match
+- [x] Full local six-step reproduction on clean `DerivedData` matches CI order:
   ```bash
   rm -rf DerivedData
   env DEVELOPMENT_TEAM= SIM='generic/platform=iOS Simulator' make build
@@ -363,8 +363,8 @@ updates to open.
   shellcheck scripts/*.sh scripts/tests/*.sh
   ```
   All exit 0.
-- [ ] `git status --short` shows only `.github/dependabot.yml` and `.github/workflows/dependabot-checks.yml` as added/changed (plus the committed `.pi/` artifact directory); confirm no change to `Makefile`, `scripts/`, `CheckStitch.xcodeproj/xcshareddata/`, or `project.pbxproj`: `git diff --name-only` contains no such paths.
-- [ ] `bash scripts/test.sh` prints `gate: ok` (the repo gate, run before committing).
+- [x] `git status --short` shows only `.github/dependabot.yml` and `.github/workflows/dependabot-checks.yml` as added/changed (plus the committed `.pi/` artifact directory); confirm no change to `Makefile`, `scripts/`, `CheckStitch.xcodeproj/xcshareddata/`, or `project.pbxproj`: `git diff --name-only` contains no such paths.
+- [x] `bash scripts/test.sh` prints `gate: ok` (the repo gate, run before committing).
 
 #### Manual
 - [ ] On the dependabot PR, the check is green, total runtime is comfortably under 45 minutes (read the run duration from the check page), and all seven legs execute in gate order: iOS build → unit tests → macOS build → watch build → shell suite → shellcheck.

@@ -3,10 +3,18 @@ name: Dependabot checks
 on:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-checks-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gate:
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: macos-26
+    timeout-minutes: 45
     env:
       DEVELOPMENT_TEAM: ""
       SIM: generic/platform=iOS Simulator
