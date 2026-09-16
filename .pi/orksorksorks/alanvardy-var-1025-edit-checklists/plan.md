@@ -381,11 +381,11 @@ if isEditing { checklistMoveControls(for: checklist) }
 
 ### Verification
 #### Automated
-- [ ] `make build` passes
-- [ ] `make build-mac` passes
-- [ ] `make test-unit` passes — new `moveChecklists` tests plus the localization suites for `"Move up"` / `"Move down"`
-- [ ] `make test-ui` passes unchanged (no row gains a move control outside edit mode)
-- [ ] `bash scripts/test.sh` prints `gate: ok` (full gate, run once after both phases commit)
+- [x] `make build` passes
+- [x] `make build-mac` passes
+- [x] `make test-unit` passes — new `moveChecklists` tests plus the localization suites for `"Move up"` / `"Move down"`
+- [x] `make test-ui` passes unchanged (no row gains a move control outside edit mode)
+- [x] `bash scripts/test.sh` prints `gate: ok` (full gate, run once after both phases commit)
 
 #### Manual
 - [ ] `make run`: in edit mode each row shows chevrons; the first row's up and the last row's down are disabled/dimmed
