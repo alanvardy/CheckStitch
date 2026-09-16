@@ -18,6 +18,15 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
         try await eventStore.requestFullAccessToReminders()
     }
 
+    func accessStatus() -> ReminderAccessStatus {
+        switch EKEventStore.authorizationStatus(for: .reminder) {
+        case .fullAccess: return .fullAccess
+        case .notDetermined: return .notDetermined
+        // .denied, .restricted, and .writeOnly all fail our read-then-create flow.
+        default: return .denied
+        }
+    }
+
     func reminderLists() async throws -> ReminderListsSnapshot {
         ReminderListsSnapshot(
             options: eventStore.calendars(for: .reminder).compactMap { calendar in

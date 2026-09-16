@@ -77,6 +77,12 @@ enum LocalizationFixtures {
             "Today",
             "Tomorrow",
             "Yesterday",
+            "Created %lld reminders for %@.",
+            "That list no longer exists, so no reminders were created for %@.",
+            "Open CheckStitch and allow Reminders access, then ask again.",
+            "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again.",
+            "Couldn't create reminders for %@: %@",
+            "That checklist no longer exists.",
         ]),
         ("Core", ["System", "Light", "Dark", "Version %@ (%@)", "Version %@"]),
         ("Watch", [

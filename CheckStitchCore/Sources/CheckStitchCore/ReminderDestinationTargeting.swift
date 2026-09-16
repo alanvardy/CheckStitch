@@ -83,9 +83,19 @@ public enum ReminderRunOutcome: Equatable, Sendable {
 /// `EKReminder.priority` (none→0, low→9, medium→5, high→1), so no case mapping
 /// exists at this boundary.
 @MainActor
-public protocol ReminderDestinationTargeting {
+public protocol ReminderDestinationTargeting: Sendable {
     func requestAccess() async throws -> Bool
+    /// Status-only read: never triggers the system prompt (unlike
+    /// `requestAccess()`), so intents can fail cleanly instead of prompting.
+    func accessStatus() -> ReminderAccessStatus
     func reminderLists() async throws -> ReminderListsSnapshot
     func create(title: String, notes: String?, priority: ChecklistItemPriority,
                 in list: ReminderListOption, dueDateComponents: DateComponents?) async throws
+}
+
+/// Whether the app may create reminders right now, read without prompting.
+public enum ReminderAccessStatus: Equatable, Sendable {
+    case fullAccess
+    case notDetermined
+    case denied
 }

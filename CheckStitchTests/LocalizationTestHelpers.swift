@@ -1,5 +1,14 @@
 import Foundation
 
+extension LocalizedStringResource {
+    /// Resolves the resource against the app bundle for a pinned locale.
+    /// Unpicks the resource's own `defaultValue`/`table` instead of restating
+    /// the key; `bundle` is a `BundleDescription`, so `.main` is supplied.
+    func resolved(locale: Locale = Locale(identifier: "en")) -> String {
+        String(localized: defaultValue, table: table, bundle: .main, locale: locale)
+    }
+}
+
 extension String {
     /// Localizes a key from the given bundle with the test suite's pinned locale,
     /// so unit tests assert deterministic English output regardless of host locale.

@@ -1,0 +1,98 @@
+@testable import CheckStitch
+@testable import CheckStitchCore
+import Foundation
+import Testing
+
+@MainActor
+struct RunChecklistIntentTests {
+    /// A "Groceries" checklist in an isolated store, a spy wired to resolve the
+    /// checklist's destination to list-1, and the intent ready to perform.
+    private func makeIntent() -> (intent: RunChecklistIntent, spy: SpyReminderDestination, store: ChecklistStore) {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        store.create(name: "Groceries")
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Reminders")],
+            defaultIdentifier: "list-1")
+        let intent = RunChecklistIntent(store: store, targeting: spy)
+        intent.checklist = ChecklistEntity(id: store.checklists[0].id.uuidString, name: "Groceries")
+        return (intent: intent, spy: spy, store: store)
+    }
+
+    @Test
+    func runCreatesEveryNonBlankItemAndReportsCount() async throws {
+        let (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        store.addItem(to: checklistID, title: "Milk")
+        store.addItem(to: checklistID, title: "   ")          // blank title → skipped
+        store.addItem(to: checklistID, title: "Eggs")
+        let milk = try #require(store.checklist(id: checklistID)?.items[0])
+        store.updateItemDescription(checklistID: checklistID, itemID: milk.id, description: "2 litres")
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles == ["Milk", "Eggs"])
+        #expect(spy.createdNotes == ["2 litres", nil])
+        #expect(spy.createdListIDs == ["list-1", "list-1"])
+        #expect(RunChecklistDialogue.message(for: .created(count: 2), checklistName: "Groceries")
+            .resolved() == "Created 2 reminders for Groceries.")
+    }
+
+    @Test
+    func runReportsExactCreatedDialogue() {
+        #expect(RunChecklistDialogue.message(for: .created(count: 2), checklistName: "Groceries")
+            .resolved() == "Created 2 reminders for Groceries.")
+    }
+
+    @Test
+    func staleChecklistIdThrowsWithItsMessage() async throws {
+        let (intent, spy, _) = makeIntent()
+        intent.checklist = ChecklistEntity(id: UUID().uuidString, name: "Ghost")
+
+        do {
+            _ = try await intent.perform()
+            Issue.record("a stale checklist id should throw, not perform")
+        } catch let error as RunChecklistIntentError {
+            #expect(error.errorDescription == "That checklist no longer exists.")
+        } catch {
+            Issue.record("unexpected error type: \(error)")
+        }
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    @Test
+    func notDeterminedAccessReportsInstructionAndCreatesNothing() async throws {
+        let (intent, spy, _) = makeIntent()
+        spy.accessStatusValue = .notDetermined
+
+        _ = try await intent.perform()
+
+        #expect(RunChecklistDialogue.notDetermined.resolved()
+            == "Open CheckStitch and allow Reminders access, then ask again.")
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    @Test
+    func deniedAccessReportsSettingsInstructionAndCreatesNothing() async throws {
+        let (intent, spy, _) = makeIntent()
+        spy.accessStatusValue = .denied
+
+        _ = try await intent.perform()
+
+        #expect(RunChecklistDialogue.denied.resolved()
+            == "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again.")
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    @Test
+    func destinationMissingReportsItsDialogueAndCreatesNothing() async throws {
+        let (intent, spy, _) = makeIntent()
+        spy.lists = ReminderListsSnapshot(options: [], defaultIdentifier: nil)
+
+        _ = try await intent.perform()
+
+        #expect(RunChecklistDialogue.message(for: .destinationMissing, checklistName: "Groceries")
+            .resolved() == "That list no longer exists, so no reminders were created for Groceries.")
+        #expect(spy.createdTitles.isEmpty)
+    }
+}
