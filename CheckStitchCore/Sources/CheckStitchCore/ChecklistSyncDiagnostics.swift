@@ -18,6 +18,11 @@ public enum SyncGate: String, Sendable, CaseIterable {
 /// category and message shape. `notice` level so records persist to disk and
 /// are not filtered out of `Console.app`/`devicectl` by default.
 ///
+/// Each record is also appended to `Documents/checklist-sync.log` in the app's
+/// data container: neither device's syslog is pullable from the host via
+/// `devicectl` on this machine, so the file is the agent-reachable copy
+/// (`devicectl device copy from --domain-type appDataContainer`).
+///
 /// `CheckStitchCore` builds without `SWIFT_DEFAULT_ACTOR_ISOLATION`, so this is
 /// nonisolated and callable from the `nonisolated` `WCSessionDelegate` methods.
 public enum ChecklistSyncDiagnostics {
@@ -26,11 +31,45 @@ public enum ChecklistSyncDiagnostics {
     private static let subsystem = "app.alanvardy.CheckStitch"
     private static let logger = Logger(subsystem: subsystem, category: "ChecklistSync")
 
+    /// Serializes appends: `log` is called from `@MainActor` and `nonisolated`
+    /// `WCSessionDelegate` contexts alike.
+    private static let diskLock = NSLock()
+    /// Cap for `checklist-sync.log`; the file is reset past this so a long
+    /// session cannot grow the app container unboundedly.
+    private static let diskSizeLimit: UInt64 = 64 * 1024
+    private static let diskFileName = "checklist-sync.log"
+
     public static func log(_ gate: SyncGate, _ fields: [String: String] = [:]) {
         let detail = fields
             .sorted { $0.key < $1.key }
             .map { "\($0.key)=\($0.value)" }
             .joined(separator: " ")
         logger.notice("[\(gate.rawValue, privacy: .public)] \(detail, privacy: .public)")
+        appendToDisk("[\(gate.rawValue)] \(detail)")
+    }
+
+    private static func appendToDisk(_ line: String) {
+        diskLock.lock()
+        defer { diskLock.unlock() }
+
+        let fm = FileManager.default
+        let url = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(diskFileName)
+        let data = Data((line + "\n").utf8)
+
+        let size = (try? fm.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.uint64Value ?? 0
+        if size >= diskSizeLimit {
+            try? fm.removeItem(at: url)
+        }
+
+        var handle = try? FileHandle(forWritingTo: url)
+        if handle == nil {
+            fm.createFile(atPath: url.path, contents: nil)
+            handle = try? FileHandle(forWritingTo: url)
+        }
+        guard let handle else { return }
+        defer { try? handle.close() }
+        handle.seekToEndOfFile()
+        handle.write(data)
     }
 }
