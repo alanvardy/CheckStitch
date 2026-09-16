@@ -33,6 +33,18 @@ struct ChecklistDetailViewTests {
         #expect(described.contains("duplicateDraftName"))
     }
 
+    /// Adding an item is a two-step flow mirroring duplicate: the button only
+    /// raises a name alert with its own draft slot, rather than creating
+    /// anything itself. Only those slots are inspectable here (the body cannot
+    /// be staged headless), so the confirm action stays covered by the store
+    /// tests.
+    @Test
+    func addItemIsGatedBehindANameAlert() {
+        let described = String(describing: ChecklistDetailView(checklistID: UUID()))
+        #expect(described.contains("isAddItemPresented"))
+        #expect(described.contains("addItemDraftName"))
+    }
+
     /// Construction stays intact with the store/dismiss seams and the dialog
     /// states (mirrors ViewRenderTests' construction canary).
     @Test

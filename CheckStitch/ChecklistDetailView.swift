@@ -25,6 +25,11 @@ struct ChecklistDetailView: View {
     /// Buffered copy name for that alert, seeded from the source name when the
     /// alert is raised.
     @State private var duplicateDraftName = ""
+    /// The add-item flow asks for the name first, so the button only raises
+    /// this alert and never creates anything itself.
+    @State private var isAddItemPresented = false
+    /// Buffered item name for that alert.
+    @State private var addItemDraftName = ""
     /// The enumerated lists at one instant. Read through `selectableOptions`,
     /// which drops the system default: the "Default (Inbox)" row below already
     /// stands for that list, and EventKit returns it like any other, so listing
@@ -79,7 +84,8 @@ struct ChecklistDetailView: View {
                 }
                 Section {
                     Button {
-                        store.addItem(to: checklistID)
+                        addItemDraftName = ""
+                        isAddItemPresented = true
                     } label: {
                         Label("Add Item", systemImage: "plus.circle.fill")
                     }
@@ -140,6 +146,16 @@ struct ChecklistDetailView: View {
                     .accessibilityIdentifier("renameNameConflictButton")
             } message: {
                 Text("Another checklist already uses \(draftName) — choose a different name.")
+            }
+            .alert("Add Item", isPresented: $isAddItemPresented) {
+                TextField("Name", text: $addItemDraftName)
+                    .accessibilityIdentifier("addItemNameField")
+                Button("Cancel", role: .cancel) {}
+                    .accessibilityIdentifier("cancelAddItemButton")
+                Button("Add") {
+                    store.addItem(to: checklistID, title: addItemDraftName)
+                }
+                .accessibilityIdentifier("confirmAddItemButton")
             }
             .alert("Duplicate Checklist", isPresented: $isDuplicatePresented) {
                 TextField("Name", text: $duplicateDraftName)
