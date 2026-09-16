@@ -215,8 +215,13 @@ struct ContentView: View {
                                  set: { if !$0 { checklistPendingRemoval = nil } }),
             presenting: checklistPendingRemoval
         ) { id in
-            Button("Remove", role: .destructive) { removeChecklist(id: id) }
-                .accessibilityIdentifier("confirmRemoveChecklistButton")
+            Button("Remove", role: .destructive) {
+                // Clear the pending id explicitly rather than relying on the
+                // dialog's dismissal to fire the `isPresented` setter.
+                checklistPendingRemoval = nil
+                removeChecklist(id: id)
+            }
+            .accessibilityIdentifier("confirmRemoveChecklistButton")
             Button("Cancel", role: .cancel) { checklistPendingRemoval = nil }
                 .accessibilityIdentifier("cancelRemoveChecklistButton")
         } message: { _ in
@@ -509,18 +514,23 @@ struct ContentView: View {
     }
 
     /// Performs the destructive half of the removal gate: a single-row batch
-    /// into the store's `removeChecklists` (one tombstone, one save).
+    /// into the store's `removeChecklists` (one tombstone, one save). The
+    /// animation transaction makes the row's removal (and any new last-row
+    /// divider) animate.
     private func removeChecklist(id: UUID) {
         guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
-        store.removeChecklists(at: IndexSet(integer: index))
+        withAnimation { store.removeChecklists(at: IndexSet(integer: index)) }
     }
 
     /// Converts a one-row nudge into the `moved` index arithmetic: one row up
     /// is `destination == index - 1`, one row down is `index + 2` (the
-    /// destination is adjusted for the removed element).
+    /// destination is adjusted for the removed element). The animation
+    /// transaction is what makes the swap animate in the `LazyVStack`.
     private func moveChecklist(_ id: UUID, up: Bool) {
         guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
-        store.moveChecklists(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
+        withAnimation {
+            store.moveChecklists(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
+        }
     }
 }
 

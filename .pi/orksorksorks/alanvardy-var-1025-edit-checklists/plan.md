@@ -15,9 +15,11 @@ persisted format does not change — the top-level `[Checklist]` array order
 ### Invariants / not in scope
 
 - **No schema change, no codec version bump, no order clock.** `ChecklistEnvelope`
-  stays at v4; `ChecklistMerge.swift` is not edited. A reorder is carried to
-  other devices by the existing `save()` push only, exactly like the local-wins
-  array order it already ships.
+  stays at v4; `ChecklistMerge.swift` is not edited. A reorder is pushed by the
+  existing `save()`, but `ChecklistMerge` keeps the receiver's local top-level
+  order (remote-only checklists append), so order stays per-device rather than
+  converging globally — the same local-wins array semantics the store already
+  ships.
 - Watch target (`CheckStitchWatch`) is untouched — it renders a read-only mirror.
 - No new dependencies, no new files, no refactors of adjacent code.
 - Existing UI-smoke identifiers (`createChecklistButton`, `settingsButton`,
