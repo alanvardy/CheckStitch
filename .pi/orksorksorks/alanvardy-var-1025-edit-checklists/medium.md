@@ -1,0 +1,25 @@
+# Task
+
+Add an **Edit button to the main checklist screen** that lets users **rearrange (reorder) and remove checklists**, mirroring the edit experience items already have on the checklist detail screen. Today the main screen (`CheckStitch/ContentView.swift`) renders `store.checklists` in a custom plated `LazyVStack` (ScrollView + CardPlate card, floating 52×52 create/settings plates) and has **no** edit mode, no `.onMove`/`.onDelete`/`EditButton`, and no drag-drop code anywhere in the repo — the only reorder/remove precedent is the `Form > Section("Items") > ForEach` + `EditButton` in `ChecklistDetailView.swift`.
+
+What to build and why:
+- An "Edit" toggle on the main screen (iOS and macOS; note the iOS topLeading overlay slot is occupied by the create plate, so the toggle needs a new placement per platform) that enters/leaves an edit mode in which checklists can be reordered and removed "just like items". Reorder + delete affordances must be built on the **non-Form plated list** (edit-mode drag handles / remove controls, or whichever adaptation the compiler supports — there is no custom reorder code to copy, so verify against `ContentView.swift`/`CardPlate.swift` and compile).
+- Store: top-level `moveChecklists(from:to:)` and `removeChecklists(at:)` (or equivalent) on `ChecklistStore`, reusing the generic `moved<T>` helper and following the `removeItems`/`delete(id:)` tombstone pattern (`ChecklistTombstone` with `itemID: nil`, `revision + 1` per removed checklist, batch-saved in one `save()`). No schema change: the array order is already the persisted order, and `ChecklistMerge` is local-wins for the top-level array (remote-only checklists append), so reorder is local-first by existing design — do not add an order clock.
+- Remove UX should follow the existing whole-checklist delete precedent (confirmation before deletion, like the detail screen's `Remove Checklist` flow).
+- Localization: new user-facing strings (a bare "Edit" — only "Edit checklist"/"Edit item" exist — plus any new confirmation copy) must be registered in `CheckStitch/Localizable.xcstrings` across all six languages (en/de/es/fr/ja/zh-Hans) **and** listed in `CheckStitchTests/LocalizationFixtures.swift` `requiredKeys` (the suites `everyRequiredKeyIsPresent`/`catalogsHaveAllSixLanguages` enforce this). "Remove", "Remove Checklist", "Cancel", "This removes the checklist and all its items.", "Done" are already registered from the detail view.
+- Tests: new store tests follow the `// MARK: - moveItems` section template in `ChecklistStoreTests.swift` (reorder within list, move-to-end, out-of-range/empty no-ops, identity preservation, tombstone + revision+1 invariant, persists across reload). Keep existing UI-smoke identifiers (`createChecklistButton`, `settingsButton`, `createRemindersButton`, `emptyStateCreateButton`) intact; add camelCase identifiers for the new controls.
+- The watch target renders a read-only mirror list and is **not** in scope.
+
+## Why MEDIUM
+
+MULTI_MODULE (breadth trigger 7): the change spans UI (`ContentView.swift`), data layer (`ChecklistStore.swift`), store tests, and six-language localization + localization fixtures — comfortably more than one module and ~6 files. M1–M2 hold: the approach is known (VAR-1007's items-edit EditButton/reorder/remove semantics + the store's `moved<T>`/tombstone machinery; the 2 bounded unknowns — non-Form edit affordances and the local-wins sync reading — resolve by compiling and by existing merge semantics), and there is no schema/migration change, no new subsystem/integration, and no sign-off-grade design trade-off (the plated-card design is preserved).
+
+## Key files
+
+- `CheckStitch/ContentView.swift` — main screen: `checklistList` (LazyVStack at :200-206), `checklistRow(for:)` (:315-324), iOS overlay chrome (:86-96, topLeading occupied by create), macOS `.toolbar` (:60-67), existing `.confirmationDialog`/`.alert` wiring for the remove-confirmation pattern. No `navigationTitle` on iOS; chrome is overlay-only.
+- `CheckStitch/ChecklistDetailView.swift` — the items edit precedent to mirror (`Form` + `ForEach.onMove/.onDelete` + iOS-only `EditButton` :110-114; delete confirmation two-step gate :183-190, :238-247; identifiers like `removeChecklistButton`/`confirmRemoveChecklistButton`).
+- `CheckStitch/ChecklistStore.swift` — add top-level move/remove; reuse `moved<T>` (:341-354), `delete(id:)` tombstone (:370-379), `save()` behaviour (:413-441).
+- `CheckStitch/ChecklistMerge.swift` — read-only reference: merge keeps local top-level order and appends remote-only checklists; no envelope-level order clock (do not add one).
+- `CheckStitchTests/ChecklistStoreTests.swift` — new test section following `// MARK: - moveItems` (:752-922) and tombstone tests (:982-1030).
+- `CheckStitchTests/LocalizationFixtures.swift` (:25-95) + `CheckStitch/Localizable.xcstrings` (6 languages) — register the bare "Edit" and any new strings or the localization suites fail.
+- `CheckStitchUITests/CheckStitchUITests.swift` — smoke identifiers that must not break; add identifiers for the new edit-mode controls.
