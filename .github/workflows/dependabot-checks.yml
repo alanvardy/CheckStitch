@@ -12,8 +12,10 @@ concurrency:
 
 jobs:
   gate:
+    # Only dependabot authors run the gate; human PRs show a Skipped row, not
+    # a success — never add this job to required branch-protection checks.
     if: github.event.pull_request.user.login == 'dependabot[bot]'
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
     env:
       DEVELOPMENT_TEAM: ""
@@ -61,6 +63,8 @@ jobs:
       - name: Shell suite
         run: bash scripts/tests/run.sh
 
+      # Install before the lint step rather than after the shell suite so a
+      # slow/failing Homebrew fetch surfaces early in the run.
       - name: Install shellcheck
         run: brew install shellcheck
 
