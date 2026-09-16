@@ -393,6 +393,17 @@ final class ChecklistStore {
         save()
     }
 
+    /// Reorders checklists. Unlike `moveItems` there is no per-checklist order
+    /// clock to stamp: the top-level array order *is* the persisted order, and
+    /// `ChecklistMerge` keeps local order (remote-only checklists append), so a
+    /// reorder is local-first by design and needs no revision bump.
+    /// Out-of-range offsets/destinations are silent no-ops.
+    func moveChecklists(from offsets: IndexSet, to destination: Int) {
+        guard let reordered = Self.moved(checklists, from: offsets, to: destination) else { return }
+        checklists = reordered
+        save()
+    }
+
     /// Local-only: reminders already created in Reminders are never touched.
     func delete(id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }

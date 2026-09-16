@@ -407,6 +407,7 @@ struct ContentView: View {
             if isEditing {
                 Text(checklist.name)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                checklistMoveControls(for: checklist)
             } else {
                 NavigationLink(checklist.name, value: checklist.id)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -415,6 +416,29 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    /// Trailing per-row move controls in edit mode. The first row cannot move
+    /// up and the last cannot move down, so those chevrons are disabled.
+    @ViewBuilder
+    private func checklistMoveControls(for checklist: Checklist) -> some View {
+        HStack(spacing: 4) {
+            Button { moveChecklist(checklist.id, up: true) } label: {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.plain)
+            .disabled(store.checklists.first?.id == checklist.id)
+            .accessibilityLabel("Move up")
+            .accessibilityIdentifier("moveChecklistUp-\(checklist.id.uuidString)")
+
+            Button { moveChecklist(checklist.id, up: false) } label: {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.plain)
+            .disabled(store.checklists.last?.id == checklist.id)
+            .accessibilityLabel("Move down")
+            .accessibilityIdentifier("moveChecklistDown-\(checklist.id.uuidString)")
+        }
     }
 
     private var emptyState: some View {
@@ -489,6 +513,14 @@ struct ContentView: View {
     private func removeChecklist(id: UUID) {
         guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
         store.removeChecklists(at: IndexSet(integer: index))
+    }
+
+    /// Converts a one-row nudge into the `moved` index arithmetic: one row up
+    /// is `destination == index - 1`, one row down is `index + 2` (the
+    /// destination is adjusted for the removed element).
+    private func moveChecklist(_ id: UUID, up: Bool) {
+        guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
+        store.moveChecklists(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
     }
 }
 
