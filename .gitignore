@@ -21,3 +21,7 @@ build/
 *.xccheckout
 *.moved-aside
 *.xcuserdatad/
+
+# Machine-local secrets for the `xcode-cloud` helper (Key ID / Issuer ID).
+# `.env.example` is the committed template.
+.env
