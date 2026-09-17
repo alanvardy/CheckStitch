@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Modal settings screen presented from the gear button. Holds the
-/// appearance (theme) picker, bound back to the `@AppStorage`-backed property
-/// on `ContentView`, the row that pushes the Background subscreen over a
-/// staged `SettingsBindings` bag, and the import/export entry points.
+/// Modal settings screen presented from the gear button. Holds the Interface
+/// row — which pushes the subscreen owning the appearance (theme) picker,
+/// still bound back to the `@AppStorage`-backed property on `ContentView` —
+/// the row that pushes the Background subscreen over a staged
+/// `SettingsBindings` bag, and the import/export entry points.
 struct SettingsView: View {
     @Binding var appearanceMode: AppearanceMode
     @Bindable var bindings: SettingsBindings
@@ -18,18 +19,12 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker(selection: $appearanceMode) {
-                        ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                            Label(mode.title, systemImage: mode.systemImage)
-                                .tag(mode)
-                        }
+                    NavigationLink {
+                        InterfaceSettingsView(appearanceMode: $appearanceMode)
                     } label: {
-                        VStack(alignment: .leading) {
-                            Text("Appearance")
-                            Text("Choose between system, light, and dark mode.")
-                        }
+                        Label("Interface", systemImage: "slider.horizontal.3")
                     }
-                    .accessibilityIdentifier("appearancePicker")
+                    .accessibilityIdentifier("settingsInterfaceRow")
                 }
 
                 Section {
