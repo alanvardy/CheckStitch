@@ -94,6 +94,47 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
+    func runEntersSendingAndCreatedConfirmsIt() throws {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let checklist = Checklist(name: "Groceries")
+
+        let runID = try #require(store.run(checklist))
+        #expect(store.runPhase(runID: runID) == .sending)
+
+        transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .created(2))))
+
+        #expect(store.runPhase(runID: runID) == .created(2))
+        #expect(store.pendingRunID == nil)
+    }
+
+    @Test
+    func failedResultShowsAReasonAndKeepsTheRunOutOfPending() throws {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let checklist = Checklist(name: "Groceries")
+
+        let runID = try #require(store.run(checklist))
+        transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .permissionDenied)))
+
+        #expect(store.runPhase(runID: runID) == .failed(RunResultKind.permissionDenied.message))
+        #expect(store.pendingRunID == nil)
+    }
+
+    @Test
+    func resultForAnUnknownRunIsIgnored() {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+
+        transport.deliver(.runResult(RunResult(runID: UUID(), checklistID: UUID(), kind: .failed)))
+
+        #expect(store.pendingRunID == nil)
+    }
+
+    @Test
     func destinationFieldSurvivesTheWatchTransport() throws {
         let transport = FakeChecklistSyncTransport()
         let store = WatchChecklistStore(transport: transport)

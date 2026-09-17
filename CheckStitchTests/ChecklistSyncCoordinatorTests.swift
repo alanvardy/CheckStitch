@@ -108,6 +108,28 @@ struct ChecklistSyncCoordinatorTests {
         #expect(runner.created == [checklist])
     }
 
+    @Test(arguments: [
+        (ReminderRunOutcome.created(count: 2), RunResultKind.created(2)),
+        (.permissionDenied, .permissionDenied),
+        (.destinationMissing, .destinationMissing),
+        (.failed("boom"), .failed),
+    ])
+    func everyOutcomeIsAnsweredOnTheWatchChannel(outcome: ReminderRunOutcome, kind: RunResultKind) async {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        runner.outcome = outcome
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])
+        let coordinator = makeCoordinator(transport: transport, checklists: [checklist], runner: runner)
+        coordinator.start()
+
+        let runID = UUID()
+        transport.deliver(.runChecklist(id: checklist.id, runID: runID))
+        for _ in 0..<50 where transport.sentMessages.count < 2 { await Task.yield() }
+
+        #expect(transport.sentMessages.last == .runResult(
+            RunResult(runID: runID, checklistID: checklist.id, kind: kind)))
+    }
+
     @Test
     func requestChecklistsPushesAgain() {
         let transport = FakeChecklistSyncTransport()

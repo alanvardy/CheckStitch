@@ -50,17 +50,19 @@ public final class ChecklistSyncCoordinator {
             // Chain runs so overlapping requests never hold two EventKit stores
             // open at once (EKCADErrorDomain 1021).
             let previous = pendingRun
-            pendingRun = Task { [createReminders] in
+            pendingRun = Task { [createReminders, transport] in
                 await previous?.value
                 let outcome = await createReminders(checklist)
+                let result = RunResult(runID: runID, checklistID: id, kind: RunResultKind(outcome))
                 ChecklistSyncDiagnostics.log(.createOutcome, [
                     "run": runID.uuidString,
                     "checklist": id.uuidString,
                     "outcome": String(describing: outcome),
                 ])
+                transport.sendUserInfo(.runResult(result))
             }
-        case .context:
-            break // watch-only direction
+        case .context, .runResult:
+            break // watch-only / phone→watch directions
         }
     }
 

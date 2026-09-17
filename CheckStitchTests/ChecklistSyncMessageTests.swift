@@ -37,4 +37,28 @@ struct ChecklistSyncMessageTests {
         #expect(ChecklistSyncMessage(userInfo: [ChecklistSyncKey.runChecklist: 42]) == nil)
         #expect(ChecklistSyncMessage(userInfo: [ChecklistSyncKey.context: "not data"]) == nil)
     }
+
+    @Test
+    func runResultRoundTripsThroughUserInfo() {
+        let result = RunResult(runID: UUID(), checklistID: UUID(), kind: .created(2))
+        #expect(ChecklistSyncMessage(userInfo: ChecklistSyncMessage.runResult(result).userInfo) == .runResult(result))
+    }
+
+    @Test
+    func runResultWithAMalformedKindIsRejected() {
+        #expect(ChecklistSyncMessage(userInfo: [
+            ChecklistSyncKey.runResult: [
+                ChecklistSyncKey.runResultRunID: UUID().uuidString,
+                ChecklistSyncKey.runResultChecklistID: UUID().uuidString,
+                ChecklistSyncKey.runResultKind: "exploded",
+            ],
+        ]) == nil)
+        #expect(ChecklistSyncMessage(userInfo: [
+            ChecklistSyncKey.runResult: [
+                ChecklistSyncKey.runResultRunID: UUID().uuidString,
+                ChecklistSyncKey.runResultChecklistID: UUID().uuidString,
+                ChecklistSyncKey.runResultKind: "created", // no count
+            ],
+        ]) == nil)
+    }
 }
