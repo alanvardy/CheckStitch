@@ -40,7 +40,7 @@ final class PhoneSyncAdapter: NSObject, ChecklistSyncTransport {
     @discardableResult
     func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool {
         guard session.activationState == .activated else {
-            ChecklistSyncDiagnostics.log(.phoneHandle, [
+            ChecklistSyncDiagnostics.log(.phoneSend, [
                 "message": message.diagnosticName,
                 "send": "session-not-activated",
             ])

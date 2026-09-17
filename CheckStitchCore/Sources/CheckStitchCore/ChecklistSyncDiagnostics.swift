@@ -3,12 +3,14 @@ import os
 
 /// The gates a watch-initiated run passes through, on both devices. One
 /// correlated `[<gate>]` record per gate makes a single tap's chain greppable
-/// in `Console.app` / `idevicessyslog` (`[watchSend] [phoneReceive]
-/// [phoneHandle] [snapshotLookup] [createOutcome]`).
+/// in `Console.app` / `idevicessyslog` (`[watchSend] [watchReceive]
+/// [phoneReceive] [phoneSend] [phoneHandle] [snapshotLookup] [createOutcome]`).
 public enum SyncGate: String, Sendable, CaseIterable {
     case watchSend
+    case watchReceive
     case watchActivation
     case phoneReceive
+    case phoneSend
     case phoneHandle
     case snapshotLookup
     case createOutcome
@@ -53,11 +55,14 @@ public enum ChecklistSyncDiagnostics {
         defer { diskLock.unlock() }
 
         let fm = FileManager.default
-        let url = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(diskFileName)
+        guard let directory = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            logger.warning("[diagnostics] no Documents directory for \(diskFileName, privacy: .public)")
+            return
+        }
+        let url = directory.appendingPathComponent(diskFileName)
         let data = Data((line + "\n").utf8)
 
-        let size = (try? fm.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.uint64Value ?? 0
+        let size = ((try? fm.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.uint64Value ?? 0
         if size >= diskSizeLimit {
             try? fm.removeItem(at: url)
         }
@@ -67,7 +72,10 @@ public enum ChecklistSyncDiagnostics {
             fm.createFile(atPath: url.path, contents: nil)
             handle = try? FileHandle(forWritingTo: url)
         }
-        guard let handle else { return }
+        guard let handle else {
+            logger.warning("[diagnostics] could not open \(diskFileName, privacy: .public) for append")
+            return
+        }
         defer { try? handle.close() }
         handle.seekToEndOfFile()
         handle.write(data)

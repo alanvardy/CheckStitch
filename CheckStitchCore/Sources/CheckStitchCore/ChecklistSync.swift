@@ -194,6 +194,16 @@ public enum RunPhase: Equatable, Sendable {
     case sending
     case created(Int)
     case failed(String)
+
+    /// The line under the button: the reminder count on success, the reason on
+    /// failure, and nothing while idle or in flight.
+    public var detail: String? {
+        switch self {
+        case .idle, .sending: nil
+        case .created(let count): RunResultKind.created(count).message
+        case .failed(let reason): reason
+        }
+    }
 }
 
 /// The watch's observable state: a mirror of the phone's checklist set, plus
@@ -211,9 +221,21 @@ public final class WatchChecklistStore {
     /// retained and re-sent on activation, and cleared only by its result.
     public private(set) var pendingRuns: [UUID: PendingRun] = [:]
     private var phases: [UUID: RunPhase] = [:]
+    /// Insertion order for `phases`, so the phase map stays bounded like the
+    /// phone's `rememberedResults`; otherwise every run leaks an entry.
+    private var phaseOrder: [UUID] = []
+    private let phaseLimit = 32
 
     /// The phase of `runID`; `.idle` for an unknown run.
     public func runPhase(runID: UUID) -> RunPhase { phases[runID] ?? .idle }
+
+    private func setPhase(_ phase: RunPhase, for runID: UUID) {
+        if phases[runID] == nil { phaseOrder.append(runID) }
+        phases[runID] = phase
+        while phaseOrder.count > phaseLimit {
+            phases.removeValue(forKey: phaseOrder.removeFirst())
+        }
+    }
 
     /// Activates the transport and starts listening. Safe to call repeatedly.
     /// Both the refresh and the re-send hang off `onActivated`: a send that
@@ -233,10 +255,17 @@ public final class WatchChecklistStore {
     /// the UI can honestly show `Sending…` from the first tap.
     @discardableResult
     public func run(_ checklist: Checklist) -> UUID {
+        // A run for this checklist that is still awaiting its result: re-tapping
+        // must not queue a second create (a retained offline run would deliver
+        // alongside it). Keep observing the run already in flight.
+        if let pending = pendingRuns.values.first(where: { $0.checklistID == checklist.id }) {
+            return pending.runID
+        }
         let runID = UUID()
-        pendingRuns[runID] = PendingRun(runID: runID, checklistID: checklist.id)
-        phases[runID] = .sending
-        send(PendingRun(runID: runID, checklistID: checklist.id))
+        let pending = PendingRun(runID: runID, checklistID: checklist.id)
+        pendingRuns[runID] = pending
+        setPhase(.sending, for: runID)
+        send(pending)
         return runID
     }
 
@@ -284,10 +313,11 @@ public final class WatchChecklistStore {
                 // dropped pre-activation.
                 requestRefresh()
             }
-            phases[result.runID] = switch result.kind {
+            let phase: RunPhase = switch result.kind {
             case .created(let count): .created(count)
             case .permissionDenied, .destinationMissing, .notFound, .failed: .failed(result.kind.message)
             }
+            setPhase(phase, for: result.runID)
         case .runChecklist, .requestChecklists:
             break // phone-only directions
         }

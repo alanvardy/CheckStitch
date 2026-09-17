@@ -254,4 +254,45 @@ struct WatchChecklistStoreTests {
 
         #expect(store.runPhase(runID: runID) == phase)
     }
+
+    @Test
+    func tappingTheSameChecklistWhileARunIsPendingReusesThatRun() {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let checklist = Checklist(name: "Groceries")
+
+        let first = store.run(checklist)
+        let second = store.run(checklist)
+
+        #expect(second == first)
+        #expect(store.pendingRuns.count == 1)
+        let runSends = transport.sentMessages.filter { if case .runChecklist = $0 { return true }; return false }
+        #expect(runSends.count == 1)
+    }
+
+    @Test
+    func aSecondRunIsAllowedOnceTheFirstHasAResult() {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let checklist = Checklist(name: "Groceries")
+
+        let first = store.run(checklist)
+        transport.deliver(.runResult(RunResult(runID: first, checklistID: checklist.id, kind: .created(1))))
+        let second = store.run(checklist)
+
+        #expect(second != first)
+        #expect(store.pendingRuns.count == 1)
+    }
+
+    @Test(arguments: [
+        (RunPhase.created(3), "Created 3 reminders." as String?),
+        (RunPhase.failed("boom"), "boom" as String?),
+        (RunPhase.idle, String?.none),
+        (RunPhase.sending, String?.none),
+    ])
+    func runPhaseDetailReportsCountsAndReasons(phase: RunPhase, detail: String?) {
+        #expect(phase.detail == detail)
+    }
 }

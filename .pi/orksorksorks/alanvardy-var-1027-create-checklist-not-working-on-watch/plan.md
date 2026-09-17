@@ -1386,3 +1386,23 @@ rejection (Phase 1 + 2 additions); add the non-dictionary `runResult` payload:
 - **Localization**: the two new watch button labels ship English-only (the
   catalog falls back to the source value); the Core reason strings are English
   by existing convention (`ReminderRunOutcome.errorMessage`).
+
+---
+
+## Skew Window (post-implementation note, VAR-1027 review)
+
+The wire protocol changed in both directions, so the watch and the phone must be
+upgraded together:
+
+- **New watch + old phone**: the watch's `runChecklist` carries a mandatory
+  `runChecklistRunID`, and the old phone never replies with `runResult`. The
+  button shows `Sending…` and the run is re-sent on the watch's next activation;
+  it recovers as soon as the phone is upgraded (the phone dedups by `runID`).
+- **Old watch + new phone**: a queued legacy `runChecklist` without a `runID`
+  fails decoding in `ChecklistSync.swift` and is logged as `decode=rejected` on
+  the phone, then dropped. The old watch cannot learn the outcome; it recovers
+  only when the watch app is upgraded.
+
+Both are acceptable because the app pair ships atomically, but the old-watch case
+is the same "button silently does nothing" shape this ticket targets, so it is
+recorded here rather than left implicit.

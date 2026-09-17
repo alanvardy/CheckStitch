@@ -6,9 +6,16 @@ struct WatchChecklistDetailView: View {
     @Environment(WatchChecklistStore.self) private var store
     @State private var runID: UUID?
 
+    /// The live copy from the store once a `notFound` refresh lands; the value
+    /// this screen was pushed with is only the seed. Without this the screen
+    /// would keep showing stale items after the watch self-corrects the list.
+    private var current: Checklist {
+        store.checklists.first { $0.id == checklist.id } ?? checklist
+    }
+
     /// Blank rows are never turned into reminders, so the watch hides them too.
     private var visibleItems: [ChecklistItem] {
-        checklist.items.filter { !$0.isBlank }
+        current.items.filter { !$0.isBlank }
     }
 
     private var phase: RunPhase {
@@ -41,15 +48,15 @@ struct WatchChecklistDetailView: View {
                 }
             }
         }
-        .navigationTitle(checklist.name)
+        .navigationTitle(current.name)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 4) {
                 Button(buttonTitle) {
                     runID = store.run(checklist)
                 }
                 .disabled(buttonDisabled)
-                if case .failed(let reason) = phase {
-                    Text(reason)
+                if let detail = phase.detail {
+                    Text(detail)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
