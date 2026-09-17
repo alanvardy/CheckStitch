@@ -1,0 +1,37 @@
+name: Request dependabot review
+
+# Dependabot-triggered `pull_request` runs get a read-only GITHUB_TOKEN even
+# when `permissions:` asks for write, so requesting a review there fails with
+# 403 "Resource not accessible by integration". `pull_request_target` runs in
+# the base-repository context with the declared permissions, which makes the
+# API call work. It is safe here because the job never checks out the PR or
+# interpolates PR-controlled input — it reads only context.issue.number.
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  request-review:
+    # Only dependabot-author PRs get a review request; human PRs never do.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: xcode-27
+    permissions:
+      pull-requests: write
+    # dependabot.yml `reviewers` only covers each configured ecosystem at PR
+    # creation; this explicit request closes that gap for every dependabot PR.
+    # No checkout step: under pull_request_target the PR's code must not be
+    # touched — this job only calls the review-request API.
+    steps:
+      - name: Request review from alanvardy
+        uses: actions/github-script@v9
+        with:
+          script: |
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              reviewers: ['alanvardy'],
+            })
