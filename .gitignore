@@ -21,3 +21,5 @@ build/
 *.xccheckout
 *.moved-aside
 *.xcuserdatad/
+
+.env
