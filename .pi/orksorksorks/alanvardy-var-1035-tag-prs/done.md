@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Added `.github/workflows/dependabot-review-request.yml` — a `pull_request_target` workflow gated to the `dependabot[bot]` actor that requests a review from `alanvardy` on every dependabot PR (belt-and-suspenders beside the existing `dependabot.yml` `reviewers` key, which already covers the only ecosystem, `github-actions`). Removed the `DELETEME` placeholder.
+- **Commit SHA(s)**: `39636b0` (ci: request a review from alanvardy on dependabot PRs), `c41a174` (chore: remove DELETEME placeholder), plus the artifacts commit.
+- **Verification**: `actionlint` exit 0 on both `.github/workflows/*.yml` files; `actions/github-script@v9` tag confirmed to resolve (repo's `actions/github-script` v9 exists with a valid action.yml). The Xcode gate (`bash scripts/test.sh`) was intentionally not run — this is a `.github/`-only change with no test target.
+- **Reviewer findings**: no blockers, no nits. One P2 verify-note — whether `actions/github-script@v9` resolves — verified independently (tag exists).
+- **Remaining manual items**: The workflow fires when the next dependabot PR is opened or reopened (also at PR creation, before this workflow merged, nothing retroactive). Worth a spot-check on the next real dependabot PR that `alanvardy` receives the review request and notification; human PRs are unaffected (actor-gated).
