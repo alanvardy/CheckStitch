@@ -208,9 +208,10 @@ WATCH_FIXTURE=""
 
 # Stub xcrun so `devicectl list devices -j <file>` writes a fixture, while any
 # install/launch subcommand is only logged. xcodebuild is a no-op (the built
-# app is pre-created by the caller).
+# app is pre-created by the caller); make/open are no-ops too so the
+# run-devices.sh cases can exercise its macOS and watch steps.
 stub_watch_command() {
-    new_stubs xcrun xcodebuild
+    new_stubs xcrun xcodebuild make open
     WATCH_FIXTURE="$STUB_ROOT/devices.json"
     cat >"$WATCH_FIXTURE" <<'JSON'
 {"result":{"devices":[{"identifier":"WATCH-UDID-1","deviceProperties":{"name":"Test Watch"},"connectionProperties":{"transportType":"wifi","tunnelState":"connected"}}]}}
@@ -275,6 +276,83 @@ run_case run_watch_installs_and_launches_resolved_device run_watch_installs_and_
 run_case run_watch_errors_on_unreachable_device run_watch_errors_on_unreachable_device
 run_case run_watch_errors_on_unknown_device run_watch_errors_on_unknown_device
 run_case run_watch_matches_typographic_device_name run_watch_matches_typographic_device_name
+
+# --- run-devices.sh watch path ---------------------------------------------
+
+# App dirs expected by the run-devices.sh macOS leg (Debug/CheckStitch.app) and
+# its run-watch.sh delegation, where each script pre-creates its own under the
+# derived-data stub.
+stub_device_app_dirs() {
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug/CheckStitch.app"
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-watchos/CheckStitchWatch.app"
+}
+
+run_devices_watch_installs_and_launches_resolved_device() {
+    stub_watch_command
+    stub_device_app_dirs
+    DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'device install app --device WATCH-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'process launch.*app.alanvardy.CheckStitch.watchkitapp' "$STUB_ROOT/xcrun.log" || return 1
+    # macOS leg still ran alongside the watch leg.
+    grep -q 'build-mac-signed' "$STUB_ROOT/make.log" && [[ -s "$STUB_ROOT/open.log" ]] || return 1
+    true
+}
+
+run_devices_watch_errors_on_unreachable_device() {
+    stub_watch_command
+    stub_device_app_dirs
+    cat >"$WATCH_FIXTURE" <<'JSON'
+{"result":{"devices":[{"identifier":"WATCH-UDID-1","deviceProperties":{"name":"Test Watch"},"connectionProperties":{"transportType":null}}]}}
+JSON
+    local out status
+    set +e
+    out="$(DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-devices.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"Could not resolve"* ]] || return 1
+    # The unreachable watch does not break the macOS leg.
+    grep -q 'build-mac-signed' "$STUB_ROOT/make.log" && [[ -s "$STUB_ROOT/open.log" ]] || return 1
+    true
+}
+
+run_devices_watch_errors_on_unknown_device() {
+    stub_watch_command
+    stub_device_app_dirs
+    local out status
+    set +e
+    out="$(DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="No Such Watch" bash scripts/run-devices.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"Could not resolve"* ]]
+}
+
+run_devices_watch_matches_typographic_device_name() {
+    stub_watch_command
+    stub_device_app_dirs
+    # The real watch name carries a typographic apostrophe and a non-breaking
+    # space; the CLI's ASCII default must still resolve it. JSON \u escapes
+    # keep the fixture readable on disk.
+    printf '%s\n' '{"result":{"devices":[{"identifier":"WATCH-UDID-CURLY","deviceProperties":{"name":"Alan\u2019s Apple\u00a0Watch"},"connectionProperties":{"transportType":"localNetwork","tunnelState":"disconnected"}}]}}' >"$WATCH_FIXTURE"
+    DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Alan's Apple Watch" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'device install app --device WATCH-UDID-CURLY' "$STUB_ROOT/xcrun.log"
+}
+
+run_devices_watch_skippable_with_run_watch_0() {
+    stub_watch_command
+    stub_device_app_dirs
+    DERIVED_DATA="$STUB_ROOT/dd" RUN_WATCH=0 bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    # The watch leg never ran: only the fixture-writing `list devices` call
+    # happens, which never logs, so no install/launch argv appears.
+    [[ ! -s "$STUB_ROOT/xcrun.log" ]]
+}
+
+run_case run_devices_watch_installs_and_launches_resolved_device run_devices_watch_installs_and_launches_resolved_device
+run_case run_devices_watch_errors_on_unreachable_device run_devices_watch_errors_on_unreachable_device
+run_case run_devices_watch_errors_on_unknown_device run_devices_watch_errors_on_unknown_device
+run_case run_devices_watch_matches_typographic_device_name run_devices_watch_matches_typographic_device_name
+run_case run_devices_watch_skippable_with_run_watch_0 run_devices_watch_skippable_with_run_watch_0
 
 # --- macOS sandbox network entitlement -------------------------------------
 

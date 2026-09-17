@@ -3,13 +3,15 @@ set -euo pipefail
 
 # scripts/run-devices.sh — build CheckStitch for iOS, install + launch it on
 # every paired iPhone/iPad that has Developer Mode enabled (via devicectl),
-# and (by default) also build + launch it on the host Mac.
+# plus (by default) the host Mac and the paired Apple Watch (via the
+# run-watch.sh leg).
 #
 #   ./scripts/run-devices.sh
 #
 # Overrides (same env-override pattern as the Makefile):
 #   SCHEME=… BUNDLE_ID=… CONFIGURATION=… DERIVED_DATA=…
 #   RUN_MAC=0   # skip the macOS build + launch step (default RUN_MAC=1)
+#   RUN_WATCH=0 # skip the Apple Watch build + launch step (default RUN_WATCH=1)
 #
 # Devices are discovered dynamically each run, so a new iPhone/iPad is picked
 # up without editing this script. A device that is unreachable (locked, asleep,
@@ -27,6 +29,7 @@ BUNDLE_ID="${BUNDLE_ID:-app.alanvardy.CheckStitch}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA="${DERIVED_DATA:-DerivedData}"
 RUN_MAC="${RUN_MAC:-1}"
+RUN_WATCH="${RUN_WATCH:-1}"
 DEVICES_JSON="${TMPDIR:-/tmp}/run-devices-$$.json"
 UNREACHABLE_LOG="${TMPDIR:-/tmp}/run-devices-unreachable-$$.log"
 trap 'rm -f "$DEVICES_JSON" "$UNREACHABLE_LOG"' EXIT
@@ -173,10 +176,25 @@ if [[ "$RUN_MAC" -eq 1 ]]; then
     fi
 fi
 
+# ── Apple Watch step ─────────────────────────────────────────────────────────
+# Delegated to run-watch.sh (watch-name resolution incl. typographic-apostrophe
+# folding, the watchOS build, and the devicectl install + launch). A missing or
+# unreachable watch is not fatal to the iOS/mac legs — it is tallied so the run
+# still exits non-zero, mirroring the unreachable-unlock device handling above.
+if [[ "$RUN_WATCH" -eq 1 ]]; then
+    echo ""
+    echo "==> Building and launching on the Apple Watch (via run-watch.sh)…"
+    if ! bash scripts/run-watch.sh; then
+        echo "❌ Watch step failed (unpaired, unreachable, or Developer Mode off)." >&2
+        failures=$((failures + 1))
+    fi
+fi
+
 echo ""
 if [[ "$failures" -eq 0 ]]; then
     summary="Installed and launched on ${#DEVICES[@]} device(s)"
     [[ "$RUN_MAC" -eq 1 ]] && summary="$summary and macOS"
+    [[ "$RUN_WATCH" -eq 1 ]] && summary="$summary and the Apple Watch"
     echo "✅ $summary."
 else
     echo "❌ $failures step(s) failed — see errors above." >&2
