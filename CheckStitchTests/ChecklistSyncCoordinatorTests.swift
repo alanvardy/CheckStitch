@@ -93,6 +93,39 @@ struct ChecklistSyncCoordinatorTests {
         #expect(runner.created.isEmpty)
     }
 
+    @Test
+    func runRequestForUnknownIDAnswersNotFoundAndRePushes() async {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let coordinator = makeCoordinator(transport: transport, checklists: [], runner: runner)
+        coordinator.start()
+
+        let id = UUID()
+        let runID = UUID()
+        transport.deliver(.runChecklist(id: id, runID: runID))
+        await Task.yield()
+
+        #expect(runner.created.isEmpty)
+        #expect(transport.sentContexts.count == 2)
+        #expect(transport.sentMessages == [.runResult(
+            RunResult(runID: runID, checklistID: id, kind: .notFound))])
+    }
+
+    @Test
+    func runRequestForKnownIDPushesNoExtraContext() async {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])
+        let coordinator = makeCoordinator(transport: transport, checklists: [checklist], runner: runner)
+        coordinator.start()
+
+        transport.deliver(.runChecklist(id: checklist.id, runID: UUID()))
+        for _ in 0..<50 where runner.created.isEmpty { await Task.yield() }
+
+        #expect(runner.created == [checklist])
+        #expect(transport.sentContexts.count == 1)
+    }
+
     @Test(arguments: [ReminderRunOutcome.permissionDenied, .failed("boom"), .destinationMissing])
     func aSadOutcomeStillReachesTheRunClosure(outcome: ReminderRunOutcome) async {
         let transport = FakeChecklistSyncTransport()

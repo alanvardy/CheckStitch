@@ -42,6 +42,10 @@ public final class ChecklistSyncCoordinator {
                 ChecklistSyncDiagnostics.log(.snapshotLookup, [
                     "run": runID.uuidString, "checklist": id.uuidString, "result": "miss",
                 ])
+                // The watch's list is stale: tell it so and hand it the truth.
+                transport.sendUserInfo(.runResult(
+                    RunResult(runID: runID, checklistID: id, kind: .notFound)))
+                pushContext()
                 return
             }
             ChecklistSyncDiagnostics.log(.snapshotLookup, [

@@ -21,6 +21,8 @@ public enum RunResultKind: Equatable, Sendable {
     case created(Int)
     case permissionDenied
     case destinationMissing
+    /// The phone no longer has this checklist; it is re-pushing its context.
+    case notFound
     case failed
 
     public init(_ outcome: ReminderRunOutcome) {
@@ -40,6 +42,7 @@ public enum RunResultKind: Equatable, Sendable {
         case .created(let count): "Created \(count) reminders."
         case .permissionDenied: "CheckStitch doesn't have permission to access Reminders."
         case .destinationMissing: "That list no longer exists."
+        case .notFound: "Not found — refreshing."
         case .failed: "Couldn't create reminders."
         }
     }
@@ -49,6 +52,7 @@ public enum RunResultKind: Equatable, Sendable {
         case .created: "created"
         case .permissionDenied: "permissionDenied"
         case .destinationMissing: "destinationMissing"
+        case .notFound: "notFound"
         case .failed: "failed"
         }
     }
@@ -60,6 +64,7 @@ public enum RunResultKind: Equatable, Sendable {
             self = .created(count)
         case "permissionDenied": self = .permissionDenied
         case "destinationMissing": self = .destinationMissing
+        case "notFound": self = .notFound
         case "failed": self = .failed
         default: return nil
         }
@@ -246,9 +251,14 @@ public final class WatchChecklistStore {
             }
         case .runResult(let result):
             if pendingRunID == result.runID { pendingRunID = nil }
+            if case .notFound = result.kind {
+                // The phone is re-pushing; ask for it too in case the push is
+                // dropped pre-activation.
+                requestRefresh()
+            }
             phases[result.runID] = switch result.kind {
             case .created(let count): .created(count)
-            case .permissionDenied, .destinationMissing, .failed: .failed(result.kind.message)
+            case .permissionDenied, .destinationMissing, .notFound, .failed: .failed(result.kind.message)
             }
         case .runChecklist, .requestChecklists:
             break // phone-only directions

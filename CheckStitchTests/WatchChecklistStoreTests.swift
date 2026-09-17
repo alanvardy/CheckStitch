@@ -135,6 +135,21 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
+    func notFoundResultAsksForAFreshContext() throws {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let checklist = Checklist(name: "Groceries")
+
+        let runID = try #require(store.run(checklist))
+        transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .notFound)))
+
+        #expect(transport.sentMessages.contains(.requestChecklists))
+        #expect(store.runPhase(runID: runID) == .failed(RunResultKind.notFound.message))
+        #expect(store.pendingRunID == nil)
+    }
+
+    @Test
     func destinationFieldSurvivesTheWatchTransport() throws {
         let transport = FakeChecklistSyncTransport()
         let store = WatchChecklistStore(transport: transport)
