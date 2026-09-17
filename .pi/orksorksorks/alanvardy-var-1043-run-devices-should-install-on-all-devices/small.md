@@ -1,0 +1,17 @@
+# Task
+
+Make `scripts/run-devices.sh` install (and launch) on **all** device classes: iPhone, iPad, macOS, and Apple Watch — it currently covers iPhone/iPad (devicectl discovery + install + launch) and the host Mac (signed build + `open`), but the watch is handled only by the separate `scripts/run-watch.sh`.
+
+The watch leg must follow the existing `run-watch.sh` pattern: resolve the paired watch by name (default `"Alan's Apple Watch"`, honoring the `WATCH_NAME` override and the typographic-apostrophe/NFKC name folding), build `CheckStitchWatch` (scheme, watchOS product path) and install + launch via `devicectl device install app` / `devicectl device process launch --terminate-existing --activate` with bundle id `app.alanvardy.CheckStitch.watchkitapp`. Two viable integration shapes: (a) subshell-call `bash scripts/run-watch.sh` with env passthrough, or (b) fold its logic in — keep the existing env-override pattern (`SCHEME`, `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA`) working, add a `RUN_WATCH` override defaulting to `1` (mirroring `RUN_MAC`), count a failed watch step against the script's exit-status tally so `run-devices.sh` still exits non-zero on any failure, and keep the discovery/macOS behavior byte-compatible when no watch is paired (an unpaired/unreachable watch should warn and fail the run like the other unreachable-device handling, not break the iOS/mac legs' default flow). The separate `run-watch.sh` stays as-is for direct single-device use; `scripts/tests/run.sh` gains run-devices.sh watch-path cases mirroring the existing `run_watch_*` cases (stub `xcrun` with a fixtures-writing `list devices -j`, log install/launch argv). Update the repo `AGENTS.md` run-devices.sh bullet to mention the watch coverage and the `RUN_WATCH` override.
+
+Recon noise to ignore: this branch's draft PR #57 contains only a `DELETEME` placeholder file (no code), and there is an unstaged local `DELETEME` deletion — both are branch-start scaffolding, not ticket work.
+
+## Why SMALL
+Single script plus its stubbed shell tests (≤5 files), exact existing pattern (`run-watch.sh` + its test cases) carries the change, no schema/migration, no new subsystem or shared/convention code, no design sign-off (integration shape and a `RUN_WATCH` default are script-internal calls with an obvious minimal option), and the needed tests are few, local copies of an established fixture pattern. 0–2 unknowns, approach already known.
+
+## Key files
+- `scripts/run-devices.sh` — the change: add the watch leg (build `CheckStitchWatch`, install + launch, failure tally), `RUN_WATCH=1` default mirroring `RUN_MAC`.
+- `scripts/run-watch.sh` — reference implementation to subshell or fold (name resolution, watchOS build, install/launch, bundle id); do not break its direct use.
+- `scripts/tests/run.sh` — `run_watch_*` cases show the stub-`xcrun` + fixture pattern to clone for the new run-devices watch cases.
+- `Makefile` — `WATCH_SCHEME=CheckStitchWatch`; watch product path `${DERIVED_DATA}/Build/Products/${CONFIGURATION}-watchos/${WATCH_SCHEME}.app`.
+- `AGENTS.md` — runs `shellcheck scripts/*.sh` and `scripts/tests/run.sh` in the gate; update the run-devices bullet for watch coverage + `RUN_WATCH`.
