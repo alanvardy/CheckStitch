@@ -1231,10 +1231,10 @@ carries a new `runID` — the Phase 3/5 device checks cover that.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `WatchChecklistStoreTests`: `runBeforeActivationIsRetainedThenResentExactlyOnceOnActivation`, `aResultClearsThePendingRun`, `aRejectedResendLeavesTheRunPending`
-- [ ] `ChecklistSyncCoordinatorTests`: `duplicateRunIDCreatesOnceAndIsAckedAgain` (one create, two acks)
-- [ ] `make watch-build` passes
+- [x] `make test-unit` passes
+- [x] `WatchChecklistStoreTests`: `runBeforeActivationIsRetainedThenResentExactlyOnceOnActivation`, `aResultClearsThePendingRun`, `aRejectedResendLeavesTheRunPending`
+- [x] `ChecklistSyncCoordinatorTests`: `duplicateRunIDCreatesOnceAndIsAckedAgain` (one create, two acks)
+- [x] `make watch-build` passes
 
 #### Manual
 - [ ] Force-quit CheckStitch on the iPhone, then tap **Create reminders** on the watch: the button shows `Sending…`

@@ -177,6 +177,17 @@ public protocol ChecklistSyncTransport: AnyObject {
     @discardableResult func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool
 }
 
+/// A run the watch has started but not yet seen confirmed by the phone.
+public struct PendingRun: Equatable, Sendable {
+    public let runID: UUID
+    public let checklistID: UUID
+
+    public init(runID: UUID, checklistID: UUID) {
+        self.runID = runID
+        self.checklistID = checklistID
+    }
+}
+
 /// What the watch button shows for one run.
 public enum RunPhase: Equatable, Sendable {
     case idle
@@ -195,38 +206,55 @@ public final class WatchChecklistStore {
     }
 
     public private(set) var checklists: [Checklist] = []
-    public private(set) var pendingRunID: UUID?
+    /// Every run awaiting a phone result, keyed by run id. Replaces the
+    /// write-only `pendingRunID`: a run issued before the session is usable is
+    /// retained and re-sent on activation, and cleared only by its result.
+    public private(set) var pendingRuns: [UUID: PendingRun] = [:]
     private var phases: [UUID: RunPhase] = [:]
 
     /// The phase of `runID`; `.idle` for an unknown run.
     public func runPhase(runID: UUID) -> RunPhase { phases[runID] ?? .idle }
 
     /// Activates the transport and starts listening. Safe to call repeatedly.
-    /// The refresh is requested from `onActivated` rather than here: a send that
-    /// races `activate()` is dropped, so a cold launch would otherwise never ask
-    /// the phone for its context.
+    /// Both the refresh and the re-send hang off `onActivated`: a send that
+    /// races `activate()` is dropped, so `onActivated` is the first moment a
+    /// retained run can actually leave the watch.
     public func start() {
         transport.onMessage = { [weak self] in self?.receive($0) }
-        transport.onActivated = { [weak self] in self?.requestRefresh() }
+        transport.onActivated = { [weak self] in
+            self?.requestRefresh()
+            self?.retryPendingRuns()
+        }
         transport.activate()
     }
 
-    /// Asks the phone to create reminders for `checklist` and remembers the
-    /// run. Returns the new `runID`, or `nil` when the transport rejected the
-    /// send — `nil` means nothing was sent and the UI must not report success.
+    /// Asks the phone to create reminders for `checklist`. Always starts a run:
+    /// the request is retained and re-sent when the session becomes usable, so
+    /// the UI can honestly show `Sending…` from the first tap.
     @discardableResult
-    public func run(_ checklist: Checklist) -> UUID? {
+    public func run(_ checklist: Checklist) -> UUID {
         let runID = UUID()
-        let accepted = transport.sendUserInfo(.runChecklist(id: checklist.id, runID: runID))
+        pendingRuns[runID] = PendingRun(runID: runID, checklistID: checklist.id)
+        phases[runID] = .sending
+        send(PendingRun(runID: runID, checklistID: checklist.id))
+        return runID
+    }
+
+    /// Re-sends every run still waiting for a phone result. Exactly one send per
+    /// pending run per activation; the phone de-dups by `runID`.
+    private func retryPendingRuns() {
+        for pending in pendingRuns.values.sorted(by: { $0.runID.uuidString < $1.runID.uuidString }) {
+            send(pending)
+        }
+    }
+
+    private func send(_ pending: PendingRun) {
+        let accepted = transport.sendUserInfo(.runChecklist(id: pending.checklistID, runID: pending.runID))
         ChecklistSyncDiagnostics.log(.watchSend, [
-            "run": runID.uuidString,
-            "checklist": checklist.id.uuidString,
+            "run": pending.runID.uuidString,
+            "checklist": pending.checklistID.uuidString,
             "accepted": accepted ? "true" : "false",
         ])
-        guard accepted else { return nil }
-        pendingRunID = runID
-        phases[runID] = .sending
-        return runID
     }
 
     /// Cold launch: the phone re-pushes its context on receipt.
@@ -250,7 +278,7 @@ public final class WatchChecklistStore {
                 break
             }
         case .runResult(let result):
-            if pendingRunID == result.runID { pendingRunID = nil }
+            pendingRuns.removeValue(forKey: result.runID)
             if case .notFound = result.kind {
                 // The phone is re-pushing; ask for it too in case the push is
                 // dropped pre-activation.

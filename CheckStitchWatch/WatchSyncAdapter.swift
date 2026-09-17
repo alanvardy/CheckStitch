@@ -26,6 +26,9 @@ final class WatchSyncAdapter: NSObject, ChecklistSyncTransport {
     @discardableResult
     func sendContext(_: Data) -> Bool { false }
 
+    /// `true` means only that `WCSession` was alive and accepted the transfer
+    /// for queued delivery — never that the peer received or acted on it. The
+    /// watch therefore reports progress from `.runResult`, never from this.
     @discardableResult
     func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool {
         let state = session.activationState
