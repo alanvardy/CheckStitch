@@ -40,6 +40,7 @@ enum LocalizationFixtures {
             "Edit item",
             "How much the wallpaper fades for readability.",
             "In %lld days",
+            "Interface",
             "Item",
             "Item not found",
             "Items",
@@ -129,6 +130,8 @@ enum LocalizationFixtures {
         ExclusionEntry(catalog: "App", key: "OK"),
         // percent format string is locale-invariant
         ExclusionEntry(catalog: "App", key: "%lld%%"),
+        // fr "Interface" — same spelling as English
+        ExclusionEntry(catalog: "App", key: "Interface"),
         // de/fr "Version" — same spelling as English
         ExclusionEntry(catalog: "Core", key: "Version %@"),
     ]
