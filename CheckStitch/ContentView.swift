@@ -13,6 +13,7 @@ struct ContentView: View {
     @AppStorage("backgroundEnabled") var backgroundEnabled = true
     @AppStorage("backgroundFadePercent") var backgroundFadePercent = BackgroundFade.defaultValue
     @AppStorage("backgroundPinned") var backgroundPinned = false
+    @AppStorage("textSize") var textSize = TextSize.system
 
     @State private var path: [UUID] = []
     /// Present when the main-screen rows are in edit mode (remove/move
@@ -158,6 +159,7 @@ struct ContentView: View {
                 }
             #endif
         }
+        .modifier(TextSizeModifier(textSize: textSize))
         .task {
             // Pin BEFORE the first refresh so a pinned cold launch never
             // refetches a stale stored image (mirrors SingleThread's ordering).
@@ -547,6 +549,7 @@ extension ContentView {
             .onChange(of: bag.backgroundEnabled) { _, _ in writeBack(bag) }
             .onChange(of: bag.backgroundFadePercent) { _, _ in writeBack(bag) }
             .onChange(of: bag.backgroundPinned) { _, _ in writeBack(bag) }
+            .onChange(of: bag.textSize) { _, _ in writeBack(bag) }
     }
 
     /// Persists every staged background preference. Extracted so it is
@@ -555,6 +558,7 @@ extension ContentView {
         backgroundEnabled = bag.backgroundEnabled
         backgroundFadePercent = bag.backgroundFadePercent
         backgroundPinned = bag.backgroundPinned
+        textSize = bag.textSize
     }
 
     /// Fresh bag snapshotted from the current stored preferences on sheet open.
@@ -562,7 +566,8 @@ extension ContentView {
         SettingsBindings(
             backgroundEnabled: backgroundEnabled,
             backgroundFadePercent: backgroundFadePercent,
-            backgroundPinned: backgroundPinned)
+            backgroundPinned: backgroundPinned,
+            textSize: textSize)
     }
 
     /// Stages an import/export chosen in the Settings menu and closes the sheet,

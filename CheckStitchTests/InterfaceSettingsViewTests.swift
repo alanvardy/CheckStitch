@@ -8,10 +8,13 @@ import Testing
 struct InterfaceSettingsViewTests {
     @Test
     func interfaceSubscreenRendersAppearance() {
-        let view = InterfaceSettingsView(appearanceMode: .constant(AppearanceMode.system))
+        let view = InterfaceSettingsView(
+            appearanceMode: .constant(AppearanceMode.system),
+            textSize: .constant(.system))
         let bodyDescription = String(describing: view.body)
         #expect(bodyDescription.contains("Appearance"))
         #expect(bodyDescription.contains("Choose between system, light, and dark mode."))
+        #expect(bodyDescription.contains("Text Size"))
         #if os(macOS)
             #expect(bodyDescription.contains("SettingsSubscreenLayout"))
         #endif
@@ -20,7 +23,9 @@ struct InterfaceSettingsViewTests {
     @Test
     func interfaceSubscreenRendersAtAllAppearanceModes() {
         for mode in CheckStitch.AppearanceMode.allCases {
-            let view = InterfaceSettingsView(appearanceMode: .constant(mode))
+            let view = InterfaceSettingsView(
+                appearanceMode: .constant(mode),
+                textSize: .constant(.system))
             #expect(!String(describing: view.body).isEmpty)
         }
     }
