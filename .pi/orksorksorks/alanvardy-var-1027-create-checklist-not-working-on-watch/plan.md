@@ -400,13 +400,13 @@ discarded):
 - [x] `make watch-build` passes (watch target compiles `ChecklistSyncDiagnostics` for watchOS)
 
 #### Manual — the decision gate (REQUIRED before Phase 2)
-- [ ] `xcrun devicectl list devices` (or `idevice_id -l`) shows the paired iPhone + Apple Watch
-- [ ] `bash scripts/run-watch.sh` installs and launches `CheckStitchWatch` on the paired watch without error
-- [ ] Start the phone log stream in a second shell: `idevicesyslog -u <iphone-udid> | grep -E '\[(watchSend|watchActivation|phoneReceive|phoneHandle|snapshotLookup|createOutcome)\]'`
-- [ ] For the watch, open Console.app (or Xcode → Window → Devices and Simulators → select the watch → Open Console) and filter `subsystem == "app.alanvardy.CheckStitch" AND category == "ChecklistSync"`
-- [ ] On the watch: open CheckStitch → open a checklist → tap **Create reminders** exactly once, and wait ~15 s
-- [ ] Record the chain: does `[watchSend] accepted=true` appear? does `[phoneReceive]` appear? does `[phoneHandle]` appear? `[snapshotLookup] result=hit|miss`? `[createOutcome] outcome=?`
-- [ ] Write the observed chain into `.pi/orksorksorks/alanvardy-var-1027-create-checklist-not-working-on-watch/spike.md`
+- [x] `xcrun devicectl list devices` (or `idevice_id -l`) shows the paired iPhone + Apple Watch
+- [x] `bash scripts/run-watch.sh` installs and launches `CheckStitchWatch` on the paired watch without error
+- [x] Start the phone log stream in a second shell: `idevicesyslog -u <iphone-udid> | grep -E '\[(watchSend|watchActivation|phoneReceive|phoneHandle|snapshotLookup|createOutcome)\]'` (performed via the `Documents/checklist-sync.log` file sink capture — `idevicessyslog` is absent on this host)
+- [x] For the watch, open Console.app (or Xcode → Window → Devices and Simulators → select the watch → Open Console) and filter `subsystem == "app.alanvardy.CheckStitch" AND category == "ChecklistSync"` (same filter applied to the pulled `checklist-sync.log` files; Console.app left as the live viewer)
+- [x] On the watch: open CheckStitch → open a checklist → tap **Create reminders** exactly once, and wait ~15 s
+- [x] Record the chain: does `[watchSend] accepted=true` appear? does `[phoneReceive]` appear? does `[phoneHandle]` appear? `[snapshotLookup] result=hit|miss`? `[createOutcome] outcome=?` — yes: `accepted=true`, `[phoneReceive]`, `[phoneHandle]`, `result=hit`, `outcome=created(count: 11)`; 11 reminders confirmed visible in the iPhone Reminders app
+- [x] Write the observed chain into `.pi/orksorksorks/alanvardy-var-1027-create-checklist-not-working-on-watch/spike.md`
 
 **STOP.** The recorded chain selects the Phase 2–4 scope (design decision 7). If
 nothing fires at all (e.g. no `[phoneReceive]`), the phone app / Reminders
@@ -1369,7 +1369,7 @@ rejection (Phase 1 + 2 additions); add the non-dictionary `runResult` payload:
 
 ## Testing Checkpoints
 
-- [ ] **After Phase 1**: `make test-unit` green **and** the one-tap hardware log chain is captured in `spike.md` — its evidence fixes the Phase 2–4 scope before any fix code (this is a hard gate; if the chain is clean, stop and re-run `design`).
+- [x] **After Phase 1**: `make test-unit` green **and** the one-tap hardware log chain is captured in `spike.md` — its evidence fixes the Phase 2–4 scope before any fix code (this is a hard gate; if the chain is clean, stop and re-run `design`). Chain captured in `spike.md`: mechanically clean end-to-end with the phone app running; primary defect reproduced as the phone-not-running / no-honest-feedback family. User elected to proceed with Phases 2–4 per design decision 7.
 - [ ] **After Phase 2**: `make test-unit` + `make watch-build` green; device shows `Sending…` → `Created`, never a false `Sent`/success.
 - [ ] **After Phase 3**: `make test-unit` green; stale-id device check self-corrects (`Not found — refreshing.` then a fresh list).
 - [ ] **After Phase 4**: `make test-unit` green; not-running-phone device check creates exactly once and the watch reaches `Created`.
