@@ -66,7 +66,9 @@ a separate watch workflow.
 ## Running a release
 
 1. Xcode → **Cloud** tab → `TestFlight – iOS` → **Start Build** (or App Store
-   Connect → Xcode Cloud → the workflow → Start Build). Pick branch `main`.
+   Connect → Xcode Cloud → the workflow → Start Build), or the terminal
+   equivalent `xcode-cloud build` — see *Triggering from the command line*.
+   Pick branch `main`.
 2. Wait for **Succeeded**. The archive log should show the watch app embedded
    and no `ITMS-` or provisioning errors.
 3. App Store Connect → CheckStitch → TestFlight: the build moves *Processing* →
@@ -75,6 +77,41 @@ a separate watch workflow.
 4. First upload only: answer **Export Compliance** on the build ("does not use
    encryption").
 5. Testers install from the TestFlight app.
+
+## Triggering from the command line
+
+`xcode-cloud` (dotfiles `pi/agent/bin/xcode-cloud`) starts this workflow through
+the App Store Connect API. That is the only programmatic door — Xcode has no
+CLI for Xcode Cloud.
+
+```bash
+xcode-cloud check                      # resolve product, workflow, main ref
+xcode-cloud build                      # start a build of main
+xcode-cloud build --clean --wait       # clean build, poll to the outcome
+xcode-cloud status                     # the last few build runs
+xcode-cloud status <build-run-id>
+```
+
+One-time setup, all machine-local and never committed:
+
+1. App Store Connect → Users and Access → Integrations → Team Keys → `+`, with
+   the **Admin** or **App Manager** role (Xcode Cloud refuses less). Download
+   the `.p8` — offered once — to
+   `~/.appstoreconnect/private_keys/AuthKey_<KEY ID>.p8` and `chmod 600` it.
+2. Copy `.env.example` to `.env` (gitignored) and paste the **Key ID** and
+   **Issuer ID**. The same key works for SingleThread; it is shared per team.
+3. `xcode-cloud check` resolves the product, workflow and `main` reference.
+
+Notes:
+
+- API builds count as **manual** builds, so `main` must stay in the workflow's
+  start conditions. If it is removed, the API answers `409` and `xcode-cloud`
+  says which fix is needed.
+- Bundle id, product, workflow and git reference are resolved live on every
+  run; no ids are hardcoded here, so renaming the workflow in Xcode does not
+  break the CLI.
+- A build started this way consumes Xcode Cloud compute hours exactly like one
+  started from Xcode.
 
 ## When it breaks
 
@@ -114,8 +151,10 @@ Deliberate gaps — do not "fix" them by adding a second release mechanism:
 
 - No `ci_scripts/`, no `ci_post_clone.sh`.
 - No `.github/workflows`; Xcode Cloud is the CI.
-- No App Store Connect API key, no `altool`/Transporter scripting, no
-  `exportOptions.plist`.
+- No App Store Connect API key **in the repository**, no `altool`/Transporter
+  scripting, no `exportOptions.plist`. The optional `xcode-cloud` helper reads
+  the Key ID and Issuer ID from a gitignored, machine-local `.env` and keeps
+  the `.p8` in `~/.appstoreconnect`; nothing about the key is committed.
 - No `Makefile` release target, no build-number automation.
 - No macOS TestFlight workflow here (fast-follow).
 - No external testers, no App Store submission.
