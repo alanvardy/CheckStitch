@@ -61,4 +61,9 @@ struct ChecklistSyncMessageTests {
             ],
         ]) == nil)
     }
+
+    @Test
+    func runResultWithANonDictionaryPayloadIsRejected() {
+        #expect(ChecklistSyncMessage(userInfo: [ChecklistSyncKey.runResult: "nope"]) == nil)
+    }
 }

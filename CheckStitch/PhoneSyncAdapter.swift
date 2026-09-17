@@ -39,7 +39,13 @@ final class PhoneSyncAdapter: NSObject, ChecklistSyncTransport {
     /// survives the watch app not running. `true` is acceptance, not delivery.
     @discardableResult
     func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool {
-        guard session.activationState == .activated else { return false }
+        guard session.activationState == .activated else {
+            ChecklistSyncDiagnostics.log(.phoneHandle, [
+                "message": message.diagnosticName,
+                "send": "session-not-activated",
+            ])
+            return false
+        }
         session.transferUserInfo(message.userInfo)
         return true
     }
@@ -62,11 +68,29 @@ extension PhoneSyncAdapter: WCSessionDelegate {
 
     nonisolated func session(_: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
         guard let message = ChecklistSyncMessage(userInfo: userInfo) else {
+            // No run id is recoverable, so there is nobody to answer — log and
+            // drop. Every decodable message gets a reply below.
             ChecklistSyncDiagnostics.log(.phoneReceive, ["source": "userInfo", "decode": "rejected"])
             return
         }
         ChecklistSyncDiagnostics.log(.phoneReceive, ["source": "userInfo", "message": message.diagnosticName])
-        Task { @MainActor [weak self] in self?.onMessage?(message) }
+        Task { @MainActor [weak self] in
+            guard let self else {
+                ChecklistSyncDiagnostics.log(.phoneReceive, ["source": "userInfo", "handler": "self-nil"])
+                return
+            }
+            guard let onMessage = self.onMessage else {
+                // Arrived before `coordinator.start()` installed the handler:
+                // answer with a failure so the watch is not left on `Sending…`.
+                ChecklistSyncDiagnostics.log(.phoneReceive, ["source": "userInfo", "handler": "unset"])
+                if case .runChecklist(let id, let runID) = message {
+                    self.sendUserInfo(.runResult(
+                        RunResult(runID: runID, checklistID: id, kind: .failed)))
+                }
+                return
+            }
+            onMessage(message)
+        }
     }
 
     nonisolated func session(_: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
