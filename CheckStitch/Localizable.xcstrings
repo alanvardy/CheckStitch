@@ -3446,13 +3446,13 @@
         }
       }
     },
-    "When the background is enabled, the wallpaper and artist information are downloaded from a proxy at vardy.cc. This is the app's only network request, and it never includes any reminder, checklist, or preference data." : {
+    "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This is the app's only network traffic, and it never includes any reminder, checklist, or preference data." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When the background is enabled, the wallpaper and artist information are downloaded from a proxy at vardy.cc. This is the app's only network request, and it never includes any reminder, checklist, or preference data."
+            "value" : "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This is the app's only network traffic, and it never includes any reminder, checklist, or preference data."
           }
         },
         "de" : {

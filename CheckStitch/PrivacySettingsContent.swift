@@ -36,8 +36,8 @@ enum PrivacyGuideContent {
             + "never sent to the author or any third party.")
         let backgroundTitle = localized("Background Image")
         let backgroundBody = localized("When the background is enabled, the wallpaper "
-            + "and artist information are downloaded from a proxy at vardy.cc. "
-            + "This is the app's only network request, and it never includes any "
+            + "and artist information are fetched via a proxy at vardy.cc. "
+            + "This is the app's only network traffic, and it never includes any "
             + "reminder, checklist, or preference data.")
         return [
             PrivacySection(id: "reminders", title: remindersTitle, body: remindersBody),
