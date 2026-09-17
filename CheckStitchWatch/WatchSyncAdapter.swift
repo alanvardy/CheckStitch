@@ -62,7 +62,22 @@ extension WatchSyncAdapter: WCSessionDelegate {
     }
 
     nonisolated func session(_: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        guard let message = ChecklistSyncMessage(userInfo: applicationContext) else { return }
+        receive(applicationContext, source: "context")
+    }
+
+    /// The phone's `runResult` arrives here: it is sent with `transferUserInfo`
+    /// so it survives this app not running. Without this handler the watch would
+    /// stay on `Sending…` forever — the silent-drop class this ticket fixes.
+    nonisolated func session(_: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        receive(userInfo, source: "userInfo")
+    }
+
+    private nonisolated func receive(_ userInfo: [String: Any], source: String) {
+        guard let message = ChecklistSyncMessage(userInfo: userInfo) else {
+            ChecklistSyncDiagnostics.log(.watchReceive, ["source": source, "decode": "rejected"])
+            return
+        }
+        ChecklistSyncDiagnostics.log(.watchReceive, ["source": source, "message": message.diagnosticName])
         Task { @MainActor [weak self] in self?.onMessage?(message) }
     }
 }
