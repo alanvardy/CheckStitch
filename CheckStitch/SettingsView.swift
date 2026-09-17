@@ -61,6 +61,15 @@ struct SettingsView: View {
 
                 Section {
                     NavigationLink {
+                        PrivacySettingsView()
+                    } label: {
+                        Label("Privacy Policy", systemImage: "hand.raised")
+                    }
+                    .accessibilityIdentifier("settingsPrivacyRow")
+                }
+
+                Section {
+                    NavigationLink {
                         AboutView()
                     } label: {
                         Label("About", systemImage: "info.circle")

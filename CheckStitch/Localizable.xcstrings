@@ -3199,6 +3199,334 @@
           }
         }
       }
+    },
+    "Background Image" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Background Image"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hintergrundbild"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen de fondo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image d'arrière-plan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景画像"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景图片"
+          }
+        }
+      }
+    },
+    "Checklists & Sync" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checklists & Sync"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checklisten & Synchronisierung"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listas de verificación y sincronización"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listes de contrôle et synchronisation"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チェックリストと同期"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清单与同步"
+          }
+        }
+      }
+    },
+    "CheckStitch has no analytics, no tracking, and no advertising." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch has no analytics, no tracking, and no advertising."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch verwendet keine Analytik, kein Tracking und keine Werbung."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch no utiliza analíticas ni seguimiento y no muestra publicidad."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch n'utilise aucune analytique, aucun suivi et aucune publicité."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitchはアナリティクス、トラッキング、広告を一切使用しません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch不进行任何分析、跟踪或广告展示。"
+          }
+        }
+      }
+    },
+    "Privacy Policy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datenschutzrichtlinie"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Política de privacidad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Politique de confidentialité"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライバシーポリシー"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐私政策"
+          }
+        }
+      }
+    },
+    "Reminders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erinnerungen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recordatorios"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rappels"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リマインダー"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒事项"
+          }
+        }
+      }
+    },
+    "Reminders are created through Apple Reminders and appear in your Reminders inbox. They stay on your device or in your own iCloud account, and are never sent to the author or any third party. CheckStitch never reads, edits, completes, or deletes reminders after creating them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders are created through Apple Reminders and appear in your Reminders inbox. They stay on your device or in your own iCloud account, and are never sent to the author or any third party. CheckStitch never reads, edits, completes, or deletes reminders after creating them."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erinnerungen werden über Apple Erinnerungen erstellt und erscheinen in Ihrem Erinnerungen-Posteingang. Sie bleiben auf Ihrem Gerät oder in Ihrem eigenen iCloud-Konto und werden nie an den Autor oder an Dritte gesendet. CheckStitch liest, bearbeitet, schließt oder löscht Erinnerungen nach ihrer Erstellung nie."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los recordatorios se crean a través de Recordatorios de Apple y aparecen en su bandeja de entrada de Recordatorios. Permanecen en su dispositivo o en su propia cuenta de iCloud y nunca se envían al autor ni a terceros. CheckStitch nunca lee, edita, completa ni elimina recordatorios después de crearlos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les rappels sont créés via l'application Rappels d'Apple et apparaissent dans votre boîte de réception Rappels. Ils restent sur votre appareil ou dans votre propre compte iCloud et ne sont jamais envoyés à l'auteur ni à un tiers. CheckStitch ne lit, ne modifie, ne termine et ne supprime jamais les rappels après les avoir créés."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リマインダーはAppleのリマインダーを通じて作成され、リマインダーの受信トレイに表示されます。リマインダーはお使いのデバイスまたはご自身のiCloudアカウント内にのみ保存され、作者や第三者に送信されることはありません。CheckStitchはリマインダーを作成した後、それらを読み取り、編集、完了、削除することは一切ありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒事项通过Apple提醒创建，并显示在您的提醒收件箱中。它们只保存在您的设备或您自己的iCloud账户中，绝不会发送给作者或任何第三方。CheckStitch在创建提醒事项后，绝不会对它们进行读取、编辑、完成或删除。"
+          }
+        }
+      }
+    },
+    "When the background is enabled, the wallpaper and artist information are downloaded from a proxy at vardy.cc. This is the app's only network request, and it never includes any reminder, checklist, or preference data." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When the background is enabled, the wallpaper and artist information are downloaded from a proxy at vardy.cc. This is the app's only network request, and it never includes any reminder, checklist, or preference data."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn der Hintergrund aktiviert ist, werden das Hintergrundbild und die Künstlerinformationen von einem Proxy unter vardy.cc heruntergeladen. Dies ist die einzige Netzwerkanfrage der App, und sie enthält niemals Erinnerungs-, Checklisten- oder Präferenzdaten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando el fondo está activado, el fondo de pantalla y la información del artista se descargan desde un proxy en vardy.cc. Esta es la única solicitud de red de la aplicación y nunca incluye datos de recordatorios, listas de verificación ni preferencias."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lorsque l'arrière-plan est activé, le fond d'écran et les informations sur l'artiste sont téléchargés depuis un proxy à vardy.cc. C'est la seule requête réseau de l'application, et elle ne contient jamais de données de rappel, de liste de contrôle ni de préférences."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景を有効にすると、壁紙とアーティスト情報がvardy.ccのプロキシからダウンロードされます。これはアプリの唯一のネットワークリクエストであり、リマインダー、チェックリスト、設定データが含まれることはありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用背景后，壁纸和艺术家信息会从vardy.cc的代理服务器下载。这是应用唯一的网络请求，绝不会包含任何提醒事项、清单或偏好数据。"
+          }
+        }
+      }
+    },
+    "Your checklists are stored on your device in shared app storage and synced through your own iCloud account. They are never sent to the author or any third party." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your checklists are stored on your device in shared app storage and synced through your own iCloud account. They are never sent to the author or any third party."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre Checklisten werden auf Ihrem Gerät im gemeinsamen App-Speicher abgelegt und über Ihr eigenes iCloud-Konto synchronisiert. Sie werden nie an den Autor oder an Dritte gesendet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sus listas de verificación se almacenan en su dispositivo en el almacenamiento compartido de la aplicación y se sincronizan a través de su propia cuenta de iCloud. Nunca se envían al autor ni a terceros."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos listes de contrôle sont stockées sur votre appareil dans le stockage partagé de l'application et sont synchronisées via votre propre compte iCloud. Elles ne sont jamais envoyées à l'auteur ni à un tiers."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チェックリストは、アプリの共有ストレージ内のお使いのデバイスに保存され、ご自身のiCloudアカウントを通じて同期されます。作者や第三者に送信されることはありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "您的清单存储在您设备上的共享应用存储中，并通过您自己的iCloud账户进行同步。它们绝不会发送给作者或任何第三方。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
