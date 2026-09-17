@@ -813,9 +813,9 @@ existing `"Sent"` key is left in place — removing keys is out of scope.)
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make watch-build` passes (detail view compiles against `RunPhase`)
-- [ ] `make build` passes
+- [x] `make test-unit` passes
+- [x] `make watch-build` passes (detail view compiles against `RunPhase`)
+- [x] `make build` passes
 
 #### Manual
 - [ ] `bash scripts/run-watch.sh`, tap **Create reminders** with the phone app running: the button reads `Sending…` and then `Created`

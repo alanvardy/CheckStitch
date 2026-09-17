@@ -7,6 +7,77 @@ public enum ChecklistSyncKey {
     public static let runChecklist = "runChecklist"
     public static let runChecklistRunID = "runChecklistRunID"
     public static let requestChecklists = "requestChecklists"
+    public static let runResult = "runResult"
+    public static let runResultRunID = "runID"
+    public static let runResultChecklistID = "checklistID"
+    public static let runResultKind = "kind"
+    public static let runResultCount = "count"
+}
+
+/// The phone's answer to one run request. Mirrors `ReminderRunOutcome` and
+/// drops the free-form failure message: the watch renders a fixed reason per
+/// kind.
+public enum RunResultKind: Equatable, Sendable {
+    case created(Int)
+    case permissionDenied
+    case destinationMissing
+    case failed
+
+    public init(_ outcome: ReminderRunOutcome) {
+        switch outcome {
+        case .created(let count): self = .created(count)
+        case .permissionDenied: self = .permissionDenied
+        case .destinationMissing: self = .destinationMissing
+        case .failed: self = .failed
+        }
+    }
+
+    /// Short user-facing reason. Plain English, matching
+    /// `ReminderRunOutcome.errorMessage` (Core reason strings are not
+    /// localized in this repo).
+    public var message: String {
+        switch self {
+        case .created(let count): "Created \(count) reminders."
+        case .permissionDenied: "CheckStitch doesn't have permission to access Reminders."
+        case .destinationMissing: "That list no longer exists."
+        case .failed: "Couldn't create reminders."
+        }
+    }
+
+    var wireName: String {
+        switch self {
+        case .created: "created"
+        case .permissionDenied: "permissionDenied"
+        case .destinationMissing: "destinationMissing"
+        case .failed: "failed"
+        }
+    }
+
+    init?(wireName: String, count: Int?) {
+        switch wireName {
+        case "created":
+            guard let count else { return nil }
+            self = .created(count)
+        case "permissionDenied": self = .permissionDenied
+        case "destinationMissing": self = .destinationMissing
+        case "failed": self = .failed
+        default: return nil
+        }
+    }
+}
+
+/// One completed (or refused) run, echoed back to the watch so its button
+/// reflects the phone, not the transport.
+public struct RunResult: Equatable, Sendable {
+    public let runID: UUID
+    public let checklistID: UUID
+    public let kind: RunResultKind
+
+    public init(runID: UUID, checklistID: UUID, kind: RunResultKind) {
+        self.runID = runID
+        self.checklistID = checklistID
+        self.kind = kind
+    }
 }
 
 /// The two directions of the watch protocol. `UUID` is not a plist type, so it
@@ -20,6 +91,9 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
     case runChecklist(id: UUID, runID: UUID)
     /// Watch → phone, via `transferUserInfo` (cold launch re-push request).
     case requestChecklists
+    /// Phone → watch, via `transferUserInfo` (the phone's answer to a run).
+    /// `runID` echoes the request's id so the watch can match the result.
+    case runResult(RunResult)
 
     public init?(userInfo: [String: Any]) {
         if let data = userInfo[ChecklistSyncKey.context] as? Data {
@@ -31,6 +105,14 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
             self = .runChecklist(id: id, runID: runID)
         } else if userInfo[ChecklistSyncKey.requestChecklists] as? Bool == true {
             self = .requestChecklists
+        } else if let dict = userInfo[ChecklistSyncKey.runResult] as? [String: Any],
+                  let runRaw = dict[ChecklistSyncKey.runResultRunID] as? String,
+                  let runID = UUID(uuidString: runRaw),
+                  let checklistRaw = dict[ChecklistSyncKey.runResultChecklistID] as? String,
+                  let checklistID = UUID(uuidString: checklistRaw),
+                  let kindRaw = dict[ChecklistSyncKey.runResultKind] as? String,
+                  let kind = RunResultKind(wireName: kindRaw, count: dict[ChecklistSyncKey.runResultCount] as? Int) {
+            self = .runResult(RunResult(runID: runID, checklistID: checklistID, kind: kind))
         } else {
             return nil
         }
@@ -45,7 +127,22 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
              ChecklistSyncKey.runChecklistRunID: runID.uuidString]
         case .requestChecklists:
             [ChecklistSyncKey.requestChecklists: true]
+        case .runResult(let result):
+            [ChecklistSyncKey.runResult: runResultDict(result)]
         }
+    }
+
+    /// The `runResult` payload, including `count` only for `.created`.
+    private func runResultDict(_ result: RunResult) -> [String: Any] {
+        var dict: [String: Any] = [
+            ChecklistSyncKey.runResultRunID: result.runID.uuidString,
+            ChecklistSyncKey.runResultChecklistID: result.checklistID.uuidString,
+            ChecklistSyncKey.runResultKind: result.kind.wireName,
+        ]
+        if case .created(let count) = result.kind {
+            dict[ChecklistSyncKey.runResultCount] = count
+        }
+        return dict
     }
 
     /// Compact description for the `ChecklistSyncDiagnostics` records.
@@ -54,6 +151,8 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
         case .context(let data): "context(\(data.count))b"
         case .runChecklist(let id, let runID): "runChecklist(id:\(id.uuidString),run:\(runID.uuidString))"
         case .requestChecklists: "requestChecklists"
+        case .runResult(let result):
+            "runResult(run:\(result.runID.uuidString),kind:\(result.kind.wireName))"
         }
     }
 }
@@ -73,6 +172,14 @@ public protocol ChecklistSyncTransport: AnyObject {
     @discardableResult func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool
 }
 
+/// What the watch button shows for one run.
+public enum RunPhase: Equatable, Sendable {
+    case idle
+    case sending
+    case created(Int)
+    case failed(String)
+}
+
 /// The watch's observable state: a mirror of the phone's checklist set, plus
 /// the last run requested. It never touches EventKit.
 @MainActor
@@ -84,6 +191,10 @@ public final class WatchChecklistStore {
 
     public private(set) var checklists: [Checklist] = []
     public private(set) var pendingRunID: UUID?
+    private var phases: [UUID: RunPhase] = [:]
+
+    /// The phase of `runID`; `.idle` for an unknown run.
+    public func runPhase(runID: UUID) -> RunPhase { phases[runID] ?? .idle }
 
     /// Activates the transport and starts listening. Safe to call repeatedly.
     /// The refresh is requested from `onActivated` rather than here: a send that
@@ -109,6 +220,7 @@ public final class WatchChecklistStore {
         ])
         guard accepted else { return nil }
         pendingRunID = runID
+        phases[runID] = .sending
         return runID
     }
 
@@ -131,6 +243,12 @@ public final class WatchChecklistStore {
                 checklists = envelope.checklists
             default:
                 break
+            }
+        case .runResult(let result):
+            if pendingRunID == result.runID { pendingRunID = nil }
+            phases[result.runID] = switch result.kind {
+            case .created(let count): .created(count)
+            case .permissionDenied, .destinationMissing, .failed: .failed(result.kind.message)
             }
         case .runChecklist, .requestChecklists:
             break // phone-only directions
