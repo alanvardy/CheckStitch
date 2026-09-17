@@ -59,7 +59,7 @@ struct WatchChecklistStoreTests {
         let runID = try #require(store.run(checklist))
 
         #expect(transport.sentMessages == [.runChecklist(id: checklist.id, runID: runID)])
-        #expect(store.pendingRunID == runID)
+        #expect(store.pendingRuns[runID]?.checklistID == checklist.id)
     }
 
     @Test
@@ -84,13 +84,52 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
-    func aRejectedSendStartsNoRun() {
+    func runBeforeActivationIsRetainedThenResentExactlyOnceOnActivation() throws {
         let transport = FakeChecklistSyncTransport()
         transport.acceptsSends = false
         let store = WatchChecklistStore(transport: transport)
+        let checklist = Checklist(name: "Groceries")
+        store.start()
 
-        #expect(store.run(Checklist(name: "Groceries")) == nil)
-        #expect(store.pendingRunID == nil)
+        let runID = store.run(checklist)
+        #expect(store.pendingRuns[runID]?.checklistID == checklist.id)
+
+        transport.acceptsSends = true
+        transport.completeActivation()
+
+        let runSends = transport.sentMessages.filter { if case .runChecklist = $0 { return true }; return false }
+        #expect(runSends == [
+            .runChecklist(id: checklist.id, runID: runID),   // the rejected first attempt
+            .runChecklist(id: checklist.id, runID: runID),   // the activation re-send
+        ])
+    }
+
+    @Test
+    func aResultClearsThePendingRun() {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let checklist = Checklist(name: "Groceries")
+        let runID = store.run(checklist)
+
+        transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .created(1))))
+
+        #expect(store.pendingRuns.isEmpty)
+        #expect(store.runPhase(runID: runID) == .created(1))
+    }
+
+    @Test
+    func aRejectedResendLeavesTheRunPending() {
+        let transport = FakeChecklistSyncTransport()
+        transport.acceptsSends = false
+        let store = WatchChecklistStore(transport: transport)
+        let checklist = Checklist(name: "Groceries")
+        store.start()
+        let runID = store.run(checklist)
+
+        transport.completeActivation()   // still refusing sends
+
+        #expect(store.pendingRuns[runID] != nil)
     }
 
     @Test
@@ -106,7 +145,7 @@ struct WatchChecklistStoreTests {
         transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .created(2))))
 
         #expect(store.runPhase(runID: runID) == .created(2))
-        #expect(store.pendingRunID == nil)
+        #expect(store.pendingRuns.isEmpty)
     }
 
     @Test
@@ -120,7 +159,7 @@ struct WatchChecklistStoreTests {
         transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .permissionDenied)))
 
         #expect(store.runPhase(runID: runID) == .failed(RunResultKind.permissionDenied.message))
-        #expect(store.pendingRunID == nil)
+        #expect(store.pendingRuns.isEmpty)
     }
 
     @Test
@@ -131,7 +170,7 @@ struct WatchChecklistStoreTests {
 
         transport.deliver(.runResult(RunResult(runID: UUID(), checklistID: UUID(), kind: .failed)))
 
-        #expect(store.pendingRunID == nil)
+        #expect(store.pendingRuns.isEmpty)
     }
 
     @Test
@@ -146,7 +185,7 @@ struct WatchChecklistStoreTests {
 
         #expect(transport.sentMessages.contains(.requestChecklists))
         #expect(store.runPhase(runID: runID) == .failed(RunResultKind.notFound.message))
-        #expect(store.pendingRunID == nil)
+        #expect(store.pendingRuns.isEmpty)
     }
 
     @Test

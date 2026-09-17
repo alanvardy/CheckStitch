@@ -35,6 +35,8 @@ final class PhoneSyncAdapter: NSObject, ChecklistSyncTransport {
         }
     }
 
+    /// Phone → watch is a queued command (`transferUserInfo`), so a result
+    /// survives the watch app not running. `true` is acceptance, not delivery.
     @discardableResult
     func sendUserInfo(_ message: ChecklistSyncMessage) -> Bool {
         guard session.activationState == .activated else { return false }

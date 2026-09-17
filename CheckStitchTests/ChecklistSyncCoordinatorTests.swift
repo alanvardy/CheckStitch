@@ -191,4 +191,23 @@ struct ChecklistSyncCoordinatorTests {
         #expect(transport.sentContexts.count == 2)
         #expect(ChecklistCodec.decode(transport.sentContexts[1]) == checklists)
     }
+
+    @Test
+    func duplicateRunIDCreatesOnceAndIsAckedAgain() async {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])
+        let coordinator = makeCoordinator(transport: transport, checklists: [checklist], runner: runner)
+        coordinator.start()
+
+        let runID = UUID()
+        transport.deliver(.runChecklist(id: checklist.id, runID: runID))
+        for _ in 0..<50 where runner.created.isEmpty { await Task.yield() }
+        transport.deliver(.runChecklist(id: checklist.id, runID: runID))
+        await Task.yield()
+
+        #expect(runner.created.count == 1)
+        #expect(transport.sentMessages.filter { $0 == .runResult(
+            RunResult(runID: runID, checklistID: checklist.id, kind: .created(1))) }.count == 2)
+    }
 }
