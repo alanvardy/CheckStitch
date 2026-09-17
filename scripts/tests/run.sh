@@ -325,7 +325,10 @@ run_devices_watch_errors_on_unknown_device() {
     status=$?
     set -e
     [[ $status -ne 0 ]] || return 1
-    [[ "$out" == *"Could not resolve"* ]]
+    [[ "$out" == *"Could not resolve"* ]] || return 1
+    # The unknown watch does not break the macOS leg.
+    grep -q 'build-mac-signed' "$STUB_ROOT/make.log" && [[ -s "$STUB_ROOT/open.log" ]] || return 1
+    true
 }
 
 run_devices_watch_matches_typographic_device_name() {

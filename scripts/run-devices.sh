@@ -18,8 +18,8 @@ set -euo pipefail
 # off this Wi-Fi, unplugged mid-run) is detected during discovery and reported
 # — the remaining devices still get built and run; an unreachable device counts
 # as a failed step so the run exits non-zero. If no iOS devices are found and
-# RUN_MAC=1, the script still does the macOS step; set RUN_MAC=0 to keep the
-# old fail-fast behavior. The macOS app is built signed (make build-mac-signed)
+# RUN_MAC=1, the script still does the macOS step (and, with RUN_WATCH=1, the
+# Apple Watch leg); set RUN_MAC=0 to keep the old fail-fast behavior. The macOS app is built signed (make build-mac-signed)
 # so the App Group / KVS entitlements from AppGroup.entitlements land in the
 # embedded provisioning profile and the key-value store syncs through iCloud.
 
@@ -104,7 +104,7 @@ if [[ ${#DEVICES[@]} -eq 0 ]]; then
         exit 1
     fi
     if [[ "$RUN_MAC" -eq 1 ]]; then
-        echo "  (no iPhone/iPad with Developer Mode enabled found — macOS run only)"
+        echo "  (no iPhone/iPad with Developer Mode enabled found — macOS + Apple Watch run only)"
     else
         echo "❌ No iPhone/iPad with Developer Mode enabled found." >&2
         echo "   Plug in the device and enable Settings → Privacy & Security → Developer Mode, then retry." >&2
