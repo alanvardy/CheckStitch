@@ -11,6 +11,7 @@ struct SettingsBindingsTests {
         #expect(bag.backgroundEnabled)
         #expect(bag.backgroundFadePercent == BackgroundFade.defaultValue)
         #expect(!bag.backgroundPinned)
+        #expect(bag.textSize == .system)
     }
 
     @Test
@@ -31,6 +32,7 @@ struct SettingsBindingsTests {
         UserDefaults.standard.set(false, forKey: "backgroundEnabled")
         UserDefaults.standard.set(70, forKey: "backgroundFadePercent")
         UserDefaults.standard.set(true, forKey: "backgroundPinned")
+        UserDefaults.standard.set("large", forKey: "textSize")
         defer { Self.clearPreferences() }
 
         let view = ContentView()
@@ -39,6 +41,7 @@ struct SettingsBindingsTests {
         #expect(!bag.backgroundEnabled)
         #expect(bag.backgroundFadePercent == 70)
         #expect(bag.backgroundPinned)
+        #expect(bag.textSize == .large)
     }
 
     @Test
@@ -48,17 +51,19 @@ struct SettingsBindingsTests {
         let bag = SettingsBindings(
             backgroundEnabled: false,
             backgroundFadePercent: 70,
-            backgroundPinned: true)
+            backgroundPinned: true,
+            textSize: .extraLarge)
 
         view.writeBack(bag)
 
         #expect(UserDefaults.standard.bool(forKey: "backgroundEnabled") == false)
         #expect(UserDefaults.standard.integer(forKey: "backgroundFadePercent") == 70)
         #expect(UserDefaults.standard.bool(forKey: "backgroundPinned") == true)
+        #expect(UserDefaults.standard.string(forKey: "textSize") == "extraLarge")
     }
 
     private static func clearPreferences() {
-        for key in ["backgroundEnabled", "backgroundFadePercent", "backgroundPinned"] {
+        for key in ["backgroundEnabled", "backgroundFadePercent", "backgroundPinned", "textSize"] {
             UserDefaults.standard.removeObject(forKey: key)
         }
     }

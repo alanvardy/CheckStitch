@@ -5,6 +5,7 @@ import SwiftUI
 /// matching `BackgroundSettingsView`.
 struct InterfaceSettingsView: View {
     @Binding var appearanceMode: AppearanceMode
+    @Binding var textSize: TextSize
 
     var body: some View {
         Form {
@@ -20,6 +21,19 @@ struct InterfaceSettingsView: View {
                 }
             }
             .accessibilityIdentifier("appearancePicker")
+
+            Picker(selection: $textSize) {
+                ForEach(TextSize.allCases, id: \.self) { size in
+                    Label(size.title, systemImage: size.systemImage)
+                        .tag(size)
+                }
+            } label: {
+                VStack(alignment: .leading) {
+                    Text("Text Size")
+                    caption("Adjust the size of text throughout the app.")
+                }
+            }
+            .accessibilityIdentifier("textSizePicker")
         }
         .navigationTitle("Interface")
         .settingsSubscreenLayout()
@@ -35,6 +49,8 @@ struct InterfaceSettingsView: View {
 
 #Preview {
     NavigationStack {
-        InterfaceSettingsView(appearanceMode: .constant(AppearanceMode.system))
+        InterfaceSettingsView(
+            appearanceMode: .constant(AppearanceMode.system),
+            textSize: .constant(.system))
     }
 }
