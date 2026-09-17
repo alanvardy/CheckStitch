@@ -59,8 +59,9 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   Test targets deliberately do **not** set `SWIFT_DEFAULT_ACTOR_ISOLATION`, so
   suites opt in with `@MainActor` — never restore the app's default there.
 - `bash scripts/run-devices.sh` — install + launch on a real device
-  (requires Developer Mode; prefers an iPhone). Honours `SCHEME`,
-  `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA` overrides.
+  (requires Developer Mode; prefers an iPhone), plus the host Mac and the
+  paired Apple Watch via the `run-watch.sh` leg (`RUN_WATCH=0` to skip it).
+  Honours `SCHEME`, `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA` overrides.
 - Destination precedence is documented in the `Makefile`: explicit `SIM=` >
   this worktree's `.simulator_id` > shared default. Never leave a bare
   `name=` destination in a script — it selects a shared device and wedges
