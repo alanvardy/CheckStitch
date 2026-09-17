@@ -1352,9 +1352,9 @@ rejection (Phase 1 + 2 additions); add the non-dictionary `runResult` payload:
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `./scripts/test.sh` prints `gate: ok` (full gate: `make build` → `make test` → `make build-mac` → `make watch-build` → `scripts/tests/run.sh` → `shellcheck`)
-- [ ] No new silent paths remain on the run path: every `.runChecklist` that decodes is answered by exactly one `.runResult` (phone unit test + `[phoneHandle]` logs)
+- [x] `make test-unit` passes
+- [x] `./scripts/test.sh` prints `gate: ok` (full gate: `make build` → `make test` → `make build-mac` → `make watch-build` → `scripts/tests/run.sh` → `shellcheck`)
+- [x] No new silent paths remain on the run path: every `.runChecklist` that decodes is answered by exactly one `.runResult` (phone unit test + `[phoneHandle]` logs)
 
 #### Manual — the closing verdict (sync tickets cannot close on static evidence)
 - [ ] `bash scripts/run-watch.sh` installs + launches the watch app

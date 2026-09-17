@@ -235,4 +235,23 @@ struct WatchChecklistStoreTests {
         #expect(stored.relativeDateRevision == 3)
         #expect(stored.relativeDateModifiedAt == reference)
     }
+
+    @Test(arguments: [
+        (RunResultKind.created(3), RunPhase.created(3)),
+        (.permissionDenied, .failed(RunResultKind.permissionDenied.message)),
+        (.destinationMissing, .failed(RunResultKind.destinationMissing.message)),
+        (.notFound, .failed(RunResultKind.notFound.message)),
+        (.failed, .failed(RunResultKind.failed.message)),
+    ])
+    func everyResultKindMapsToAUserVisiblePhase(kind: RunResultKind, phase: RunPhase) {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+        let checklist = Checklist(name: "Groceries")
+        let runID = store.run(checklist)
+
+        transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: kind)))
+
+        #expect(store.runPhase(runID: runID) == phase)
+    }
 }
