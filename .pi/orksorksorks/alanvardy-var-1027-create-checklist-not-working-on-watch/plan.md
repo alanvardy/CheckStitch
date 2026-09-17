@@ -899,8 +899,8 @@ checklist from the list or replaces the pushed `checklist` value.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `ChecklistSyncCoordinatorTests`: `runRequestForUnknownIDAnswersNotFoundAndRePushes` — no create, exactly one `.runResult(.notFound)`, exactly one extra context push (`transport.sentContexts.count == 2`):
+- [x] `make test-unit` passes
+- [x] `ChecklistSyncCoordinatorTests`: `runRequestForUnknownIDAnswersNotFoundAndRePushes` — no create, exactly one `.runResult(.notFound)`, exactly one extra context push (`transport.sentContexts.count == 2`):
   ```swift
   @Test
   func runRequestForUnknownIDAnswersNotFoundAndRePushes() async {
@@ -920,8 +920,8 @@ checklist from the list or replaces the pushed `checklist` value.
           RunResult(runID: runID, checklistID: id, kind: .notFound))])
   }
   ```
-- [ ] `ChecklistSyncCoordinatorTests`: `runRequestForKnownIDPushesNoExtraContext` — known id creates once and `transport.sentContexts.count == 1`
-- [ ] `WatchChecklistStoreTests`: `notFoundResultAsksForAFreshContext` — after `.runResult(.notFound)` the store sent `.requestChecklists` and the phase is `.failed(RunResultKind.notFound.message)`:
+- [x] `ChecklistSyncCoordinatorTests`: `runRequestForKnownIDPushesNoExtraContext` — known id creates once and `transport.sentContexts.count == 1`
+- [x] `WatchChecklistStoreTests`: `notFoundResultAsksForAFreshContext` — after `.runResult(.notFound)` the store sent `.requestChecklists` and the phase is `.failed(RunResultKind.notFound.message)`:
   ```swift
   @Test
   func notFoundResultAsksForAFreshContext() {
@@ -936,7 +936,7 @@ checklist from the list or replaces the pushed `checklist` value.
       #expect(store.pendingRunID == nil)
   }
   ```
-- [ ] `make watch-build` passes
+- [x] `make watch-build` passes
 
 #### Manual
 - [ ] On the phone, delete a checklist the watch is showing
