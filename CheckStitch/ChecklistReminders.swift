@@ -9,11 +9,13 @@ enum ChecklistReminders {
     /// destination (or the system default) BEFORE creating anything, then
     /// creates one reminder per non-blank item. Returns an outcome the caller
     /// can surface — permission denial and missing lists are no longer silent.
-    static func create(from checklist: Checklist) async -> ReminderRunOutcome {
-        await create(from: checklist, targeting: EventKitReminderDestination.shared)
+    static func create(from checklist: Checklist, prefixNumbers: Bool = false) async -> ReminderRunOutcome {
+        await create(from: checklist, targeting: EventKitReminderDestination.shared, prefixNumbers: prefixNumbers)
     }
 
-    static func create(from checklist: Checklist, targeting: ReminderDestinationTargeting) async -> ReminderRunOutcome {
+    static func create(from checklist: Checklist,
+                       targeting: ReminderDestinationTargeting,
+                       prefixNumbers: Bool = false) async -> ReminderRunOutcome {
         var created = 0
         do {
             guard try await targeting.requestAccess() else { return .permissionDenied }
@@ -22,13 +24,18 @@ enum ChecklistReminders {
                 // All-or-nothing: validate existence before the first create.
                 return .destinationMissing
             }
+            var position = 0
             for item in checklist.items where !item.isBlank {
+                // Numbering is assigned after blank items are dropped, so an emptied
+                // row never leaves a gap: item one is always 1.
+                position += 1
                 // Both paths compute the date from the same pure Core function;
                 // `Date()` is the device-local today, matching the SingleThread
                 // precedent. Items without a relative date keep no date.
                 let dueDateComponents = item.dueDateComponents(today: Date())
                 try await targeting.create(
-                    title: item.title,
+                    title: ChecklistTitleNumbering.title(
+                        item.title, position: position, numbered: prefixNumbers),
                     notes: item.hasDescription ? item.description : nil,
                     priority: item.priority,
                     in: destination,

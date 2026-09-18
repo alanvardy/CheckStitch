@@ -283,4 +283,78 @@ struct ChecklistRemindersTests {
         #expect(date.minute == nil)
         #expect(spy.createdDates[1] == nil)
     }
+
+    @Test
+    func numberingIsOffByDefault() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("one"), makeItem("two")],
+                                  destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["one", "two"])
+    }
+
+    @Test
+    func numberingPrefixesTitlesWithTheirPosition() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("one"), makeItem("two")],
+                                  destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, prefixNumbers: true)
+
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["1: one", "2: two"])
+    }
+
+    @Test
+    func numberingSkipsBlankItemsWithoutGaps() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("one"), makeItem(""), makeItem("two"), makeItem("   ")],
+            destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, prefixNumbers: true)
+
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["1: one", "2: two"])
+    }
+
+    @Test
+    func numberingContinuesPastNine() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: (1...10).map { makeItem("item \($0)") },
+            destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, prefixNumbers: true)
+
+        #expect(outcome == .created(count: 10))
+        #expect(spy.createdTitles.first == "1: item 1")
+        #expect(spy.createdTitles.last == "10: item 10")
+    }
+
+    /// Sad path: an unresolvable destination must create ZERO reminders even
+    /// with numbering on — validation happens before the first title is formed.
+    @Test
+    func numberingStillReportsMissingDestination() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("one")],
+                                  destinationListIdentifier: "list-deleted")
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, prefixNumbers: true)
+
+        #expect(outcome == .destinationMissing)
+        #expect(spy.createdTitles.isEmpty)
+    }
 }

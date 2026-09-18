@@ -355,8 +355,8 @@ struct ReminderNumberingPreferenceTests {
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes (existing `ChecklistRemindersTests` unchanged, new cases green)
-- [ ] `make build` passes (app target compiles with the new key and call sites)
+- [x] `make test-unit` passes (existing `ChecklistRemindersTests` unchanged, new cases green)
+- [x] `make build` passes (app target compiles with the new key and call sites)
 
 #### Manual
 - [ ] `defaults write app.alanvardy.CheckStitch prefixReminderNumbers -bool true` then a checklist run creates `1: …`, `2: …` reminders (and off still creates plain titles).
