@@ -68,7 +68,13 @@ final class ChecklistImportExportViewModel {
     /// it (no store writes), and opens the selection sheet with every row
     /// ticked. A read failure reports the system message; a format failure
     /// reports the CheckStitch-specific one. Neither shows a sheet.
+    ///
+    /// A distinct URL received while the sheet is open replaces the staged
+    /// file: `importFile` overwrites `importSession`/`importCandidates`/
+    /// `importSelection` and re-shows the sheet, and the in-flight conflict is
+    /// cleared first so "last arrival wins".
     func importFile(at url: URL) {
+        conflict = nil
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         let data: Data
