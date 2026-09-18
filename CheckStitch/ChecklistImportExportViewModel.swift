@@ -74,13 +74,14 @@ final class ChecklistImportExportViewModel {
         do {
             pendingShare = try ChecklistExportDocument(checklists: selected)
         } catch {
+            // Same error surface as export: the share itself has no error channel.
             exportErrorMessage = error.localizedDescription
         }
     }
 
     /// Promotes a pending share after the export sheet has finished dismissing.
     func presentPendingShare() {
-        guard pendingShare != nil else { return }
+        guard pendingShare != nil, !isSharing else { return }
         isSharing = true
     }
 
