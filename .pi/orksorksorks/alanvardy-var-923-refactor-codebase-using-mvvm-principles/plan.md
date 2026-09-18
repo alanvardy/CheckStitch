@@ -576,9 +576,9 @@ struct ChecklistRunViewModelTests {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (success + all four failure outcomes + duplicate
+- [x] `make test-unit` passes (success + all four failure outcomes + duplicate
       tap + unknown id)
-- [ ] `make build` passes
+- [x] `make build` passes
 
 #### Manual
 - [ ] `make run`: tap play on a checklist with items → spinner ≥1s → green

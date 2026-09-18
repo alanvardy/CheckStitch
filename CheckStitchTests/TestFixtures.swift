@@ -59,6 +59,9 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
     var accessError: Error?
     var lists = ReminderListsSnapshot(options: [], defaultIdentifier: nil)
     var createError: Error?
+    /// Awaited at the start of every `requestAccess()` — lets a suite hold a run
+    /// in flight and observe the duplicate-tap guard.
+    var onRequestAccess: (() async -> Void)?
     /// Status served by `accessStatus()`; defaults to `.fullAccess` so the 13
     /// existing ChecklistReminders suites stay green.
     var accessStatusValue: ReminderAccessStatus = .fullAccess
@@ -72,6 +75,7 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
     private(set) var createdListIDs: [String] = []
 
     func requestAccess() async throws -> Bool {
+        if let onRequestAccess { await onRequestAccess() }
         if let accessError { throw accessError }
         return accessGranted
     }
