@@ -35,6 +35,7 @@ struct ViewRenderTests {
     func settingsViewListsAllAppearanceModes() {
         let view = SettingsView(
             appearanceMode: .constant(.system),
+            appLanguage: .constant(.system),
             bindings: SettingsBindings(),
             backgroundImage: BackgroundImageStore())
         #expect(String(describing: view.body).isEmpty == false)
@@ -48,6 +49,7 @@ struct ViewRenderTests {
     func settingsViewExposesAboutRow() {
         let view = SettingsView(
             appearanceMode: .constant(.system),
+            appLanguage: .constant(.system),
             bindings: SettingsBindings(),
             backgroundImage: BackgroundImageStore())
         let bodyDescription = String(describing: view.body)
@@ -59,6 +61,7 @@ struct ViewRenderTests {
     func settingsViewRendersWithImportAndExportRows() {
         let view = SettingsView(
             appearanceMode: .constant(.system),
+            appLanguage: .constant(.system),
             bindings: SettingsBindings(),
             backgroundImage: BackgroundImageStore(),
             onExport: {},

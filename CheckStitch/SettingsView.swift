@@ -1,3 +1,4 @@
+import CheckStitchCore
 import SwiftUI
 
 /// Modal settings screen presented from the gear button. Holds the Interface
@@ -7,6 +8,7 @@ import SwiftUI
 /// `SettingsBindings` bag, and the import/export entry points.
 struct SettingsView: View {
     @Binding var appearanceMode: AppearanceMode
+    @Binding var appLanguage: AppLanguage
     @Bindable var bindings: SettingsBindings
     var backgroundImage: BackgroundImageStore
     /// Both defer to `ContentView`, which owns the file panels. Defaulted so
@@ -18,6 +20,17 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Interface") {
+                    Picker(selection: $appLanguage) {
+                        ForEach(AppLanguage.allCases, id: \.self) { language in
+                            Text(language.title).tag(language)
+                        }
+                    } label: {
+                        Text("Language")
+                    }
+                    .accessibilityIdentifier("languagePicker")
+                }
+
                 Section {
                     NavigationLink {
                         #if os(iOS)
@@ -105,6 +118,7 @@ struct SettingsView: View {
 #Preview {
     SettingsView(
         appearanceMode: .constant(AppearanceMode.system),
+        appLanguage: .constant(.system),
         bindings: SettingsBindings(),
         backgroundImage: BackgroundImageStore())
 }
@@ -112,6 +126,7 @@ struct SettingsView: View {
 #Preview("Dark") {
     SettingsView(
         appearanceMode: .constant(AppearanceMode.dark),
+        appLanguage: .constant(.system),
         bindings: SettingsBindings(),
         backgroundImage: BackgroundImageStore())
         .preferredColorScheme(AppearanceMode.dark.colorScheme)

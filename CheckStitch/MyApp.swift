@@ -43,6 +43,7 @@ import SwiftUI
                 ContentView()
                     .environment(store)
                     .environment(syncService)
+                    .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     .task { await syncService.syncOnLaunch() }
             }
             .restorationBehavior(.disabled)
@@ -58,6 +59,7 @@ import SwiftUI
                 ContentView()
                     .environment(store)
                     .environment(syncService)
+                    .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     #if os(iOS)
                         .task {
                             if coordinator == nil {

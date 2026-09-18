@@ -47,6 +47,7 @@ enum LocalizationFixtures {
             "Item",
             "Item not found",
             "Items",
+            "Language",
             "Large",
             "Let the app rotate on iPhone.",
             "Light",
@@ -136,10 +137,10 @@ enum LocalizationFixtures {
         ExclusionEntry(catalog: "App", key: "Name"),
         // "OK" — same in de/es/fr/ja
         ExclusionEntry(catalog: "App", key: "OK"),
-        // percent format string is locale-invariant
-        ExclusionEntry(catalog: "App", key: "%lld%%"),
         // fr "Interface" — same spelling as English
         ExclusionEntry(catalog: "App", key: "Interface"),
+        // percent format string is locale-invariant
+        ExclusionEntry(catalog: "App", key: "%lld%%"),
         // de/fr "Version" — same spelling as English
         ExclusionEntry(catalog: "Core", key: "Version %@"),
     ]
