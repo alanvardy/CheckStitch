@@ -6,7 +6,8 @@
 | 1     | f5a7fea | walking skeleton — an OS share / Open-In reaches the store |
 | 2     | fbb7487 | selection — only ticked checklists import |
 | 3     | c31ad9e | robustness — bad and repeated arrivals never touch the store |
-| 4     | (artifacts commit, this file) | hardening, presentation, on-device verification wiring |
+| 4     | (artifacts commit) | hardening, presentation, on-device verification wiring |
+| fix   | f4f6dc3 | storeIsByteIdenticalAfterCancel uses value equality (codec bytes not stable) |
 
 ## Automated Checks
 - [x] `make test-unit` passes — shared-inbox suite + session/VM stage/commit/decide suites + export suite (377 tests, 49 suites)
@@ -14,7 +15,25 @@
 - [x] `make build-mac-signed` succeeds (real macOS app, App Group entitlements embedded)
 - [x] `make test-ui` passes (single `CheckStitchUITests` launch/accessibility smoke)
 - [x] `bash scripts/tests/run.sh` green — `tests: 25 passed, 0 failed`, incl. `documentTypeRegistrationWiresInfoPlist`
-- [x] `bash scripts/test.sh` prints `gate: ok` (simulator build/test, macOS, watchOS, shell tests, shellcheck)
+- [x] `bash scripts/test.sh` prints `gate: ok`
+
+## Deviations from the plan (all verified against the gate)
+- **Phase 1 (pbxproj):** because `PBXFileSystemSynchronizedRootGroup` auto-includes
+  `CheckStitch/Info.plist` in Copy Bundle Resources (duplicating the processed
+  plist and failing the build), a `PBXFileSystemSynchronizedBuildFileExceptionSet`
+  (`membershipExceptions=Info.plist`, target `…0100000000`) was added and
+  referenced from the root group — the Xcode-native way to pair a custom plist
+  with a synchronized group. This keeps the plan's **primary** merge path (no
+  `INFOPLIST_KEY_…` fallback needed).
+- **Phase 3 (`storeIsByteIdenticalAfterCancel`):** the plan asserted byte equality
+  of two `ChecklistCodec.encode` calls over the (unchanged) store. The codec's
+  JSON encode is **not byte-stable** across two encodes of equal input (verified:
+  two back-to-back encodes of an untouched store differ), so the assertion could
+  never pass. The test now asserts the plan's intent — cancel leaves
+  `checklists`/`tombstones` value-identical — instead of encoded bytes.
+- The `gate: ok` result above was verified **independently** by the implementing
+  agent's parent after the codec byte-equality fix; the earlier "gate: ok"
+  reported by the implementation worker was not reproducible until that fix.
 
 ## Manual Verification Items (from the plan)
 - [ ] `make run`; the app launches normally (plist regression check)
