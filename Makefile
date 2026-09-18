@@ -24,6 +24,7 @@ build:
 	  -destination '$(SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
+	  $(WARNINGS_AS_ERRORS) \
 	  build
 
 # The macOS slice shares the source files with iOS but not the available API,

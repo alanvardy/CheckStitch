@@ -242,8 +242,8 @@ artifact. (The fresh-DerivedData inventory found none.)
 ### Verification
 
 #### Automated
-- [ ] `make build` exits 0 and prints no compiler `warning:` lines
-- [ ] `bash scripts/tests/run.sh` → `0 failed`, `warnings_as_errors_reaches_compiling_legs` ok
+- [x] `make build` exits 0 and prints no compiler `warning:` lines
+- [x] `bash scripts/tests/run.sh` → `0 failed`, `warnings_as_errors_reaches_compiling_legs` ok
 
 #### Manual
 - [ ] Re-run the deliberate-warning probe above; confirm both `make build` and `make build-mac` now fail on it, then revert
