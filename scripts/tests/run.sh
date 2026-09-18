@@ -431,5 +431,19 @@ warnings_as_errors_guard_detects_a_stripped_flag() {
 run_case warnings_as_errors_reaches_compiling_legs warnings_as_errors_reaches_compiling_legs
 run_case warnings_as_errors_guard_detects_a_stripped_flag warnings_as_errors_guard_detects_a_stripped_flag
 
+# --- document-type registration --------------------------------------------
+
+documentTypeRegistrationWiresInfoPlist() {
+    grep -q "CFBundleDocumentTypes" CheckStitch/Info.plist || return 1
+    grep -q "public.json" CheckStitch/Info.plist || return 1
+    # Both app-target configurations (Debug + Release) must set INFOPLIST_FILE.
+    local count
+    count="$(grep -c "INFOPLIST_FILE = CheckStitch/Info.plist;" \
+        CheckStitch.xcodeproj/project.pbxproj)"
+    [[ "$count" -eq 2 ]]
+}
+
+run_case documentTypeRegistrationWiresInfoPlist documentTypeRegistrationWiresInfoPlist
+
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

@@ -146,6 +146,15 @@ struct ContentView: View {
             // refetches a stale stored image (mirrors SingleThread's ordering).
             await backgroundVM.task(pinned: backgroundPinned)
         }
+        .onOpenURL { url in
+            SharedImportInbox.shared.receive(url: url)
+            consumePendingSharedImport()
+        }
+        .task {
+            // A cold-start arrival must reach the same consume path once the
+            // root exists.
+            consumePendingSharedImport()
+        }
         .onChange(of: backgroundPinned) { _, pin in
             Task { await backgroundVM.setPinned(pin) }
         }
@@ -474,6 +483,11 @@ struct ContentView: View {
     private func createChecklist() {
         // Creation runs through the list view model, which owns the mutation.
         path.append(listVM.createChecklist())
+    }
+
+    private func consumePendingSharedImport() {
+        guard let file = SharedImportInbox.shared.consume() else { return }
+        importExportVM.importFile(at: file.url)
     }
 }
 
