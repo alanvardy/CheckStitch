@@ -97,9 +97,10 @@ enum LocalizationFixtures {
             "Created %lld of %lld reminders for %@; the rest were not created. %@",
             "You have %lld checklists: %@.",
             "You have 1 checklist: %@.",
-            "You don't have any checklists yet."
+            "You don't have any checklists yet.",
+            "That list no longer exists, so some reminders may not have been created."
         ]),
-        ("Core", ["System", "Light", "Dark", "Version %@ (%@)", "Version %@"]),
+        ("Core", ["System", "Light", "Dark", "None", "Low", "Medium", "High", "Version %@ (%@)", "Version %@"]),
         ("Watch", [
             "No checklists",
             "Open CheckStitch on your iPhone.",

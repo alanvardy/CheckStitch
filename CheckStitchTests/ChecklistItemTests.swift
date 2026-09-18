@@ -179,7 +179,9 @@ struct ChecklistItemTests {
 
     @Test(arguments: ChecklistItemPriority.allCases)
     func everyPriorityHasALabel(_ priority: ChecklistItemPriority) {
-        #expect(!priority.label.isEmpty)
+        // A resource: a peer (`LocalizedStringResource.key`) guard, not the
+        // resolved text, so the test stays locale-independent.
+        #expect(!priority.label.key.isEmpty)
     }
 
     /// The row marker mirrors `SingleThread`'s `!!!`/`!!`/`!` scale, and an

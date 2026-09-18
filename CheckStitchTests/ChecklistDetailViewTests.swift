@@ -192,6 +192,16 @@ struct ChecklistDetailViewTests {
         #expect(ItemRow.priorityColor(.low) == .green)
     }
 
+    /// The row's accessibility label is the priority's *resource*, so it follows
+    /// the app language like every other label: the key is the catalog key, and
+    /// the resolved text comes from the compiled Core catalog, not a hard-coded
+    /// English literal.
+    @Test
+    func priorityLabelResolvesThroughTheCoreCatalog() {
+        #expect(ChecklistItemPriority.high.label.key == "High")
+        #expect(ChecklistItemPriority.high.label.resolved(in: Locale(identifier: "de")) == "Hoch")
+    }
+
     /// A cleared title falls back to the placeholder rather than leaving the row
     /// rendering blank.
     @Test

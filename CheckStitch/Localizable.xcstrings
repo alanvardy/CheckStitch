@@ -3486,6 +3486,47 @@
         }
       }
     },
+    "That list no longer exists, so some reminders may not have been created." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That list no longer exists, so some reminders may not have been created."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Liste existiert nicht mehr, daher wurden möglicherweise nicht alle Erinnerungen erstellt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa lista ya no existe, por lo que es posible que no se hayan creado algunos recordatorios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette liste n'existe plus, certains rappels n'ont peut-être pas été créés."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのリストは存在しないため、一部のリマインダーが作成されていない可能性があります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该列表已不存在，因此可能未创建部分提醒。"
+          }
+        }
+      }
+    },
     "Created %lld of %lld reminders for %@; the rest were not created. %@" : {
       "extractionState" : "manual",
       "localizations" : {

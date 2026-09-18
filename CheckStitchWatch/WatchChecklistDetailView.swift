@@ -22,11 +22,15 @@ struct WatchChecklistDetailView: View {
         runID.map { store.runPhase(runID: $0) } ?? .idle
     }
 
-    private var buttonTitle: String {
+    /// A resource, not an eager `String(localized:)`: `Button`'s `String`
+    /// overload resolves against the process locale, so it would never follow
+    /// the language the phone pushed. `Text(resource)` re-resolves it against
+    /// the injected environment locale on every pass.
+    private var buttonTitle: LocalizedStringResource {
         switch phase {
-        case .sending: String(localized: "Sending…", table: "Localizable", bundle: .main)
-        case .created, .partiallyCreated: String(localized: "Created", table: "Localizable", bundle: .main)
-        case .idle, .failed: String(localized: "Create reminders", table: "Localizable", bundle: .main)
+        case .sending: LocalizedStringResource("Sending…", table: "Localizable", bundle: .main)
+        case .created, .partiallyCreated: LocalizedStringResource("Created", table: "Localizable", bundle: .main)
+        case .idle, .failed: LocalizedStringResource("Create reminders", table: "Localizable", bundle: .main)
         }
     }
 
@@ -51,8 +55,10 @@ struct WatchChecklistDetailView: View {
         .navigationTitle(current.name)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 4) {
-                Button(buttonTitle) {
+                Button {
                     runID = store.run(checklist)
+                } label: {
+                    Text(buttonTitle)
                 }
                 .disabled(buttonDisabled)
                 if let detail = phase.detail {

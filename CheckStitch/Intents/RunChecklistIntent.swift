@@ -6,7 +6,9 @@ import CheckStitchCore
 enum RunChecklistIntentError: LocalizedError {
     case checklistNotFound
     var errorDescription: String? {
-        String(localized: "That checklist no longer exists.", table: "Localizable", bundle: .main)
+        LocalizedStringResource(
+            "That checklist no longer exists.", table: "Localizable", bundle: .main)
+            .resolvedInAppLanguage()
     }
 }
 

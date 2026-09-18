@@ -79,4 +79,20 @@ struct AppLanguageSyncTests {
         #expect(locale.language == .german)
         #expect(AppLanguage.load(from: defaults) == .german)
     }
+
+    /// Each re-push request carries the language again: the cold-start push is
+    /// one send, then every `requestChecklists` adds one more (the fake's
+    /// `activate()` never fires `onActivated`, so no second cold-start push).
+    @Test
+    func repeatedRequestChecklistsRepushesTheSameLanguage() {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let coordinator = ChecklistSyncCoordinator(
+            transport: transport, snapshot: { [] },
+            createReminders: { await runner.run($0) }, language: { .german })
+        coordinator.start()
+        transport.deliver(.requestChecklists)
+        transport.deliver(.requestChecklists)
+        #expect(transport.sentMessages.filter { $0 == .language("de") }.count == 3)
+    }
 }

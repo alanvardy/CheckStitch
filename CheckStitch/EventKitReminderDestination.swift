@@ -67,5 +67,10 @@ enum ReminderDestinationError: LocalizedError {
 
     /// Distinct from `ReminderRunOutcome.destinationMissing`'s message: this is
     /// thrown mid-loop (TOCTOU), so earlier items may already have been created.
-    var errorDescription: String? { "That list no longer exists, so some reminders may not have been created." }
+    var errorDescription: String? {
+        LocalizedStringResource(
+            "That list no longer exists, so some reminders may not have been created.",
+            table: "Localizable", bundle: .main)
+            .resolvedInAppLanguage()
+    }
 }
