@@ -284,7 +284,7 @@ struct ItemRow: View {
                         Text(priority.marker)
                             .font(.body)
                             .foregroundStyle(Self.priorityColor(priority))
-                            .accessibilityLabel(priority.label)
+                            .accessibilityLabel(Text(priority.label))
                             .accessibilityIdentifier("priorityMarker")
                     }
                     Text(Self.displayTitle(title))
@@ -316,8 +316,12 @@ struct ItemRow: View {
 
     /// The row's title. An empty title (the user cleared it on the edit screen)
     /// would otherwise leave the row rendering blank, so it falls back to the
-    /// same "Item" placeholder the old inline field carried.
+    /// same "Item" placeholder the old inline field carried. Resolved against
+    /// the persisted app language: a static helper has no environment locale.
     static func displayTitle(_ title: String) -> String {
-        title.isEmpty ? String(localized: "Item") : title
+        title.isEmpty
+            ? LocalizedStringResource("Item", table: "Localizable", bundle: .main)
+                .resolvedInAppLanguage()
+            : title
     }
 }

@@ -10,12 +10,14 @@ public enum ChecklistItemPriority: Int, Codable, CaseIterable, Hashable, Sendabl
     case high = 1
 
     /// User-facing name, kept on the model so no view branches over the cases.
-    public var label: String {
+    /// A resource so the item editor's rows and its accessibility label follow
+    /// the app language.
+    public var label: LocalizedStringResource {
         switch self {
-        case .none: return "None"
-        case .low: return "Low"
-        case .medium: return "Medium"
-        case .high: return "High"
+        case .none: LocalizedStringResource("None", table: "Localizable", bundle: .module)
+        case .low: LocalizedStringResource("Low", table: "Localizable", bundle: .module)
+        case .medium: LocalizedStringResource("Medium", table: "Localizable", bundle: .module)
+        case .high: LocalizedStringResource("High", table: "Localizable", bundle: .module)
         }
     }
 

@@ -1230,10 +1230,10 @@ Record, in this order:
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` prints `gate: ok` (build → sim → test → build-mac → watch-build → shell tests → shellcheck)
-- [ ] `rg -n "String\(localized" CheckStitch CheckStitchWatch CheckStitchCore/Sources` returns **no** bare eager `String(localized:)`; every remaining hit is inside a `LocalizedStringResource(...).resolved(in:)` / `.resolvedInAppLanguage()` expression
-- [ ] `LocalizationTests` green with the four new Core keys (`None`/`Low`/`Medium`/`High`) and the new App key in `requiredKeys`
-- [ ] `ChecklistItemTests`, `ChecklistDetailViewTests`, `AppLanguageSyncTests` green
+- [x] `bash scripts/test.sh` prints `gate: ok` (build → sim → test → build-mac → watch-build → shell tests → shellcheck)
+- [x] `rg -n "String\(localized" CheckStitch CheckStitchWatch CheckStitchCore/Sources` returns **no** bare eager `String(localized:)`; every remaining hit is inside a `LocalizedStringResource(...).resolved(in:)` / `.resolvedInAppLanguage()` expression
+- [x] `LocalizationTests` green with the four new Core keys (`None`/`Low`/`Medium`/`High`) and the new App key in `requiredKeys`
+- [x] `ChecklistItemTests`, `ChecklistDetailViewTests`, `AppLanguageSyncTests` green
 
 #### Manual
 - [ ] Simulator: select Deutsch and walk Settings → Appearance / Background / About, the checklist list, a detail row and the item editor (including the Priority menu); no English text remains on screen
