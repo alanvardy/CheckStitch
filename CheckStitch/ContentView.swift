@@ -4,7 +4,6 @@ import CheckStitchCore
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @Environment(ChecklistStore.self) private var store
     @Environment(ChecklistListViewModel.self) private var listVM
     @Environment(ChecklistRunViewModel.self) private var runVM
     @Environment(SettingsViewModel.self) private var settingsVM
