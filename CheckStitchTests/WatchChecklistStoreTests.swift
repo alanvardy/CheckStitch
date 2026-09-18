@@ -56,7 +56,7 @@ struct WatchChecklistStoreTests {
         let store = WatchChecklistStore(transport: transport)
         let checklist = Checklist(name: "Groceries")
 
-        let runID = try #require(store.run(checklist))
+        let runID = store.run(checklist)
 
         #expect(transport.sentMessages == [.runChecklist(id: checklist.id, runID: runID)])
         #expect(store.pendingRuns[runID]?.checklistID == checklist.id)
@@ -139,7 +139,7 @@ struct WatchChecklistStoreTests {
         store.start()
         let checklist = Checklist(name: "Groceries")
 
-        let runID = try #require(store.run(checklist))
+        let runID = store.run(checklist)
         #expect(store.runPhase(runID: runID) == .sending)
 
         transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .created(2))))
@@ -155,7 +155,7 @@ struct WatchChecklistStoreTests {
         store.start()
         let checklist = Checklist(name: "Groceries")
 
-        let runID = try #require(store.run(checklist))
+        let runID = store.run(checklist)
         transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .permissionDenied)))
 
         #expect(store.runPhase(runID: runID) == .failed(RunResultKind.permissionDenied.message))
@@ -180,7 +180,7 @@ struct WatchChecklistStoreTests {
         store.start()
         let checklist = Checklist(name: "Groceries")
 
-        let runID = try #require(store.run(checklist))
+        let runID = store.run(checklist)
         transport.deliver(.runResult(RunResult(runID: runID, checklistID: checklist.id, kind: .notFound)))
 
         #expect(transport.sentMessages.contains(.requestChecklists))

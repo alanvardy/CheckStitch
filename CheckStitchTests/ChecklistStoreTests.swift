@@ -1292,8 +1292,8 @@ final class ChecklistStoreTests: XCTestCase {
         let groceries = store.create(name: "Groceries")
         store.addItem(to: groceries.id)
         store.updateItem(checklistID: groceries.id, itemID: store.checklist(id: groceries.id)?.items.first?.id ?? UUID(), title: "Apples")
-        let hardware = store.create(name: "Hardware")
-        let travel = store.create(name: "Travel")
+        _ = store.create(name: "Hardware")
+        _ = store.create(name: "Travel")
         let beforeByID = Dictionary(uniqueKeysWithValues: store.checklists.map { ($0.id, $0) })
 
         store.moveChecklists(from: IndexSet(integer: 0), to: 3)
@@ -1453,7 +1453,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let created = store.create()
+        _ = store.create()
         let remote = ChecklistEnvelope(
             version: ChecklistCodec.currentVersion,
             deviceID: "other-device",

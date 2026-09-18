@@ -343,8 +343,8 @@ WARNINGS_AS_ERRORS_LEGS=(build-mac build test-unit)
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` exits 0, prints `** TEST SUCCEEDED **`, and no compiler `warning:` lines
-- [ ] `bash scripts/tests/run.sh` → `0 failed`
+- [x] `make test-unit` exits 0, prints `** TEST SUCCEEDED **`, and no compiler `warning:` lines
+- [x] `bash scripts/tests/run.sh` → `0 failed`
 
 #### Manual
 - [ ] Confirm the four `#require` sites and line 230: `grep -n 'try #require' CheckStitchTests/WatchChecklistStoreTests.swift` shows only line 230
