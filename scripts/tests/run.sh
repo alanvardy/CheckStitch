@@ -388,5 +388,48 @@ macos_slice_requests_outgoing_network() {
 
 run_case macos_slice_requests_outgoing_network macos_slice_requests_outgoing_network
 
+# --- warnings-as-errors enforcement ----------------------------------------
+
+# Every gate leg that compiles Swift must carry the shared Makefile
+# warnings-as-errors setting. Later phases append their leg here.
+WARNINGS_AS_ERRORS_LEGS=(build-mac)
+
+# True when every xcodebuild argv line in $1 carries both compiler flags.
+warnings_as_errors_logged() {
+    [[ -s "$1" ]] || return 1
+    awk '
+        { n++ }
+        /SWIFT_TREAT_WARNINGS_AS_ERRORS=YES/ && /GCC_TREAT_WARNINGS_AS_ERRORS=YES/ { ok++ }
+        END { exit (n > 0 && ok == n) ? 0 : 1 }
+    ' "$1"
+}
+
+# Drive the real Makefile with a stubbed xcodebuild (no compiler, no simulator)
+# and assert the flag reaches every enforced leg.
+warnings_as_errors_reaches_compiling_legs() {
+    new_stubs xcodebuild
+    export SIM="platform=iOS Simulator,id=WARNINGS-AS-ERRORS-UDID"
+    local leg
+    for leg in "${WARNINGS_AS_ERRORS_LEGS[@]}"; do
+        : >"$STUB_ROOT/xcodebuild.log"
+        make "$leg" >/dev/null 2>&1 || return 1
+        warnings_as_errors_logged "$STUB_ROOT/xcodebuild.log" || return 1
+    done
+}
+
+# Sad path: the guard must fail when the setting is stripped from a recipe.
+warnings_as_errors_guard_detects_a_stripped_flag() {
+    new_stubs xcodebuild
+    export SIM="platform=iOS Simulator,id=WARNINGS-AS-ERRORS-UDID"
+    local mf="$STUB_ROOT/Makefile"
+    sed "s/ \$(WARNINGS_AS_ERRORS)//" Makefile >"$mf"
+    : >"$STUB_ROOT/xcodebuild.log"
+    make -f "$mf" build-mac >/dev/null 2>&1 || return 1
+    ! warnings_as_errors_logged "$STUB_ROOT/xcodebuild.log"
+}
+
+run_case warnings_as_errors_reaches_compiling_legs warnings_as_errors_reaches_compiling_legs
+run_case warnings_as_errors_guard_detects_a_stripped_flag warnings_as_errors_guard_detects_a_stripped_flag
+
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
