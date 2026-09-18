@@ -16,6 +16,9 @@ final class ChecklistImportExportViewModel {
     var exportDocument: ChecklistExportDocument?
     var conflict: ChecklistImportCandidate?
     var isShowingExport = false
+    var importCandidates: [ChecklistImportCandidate] = []
+    var importSelection: Set<UUID> = []
+    var isShowingImportSelection = false
     private(set) var isExporting = false
     private(set) var isImporting = false
     private(set) var importErrorMessage: String?
@@ -61,9 +64,10 @@ final class ChecklistImportExportViewModel {
         importErrorMessage = error.localizedDescription
     }
 
-    /// Reads the picked file under a security-scoped access/stop pair, then
-    /// prepares an import session. A read failure reports the system message;
-    /// a format failure reports the CheckStitch-specific one.
+    /// Reads the picked file under a security-scoped access/stop pair, stages
+    /// it (no store writes), and opens the selection sheet with every row
+    /// ticked. A read failure reports the system message; a format failure
+    /// reports the CheckStitch-specific one. Neither shows a sheet.
     func importFile(at url: URL) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
@@ -77,7 +81,7 @@ final class ChecklistImportExportViewModel {
 
         let session = ChecklistImportSession(store: store)
         do {
-            try session.prepare(data: data)
+            importCandidates = try session.stage(data: data)
         } catch let error as ChecklistImportError {
             importErrorMessage = error.message
             return
@@ -86,7 +90,34 @@ final class ChecklistImportExportViewModel {
             return
         }
         importSession = session
+        importSelection = Set(importCandidates.map(\.id))   // all ticked by default
+        isShowingImportSelection = true
+    }
+
+    /// Commits the ticked checklists, then presents the first selected conflict.
+    func commitImport() {
+        guard let session = importSession else { return }
+        isShowingImportSelection = false
+        session.commit(selectedIDs: importSelection)
         conflict = session.pending.first
+    }
+
+    /// Cancel / swipe-away: drop the staged file, leave the store untouched.
+    func cancelImport() {
+        guard isShowingImportSelection else { return }
+        isShowingImportSelection = false
+        importSession?.discard()
+        importSession = nil
+        importCandidates = []
+        importSelection = []
+    }
+
+    func clearImportSelection() {
+        importSession?.discard()
+        importSession = nil
+        importCandidates = []
+        importSelection = []
+        isShowingImportSelection = false
     }
 
     /// Applies one decision to the current conflict and advances the queue.

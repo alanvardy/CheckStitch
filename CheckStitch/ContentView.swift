@@ -175,6 +175,24 @@ struct ContentView: View {
                 importExportVM.exportSelected()
             }
         }
+        .sheet(isPresented: Binding(get: { importExportVM.isShowingImportSelection },
+                                    set: { if !$0 { importExportVM.cancelImport() } })) {
+            ChecklistSelectionView(
+                title: "Import Checklists",
+                rows: importExportVM.importCandidates.map {
+                    ChecklistSelectionRow(
+                        id: $0.id,
+                        name: $0.checklist.name,
+                        detail: $0.conflicting == nil ? nil : "A checklist with this name exists")
+                },
+                selection: Binding(get: { importExportVM.importSelection },
+                                   set: { importExportVM.importSelection = $0 }),
+                confirmTitle: "Import",
+                onConfirm: { importExportVM.commitImport() },
+                onCancel: { importExportVM.cancelImport() },
+                rowAccessibilityID: "importSelectionRow",
+                confirmAccessibilityID: "confirmImportButton")
+        }
         .fileExporter(isPresented: Binding(get: { importExportVM.isExporting },
                                            set: { if !$0 { importExportVM.dismissExport() } }),
                       document: importExportVM.exportDocument,

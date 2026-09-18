@@ -16,8 +16,9 @@ enum ChecklistImportError: Error, Equatable {
     }
 }
 
-/// One decoded checklist presented to the import flow. `conflicting` is the
-/// local checklist it collides with, or `nil` when it was inserted immediately.
+/// One decoded checklist presented to the import flow. `id` is the FILE's
+/// checklist id (stable across stage/commit and with the selection set);
+/// `conflicting` is the local checklist it collides with, or `nil`.
 struct ChecklistImportCandidate: Identifiable, Equatable {
     let id: UUID
     let checklist: Checklist
@@ -44,6 +45,8 @@ final class ChecklistImportSession {
 
     /// Conflicts awaiting a decision, in file order.
     private(set) var pending: [ChecklistImportCandidate] = []
+    /// The staged checklists presented for selection, in file order.
+    private(set) var candidates: [ChecklistImportCandidate] = []
     private(set) var summary = ImportSummary()
 
     init(store: ChecklistStore, now: @escaping () -> Date = Date.init) {
@@ -51,26 +54,58 @@ final class ChecklistImportSession {
         self.now = now
     }
 
-    /// Decodes `data`, inserts every non-conflicting checklist immediately
-    /// (`importInsert`), and returns all candidates in file order. Throws for a
-    /// payload this build cannot read or does not understand, leaving the store
-    /// untouched. Prior `pending`/`summary` are reset at entry, so one session
-    /// per file is idempotent even across a throwing call.
+    /// Decodes `data` and exposes the file's checklists for selection WITHOUT
+    /// touching the store (only the read-only `conflictingChecklist` is called).
+    /// Throws for a payload this build cannot read or understand, before any
+    /// staging. Prior candidates/pending/summary are reset at entry.
     @discardableResult
-    func prepare(data: Data) throws -> [ChecklistImportCandidate] {
+    func stage(data: Data) throws -> [ChecklistImportCandidate] {
         pending = []
         summary = ImportSummary()
+        candidates = []
+        let incoming = try decoded(data)
+        candidates = incoming.map { checklist in
+            ChecklistImportCandidate(
+                id: checklist.id,
+                checklist: checklist,
+                conflicting: store.conflictingChecklist(named: checklist.name))
+        }
+        return candidates
+    }
 
-        let incoming: [Checklist]
+    /// Imports exactly `selectedIDs`, in file order. The conflict check is
+    /// re-run here (authoritative): a selected name that now collides is left
+    /// `pending` for a FIFO decision; unselected names are never enqueued.
+    @discardableResult
+    func commit(selectedIDs: Set<UUID>) -> ImportSummary {
+        var result = ImportSummary()
+        for candidate in candidates where selectedIDs.contains(candidate.id) {
+            if let conflict = store.conflictingChecklist(named: candidate.checklist.name) {
+                pending.append(ChecklistImportCandidate(
+                    id: candidate.id, checklist: candidate.checklist, conflicting: conflict))
+            } else {
+                store.importInsert(candidate.checklist)
+                result.inserted += 1
+            }
+        }
+        summary = result
+        return result
+    }
+
+    /// Drops a staged file (Cancel / swipe-away). No store writes either way.
+    func discard() {
+        candidates = []
+        pending = []
+        summary = ImportSummary()
+    }
+
+    /// The decode+migrate half of the old `prepare`.
+    private func decoded(_ data: Data) throws -> [Checklist] {
         switch ChecklistCodec.classify(data) {
         case .loaded(let envelope):
-            incoming = envelope.checklists
+            return envelope.checklists
         case .migratable(let from, let envelope):
-            // Legacy shapes are normalised before conflict detection for
-            // symmetry with the store's own load path. `freshCopy` regenerates
-            // every id/revision/order field below, so this does not itself
-            // change what gets inserted.
-            incoming = envelope.checklists.map { checklist in
+            return envelope.checklists.map { checklist in
                 switch from {
                 case 1: return checklist.migrated(at: now())
                 case 2: return checklist.seededOrder()
@@ -82,22 +117,6 @@ final class ChecklistImportSession {
         case .unreadable:
             throw ChecklistImportError.unreadable
         }
-
-        var candidates: [ChecklistImportCandidate] = []
-        for checklist in incoming {
-            if let conflict = store.conflictingChecklist(named: checklist.name) {
-                let candidate = ChecklistImportCandidate(
-                    id: UUID(), checklist: checklist, conflicting: conflict)
-                pending.append(candidate)
-                candidates.append(candidate)
-            } else {
-                store.importInsert(checklist)
-                summary.inserted += 1
-                candidates.append(ChecklistImportCandidate(
-                    id: UUID(), checklist: checklist, conflicting: nil))
-            }
-        }
-        return candidates
     }
 
     /// Applies one conflict decision and removes the candidate from the queue.
