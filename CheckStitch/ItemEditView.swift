@@ -18,74 +18,77 @@ struct ItemEditView: View {
     @State private var didLoadDraft = false
 
     var body: some View {
-        Group {
-            if let item = store.checklist(id: checklistID)?
-                .items.first(where: { $0.id == itemID }) {
-                Form {
-                    Section("Title") {
-                        TextField("Title", text: titleBinding, axis: .vertical)
-                            .accessibilityIdentifier("itemEditTitleField")
-                    }
-                    Section("Description") {
-                        TextField("Description", text: descriptionBinding, axis: .vertical)
-                            .accessibilityIdentifier("itemEditDescriptionField")
-                    }
-                    Section("Priority") {
-                        Menu {
-                            ForEach(ChecklistItemPriority.allCases, id: \.self) { priority in
-                                Button {
-                                    priorityBinding.wrappedValue = priority
-                                } label: {
-                                    if priority == item.priority {
-                                        Label(priority.label, systemImage: "checkmark")
-                                    } else {
-                                        Text(priority.label)
+        GeometryReader { geometry in
+            Group {
+                if let item = store.checklist(id: checklistID)?
+                    .items.first(where: { $0.id == itemID }) {
+                    Form {
+                        Section("Title") {
+                            TextField("Title", text: titleBinding, axis: .vertical)
+                                .accessibilityIdentifier("itemEditTitleField")
+                        }
+                        Section("Description") {
+                            TextField("Description", text: descriptionBinding, axis: .vertical)
+                                .accessibilityIdentifier("itemEditDescriptionField")
+                        }
+                        Section("Priority") {
+                            Menu {
+                                ForEach(ChecklistItemPriority.allCases, id: \.self) { priority in
+                                    Button {
+                                        priorityBinding.wrappedValue = priority
+                                    } label: {
+                                        if priority == item.priority {
+                                            Label(priority.label, systemImage: "checkmark")
+                                        } else {
+                                            Text(priority.label)
+                                        }
                                     }
                                 }
+                            } label: {
+                                HStack {
+                                    Text(item.priority.label)
+                                    Spacer()
+                                    Image(systemName: "info.circle")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .accessibilityIdentifier("itemEditPriorityMenu")
                             }
-                        } label: {
-                            HStack {
-                                Text(item.priority.label)
-                                Spacer()
-                                Image(systemName: "info.circle")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .accessibilityIdentifier("itemEditPriorityMenu")
+                            .accessibilityIdentifier("itemEditPriorityRow")
                         }
-                        .accessibilityIdentifier("itemEditPriorityRow")
+                        Section {
+                            dueDateField
+                        } header: {
+                            Text("Due date")
+                        } footer: {
+                            Text("0 means today, 1 means tomorrow, nothing means no date.")
+                        }
                     }
-                    Section {
-                        dueDateField
-                    } header: {
-                        Text("Due date")
-                    } footer: {
-                        Text("0 means today, 1 means tomorrow, nothing means no date.")
+                    .onChange(of: item.relativeDate) { _, newValue in
+                        // An external (iCloud) change updates the buffer only when
+                        // it differs from what the buffer already represents, so a
+                        // padded `"05"` or a half-typed `"-"` is never rewritten.
+                        if let refreshed = RelativeDateDraft.text(
+                            afterExternalChange: newValue, current: draftDate) {
+                            draftDate = refreshed
+                        }
                     }
+                } else {
+                    // Deleted elsewhere (e.g. an iCloud merge) while on the stack.
+                    ContentUnavailableView("Item not found", systemImage: "trash")
                 }
-                .onChange(of: item.relativeDate) { _, newValue in
-                    // An external (iCloud) change updates the buffer only when
-                    // it differs from what the buffer already represents, so a
-                    // padded `"05"` or a half-typed `"-"` is never rewritten.
-                    if let refreshed = RelativeDateDraft.text(
-                        afterExternalChange: newValue, current: draftDate) {
-                        draftDate = refreshed
-                    }
-                }
-            } else {
-                // Deleted elsewhere (e.g. an iCloud merge) while on the stack.
-                ContentUnavailableView("Item not found", systemImage: "trash")
             }
+            .navigationTitle("Edit item")
+            .toolbarTitleDisplayMode(.inline)
+            .settingsSubscreenLayout()
+            .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width), alignment: .center)
+            .onAppear {
+                guard !didLoadDraft else { return }
+                let item = store.checklist(id: checklistID)?.items.first { $0.id == itemID }
+                draftDate = RelativeDateDraft.text(for: item?.relativeDate)
+                didLoadDraft = true
+            }
+            .onDisappear { store.flushPendingSave() }
         }
-        .navigationTitle("Edit item")
-        .toolbarTitleDisplayMode(.inline)
-        .settingsSubscreenLayout()
-        .onAppear {
-            guard !didLoadDraft else { return }
-            let item = store.checklist(id: checklistID)?.items.first { $0.id == itemID }
-            draftDate = RelativeDateDraft.text(for: item?.relativeDate)
-            didLoadDraft = true
-        }
-        .onDisappear { store.flushPendingSave() }
     }
 
     /// Per-keystroke title write, mirroring `ChecklistDetailView`'s helpers. The
