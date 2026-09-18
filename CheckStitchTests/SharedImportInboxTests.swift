@@ -31,4 +31,18 @@ struct SharedImportInboxTests {
         #expect(inbox.pending == nil)
         #expect(inbox.consume() == nil)
     }
+
+    @Test
+    func secondDistinctArrivalReplacesPending() {
+        let inbox = SharedImportInbox.shared
+        _ = inbox.consume()
+        let first = URL(fileURLWithPath: "/tmp/first.json")
+        let second = URL(fileURLWithPath: "/tmp/second.json")
+
+        inbox.receive(url: first)
+        inbox.receive(url: second)
+
+        #expect(inbox.consume()?.url == second)
+        #expect(inbox.consume() == nil)
+    }
 }

@@ -144,6 +144,68 @@ struct ChecklistImportExportViewModelTests {
     }
 
     @Test
+    func unreadableFileShowsAlertAndNoSheet() throws {
+        let store = makeStore(names: [])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        let url = try writeTempFile(Data("not json".utf8))
+
+        viewModel.importFile(at: url)
+
+        #expect(viewModel.importErrorMessage != nil)
+        #expect(!viewModel.isShowingImportSelection)
+        #expect(store.checklists.isEmpty)
+    }
+
+    @Test
+    func unsupportedVersionShowsAlertAndNoSheet() throws {
+        let store = makeStore(names: [])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        let envelope = ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion + 1, deviceID: "", checklists: [])
+        let url = try writeTempFile(try ChecklistCodec.encode(envelope))
+
+        viewModel.importFile(at: url)
+
+        #expect(viewModel.importErrorMessage != nil)
+        #expect(!viewModel.isShowingImportSelection)
+        #expect(store.checklists.isEmpty)
+    }
+
+    @Test
+    func storeIsByteIdenticalAfterCancel() throws {
+        let store = makeStore(names: ["Groceries"])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        let before = try ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "",
+            checklists: store.checklists, tombstones: store.tombstones))
+        let url = try writeTempFile(try ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "",
+            checklists: [Checklist(name: "Groceries"), Checklist(name: "New")])))
+
+        viewModel.importFile(at: url)
+        viewModel.cancelImport()
+
+        let after = try ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "",
+            checklists: store.checklists, tombstones: store.tombstones))
+        #expect(before == after)
+    }
+
+    @Test
+    func receivingWhileSheetOpenReplacesStagedFile() throws {
+        let store = makeStore(names: [])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        let first = try writeTempFile(try ChecklistExport.data(checklists: [Checklist(name: "A")]))
+        let second = try writeTempFile(try ChecklistExport.data(checklists: [Checklist(name: "B")]))
+
+        viewModel.importFile(at: first)
+        viewModel.importFile(at: second)
+
+        #expect(viewModel.importCandidates.map(\.checklist.name) == ["B"], "second arrival replaces the staged file")
+        #expect(store.checklists.isEmpty, "store still untouched before commit")
+    }
+
+    @Test
     func conflictDecisionsAdvanceTheFIFOQueue() async throws {
         // Export two same-named checklists, import into a store that already has
         // that name → two conflicts, presented in file order.
