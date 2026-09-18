@@ -57,6 +57,15 @@
             OrientationPolicy(
                 allowsLandscape: OrientationPreference().isLandscapeEnabled).mask
         }
+
+        func application(
+            _: UIApplication,
+            open url: URL,
+            options _: [UIApplication.OpenURLOptionsKey: Any] = [:]
+        ) -> Bool {
+            SharedImportInbox.shared.receive(url: url)
+            return true
+        }
     }
 #endif
 
@@ -172,6 +181,10 @@
 
         func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows: Bool) -> Bool {
             true
+        }
+
+        func application(_: NSApplication, open urls: [URL]) {
+            for url in urls { SharedImportInbox.shared.receive(url: url) }
         }
     }
 #endif

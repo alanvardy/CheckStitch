@@ -61,6 +61,9 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* CheckStitch */ = {
+			exceptions = (
+				0000000000000000000000A1 /* Exceptions for "CheckStitch" folder in "CheckStitch" target */,
+			);
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CheckStitch;
 			sourceTree = "<group>";
@@ -81,6 +84,16 @@
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0000000000000000000000A1 /* Exceptions for "CheckStitch" folder in "CheckStitch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 000000000000000100000000 /* CheckStitch */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000130000000 /* Frameworks */ = {
@@ -499,6 +512,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CheckStitch/Info.plist;
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "CheckStitch needs access to create reminders.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "CheckStitch needs access to create reminders.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -544,6 +558,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CheckStitch/Info.plist;
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "CheckStitch needs access to create reminders.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "CheckStitch needs access to create reminders.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
