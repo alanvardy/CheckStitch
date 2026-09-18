@@ -195,6 +195,25 @@ struct ChecklistSyncCoordinatorTests {
         #expect(transport.sentMessages.contains(.language("ja")))
     }
 
+    /// A pick-time change pushes without waiting for the watch to ask: the
+    /// Settings picker calls `languageDidChange()` on every change.
+    @Test
+    func languageChangePushesImmediately() {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let coordinator = ChecklistSyncCoordinator(
+            transport: transport,
+            snapshot: { [] },
+            createReminders: { await runner.run($0) },
+            language: { .french })
+
+        coordinator.start()
+        transport.clearSentMessages()          // ignore the cold-start push
+        coordinator.languageDidChange()
+
+        #expect(transport.sentMessages == [.language("fr")])
+    }
+
     @Test
     func activationSeedsTheWatchAfterTheColdStartDrop() {
         let transport = FakeChecklistSyncTransport()

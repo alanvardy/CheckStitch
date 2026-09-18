@@ -33,6 +33,14 @@ public final class ChecklistSyncCoordinator {
         pushContext()
     }
 
+    /// Pushes the chosen language to the watch. The Settings picker calls this
+    /// on every change: `start()`/`onActivated` fire once per phone session, so
+    /// without this hook a change made while the watch session is already active
+    /// would sit unsent until a process restart.
+    public func languageDidChange() {
+        pushLanguage()
+    }
+
     private func pushContext() {
         guard let data = try? ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: snapshot())) else { return }
         transport.sendContext(data)
@@ -42,7 +50,12 @@ public final class ChecklistSyncCoordinator {
     /// `updateApplicationContext` — `sendContext` owns that dictionary and
     /// would overwrite a sibling key.
     private func pushLanguage() {
-        transport.sendUserInfo(.language(language().rawValue))
+        let message = ChecklistSyncMessage.language(language().rawValue)
+        let accepted = transport.sendUserInfo(message)
+        ChecklistSyncDiagnostics.log(.phoneSend, [
+            "message": message.diagnosticName,
+            "send": accepted ? "accepted" : "dropped",
+        ])
     }
 
     private func handle(_ message: ChecklistSyncMessage) {
