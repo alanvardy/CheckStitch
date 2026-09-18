@@ -18,7 +18,7 @@ Ticket: alanvardy-var-996 — add a setting to prefix items with an incrementing
 - [x] Phase 2 — `make build` passes (app target compiles with the new key and call sites)
 - [x] Phase 3 — `make test-unit` passes (all `SettingsBindingsTests`, old and new assertions)
 - [x] Phase 3 — `make build` passes (SettingsView compiles with the new Section)
-- [ ] Phase 3 — Full gate `bash scripts/test.sh` prints `gate: ok` — **left for the review step**: the delegation rule reserves the project-wide gate for the parent/review step, which runs it once after all phases commit.
+- [x] Phase 3 — Full gate `bash scripts/test.sh` prints `gate: ok` (run once by the parent after all phases committed)
 
 ## Manual Verification Items (from the plan)
 

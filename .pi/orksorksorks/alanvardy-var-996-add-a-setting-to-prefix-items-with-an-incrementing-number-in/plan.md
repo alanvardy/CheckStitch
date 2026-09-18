@@ -459,7 +459,7 @@ Add the new key to all four existing tests so the staged bag stays covered:
 #### Automated
 - [x] `make test-unit` passes (all `SettingsBindingsTests`, old and new assertions)
 - [x] `make build` passes (SettingsView compiles with the new Section)
-- [ ] Full gate `bash scripts/test.sh` prints `gate: ok`
+- [x] Full gate `bash scripts/test.sh` prints `gate: ok`
 
 #### Manual
 - [ ] Open Settings from the gear button → the "Number Reminders" row is present, off by default; toggling it on, running a checklist gives `1: …` titles, and the value survives relaunch (reopening Settings shows it still on).
