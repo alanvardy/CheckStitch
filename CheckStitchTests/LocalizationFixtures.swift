@@ -98,7 +98,15 @@ enum LocalizationFixtures {
             "You have %lld checklists: %@.",
             "You have 1 checklist: %@.",
             "You don't have any checklists yet.",
-            "That list no longer exists, so some reminders may not have been created."
+            "That list no longer exists, so some reminders may not have been created.",
+            "Reminders",
+            "Checklists & Sync",
+            "Background Image",
+            "Privacy Policy",
+            "CheckStitch has no analytics, no tracking, and no advertising.",
+            "Reminders are created through Apple Reminders and appear in your Reminders inbox. They stay on your device or in your own iCloud account, and are never sent to the author or any third party. CheckStitch never reads, edits, completes, or deletes reminders after creating them.",
+            "Your checklists are stored on your device in shared app storage and synced through your own iCloud account. They are never sent to the author or any third party.",
+            "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This is the app's only network traffic, and it never includes any reminder, checklist, or preference data."
         ]),
         ("Core", ["System", "Light", "Dark", "None", "Low", "Medium", "High", "Version %@ (%@)", "Version %@"]),
         ("Watch", [
