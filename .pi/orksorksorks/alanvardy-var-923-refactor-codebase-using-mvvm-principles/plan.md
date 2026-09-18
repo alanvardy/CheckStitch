@@ -1534,15 +1534,15 @@ deliberately retained (out of scope per design "What We're NOT Doing").
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/test.sh` prints `gate: ok`
-- [ ] No `*ViewModel` under Core: `ls CheckStitchCore/Sources/CheckStitchCore/*ViewModel*` finds nothing
-- [ ] No store mutation in `ContentView`:
+- [x] `bash scripts/test.sh` prints `gate: ok`
+- [x] No `*ViewModel` under Core: `ls CheckStitchCore/Sources/CheckStitchCore/*ViewModel*` finds nothing
+- [x] No store mutation in `ContentView`:
       `rg -n "store\.(create|removeChecklists|moveChecklists|addItem|updateItem|removeItems|moveItems|importInsert|importReplace|rename|setDestination|setPrefixesReminderNumbers|delete|flushPendingSave)" CheckStitch/ContentView.swift` finds nothing
-- [ ] No run/import/export construction in `ContentView`:
+- [x] No run/import/export construction in `ContentView`:
       `rg -n "ChecklistReminders\.create|ChecklistImportSession|ChecklistExportDocument" CheckStitch/ContentView.swift` finds nothing
-- [ ] No settings staging in `ContentView`:
+- [x] No settings staging in `ContentView`:
       `rg -n "SettingsBindings\(|dataActionQueue|makeSettingsBag" CheckStitch/ContentView.swift` finds nothing
-- [ ] UI smoke accessibility ids still resolve: `createChecklistButton`,
+- [x] UI smoke accessibility ids still resolve: `createChecklistButton`,
       `settingsButton`, `emptyStateCreateButton`, `createRemindersButton`
       (covered by `make test-ui` inside the gate)
 
