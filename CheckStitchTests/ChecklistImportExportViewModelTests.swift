@@ -175,9 +175,11 @@ struct ChecklistImportExportViewModelTests {
     func storeIsByteIdenticalAfterCancel() throws {
         let store = makeStore(names: ["Groceries"])
         let viewModel = ChecklistImportExportViewModel(store: store)
-        let before = try ChecklistCodec.encode(ChecklistEnvelope(
-            version: ChecklistCodec.currentVersion, deviceID: "",
-            checklists: store.checklists, tombstones: store.tombstones))
+        // Capture the store's logical state, not encoded bytes: the codec's
+        // JSON output is not byte-stable across two encodes of equal data, so
+        // byte equality would make this test red regardless of behaviour.
+        let beforeLists = store.checklists
+        let beforeTombstones = store.tombstones
         let url = try writeTempFile(try ChecklistCodec.encode(ChecklistEnvelope(
             version: ChecklistCodec.currentVersion, deviceID: "",
             checklists: [Checklist(name: "Groceries"), Checklist(name: "New")])))
@@ -185,10 +187,10 @@ struct ChecklistImportExportViewModelTests {
         viewModel.importFile(at: url)
         viewModel.cancelImport()
 
-        let after = try ChecklistCodec.encode(ChecklistEnvelope(
-            version: ChecklistCodec.currentVersion, deviceID: "",
-            checklists: store.checklists, tombstones: store.tombstones))
-        #expect(before == after)
+        // Cancel must leave the store untouched: same checklists (and ids/
+        // timestamps), same tombstones — i.e. no write reached the store.
+        #expect(store.checklists == beforeLists, "cancel leaves checklists untouched")
+        #expect(store.tombstones == beforeTombstones, "cancel leaves tombstones untouched")
     }
 
     @Test
