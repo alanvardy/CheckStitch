@@ -14,6 +14,7 @@ struct ContentView: View {
     @AppStorage("backgroundFadePercent") var backgroundFadePercent = BackgroundFade.defaultValue
     @AppStorage("backgroundPinned") var backgroundPinned = false
     @AppStorage("textSize") var textSize = TextSize.system
+    @AppStorage("allowsLandscape") var allowsLandscape = true
 
     @State private var path: [UUID] = []
     /// Present when the main-screen rows are in edit mode (remove/move
@@ -109,6 +110,11 @@ struct ContentView: View {
                 #endif
                 #if os(macOS)
                     MacAppDelegate.applyAppearance(new)
+                #endif
+            }
+            .onChange(of: allowsLandscape) { _, new in
+                #if os(iOS)
+                    AppDelegate.applyLock(allowsLandscape: new)
                 #endif
             }
             #if os(macOS)
@@ -550,6 +556,7 @@ extension ContentView {
             .onChange(of: bag.backgroundFadePercent) { _, _ in writeBack(bag) }
             .onChange(of: bag.backgroundPinned) { _, _ in writeBack(bag) }
             .onChange(of: bag.textSize) { _, _ in writeBack(bag) }
+            .onChange(of: bag.allowsLandscape) { _, _ in writeBack(bag) }
     }
 
     /// Persists every staged background preference. Extracted so it is
@@ -559,6 +566,7 @@ extension ContentView {
         backgroundFadePercent = bag.backgroundFadePercent
         backgroundPinned = bag.backgroundPinned
         textSize = bag.textSize
+        allowsLandscape = bag.allowsLandscape
     }
 
     /// Fresh bag snapshotted from the current stored preferences on sheet open.
@@ -567,7 +575,8 @@ extension ContentView {
             backgroundEnabled: backgroundEnabled,
             backgroundFadePercent: backgroundFadePercent,
             backgroundPinned: backgroundPinned,
-            textSize: textSize)
+            textSize: textSize,
+            allowsLandscape: allowsLandscape)
     }
 
     /// Stages an import/export chosen in the Settings menu and closes the sheet,

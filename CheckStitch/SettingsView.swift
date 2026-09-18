@@ -20,9 +20,16 @@ struct SettingsView: View {
             Form {
                 Section {
                     NavigationLink {
-                        InterfaceSettingsView(
-                            appearanceMode: $appearanceMode,
-                            textSize: $bindings.textSize)
+                        #if os(iOS)
+                            InterfaceSettingsView(
+                                appearanceMode: $appearanceMode,
+                                textSize: $bindings.textSize,
+                                allowsLandscape: $bindings.allowsLandscape)
+                        #else
+                            InterfaceSettingsView(
+                                appearanceMode: $appearanceMode,
+                                textSize: $bindings.textSize)
+                        #endif
                     } label: {
                         Label("Interface", systemImage: "slider.horizontal.3")
                     }

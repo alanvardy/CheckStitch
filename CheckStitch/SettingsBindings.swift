@@ -10,15 +10,18 @@ final class SettingsBindings {
         backgroundEnabled: Bool = true,
         backgroundFadePercent: Int = BackgroundFade.defaultValue,
         backgroundPinned: Bool = false,
-        textSize: TextSize = .system) {
+        textSize: TextSize = .system,
+        allowsLandscape: Bool = true) {
         self.backgroundEnabled = backgroundEnabled
         self.backgroundFadePercent = backgroundFadePercent
         self.backgroundPinned = backgroundPinned
         self.textSize = textSize
+        self.allowsLandscape = allowsLandscape
     }
 
     var backgroundEnabled: Bool
     var backgroundFadePercent: Int
     var backgroundPinned: Bool
     var textSize: TextSize
+    var allowsLandscape: Bool
 }

@@ -2,7 +2,8 @@
     import UIKit
 
     /// Bridges the persisted appearance setting into the UIKit window so the
-    /// theme applies app-wide rather than per-view.
+    /// theme applies app-wide rather than per-view, and enforces the persisted
+    /// orientation lock (`allowsLandscape`) at the window level.
     ///
     /// Registered via `@UIApplicationDelegateAdaptor` in `MyApp`.
     final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -22,6 +23,31 @@
 
         func applicationDidBecomeActive(_: UIApplication) {
             Self.applyAppearance(AppearanceMode.load())
+        }
+
+        /// Re-evaluates the orientation lock and requests an immediate rotation
+        /// if the current orientation violates the new mask.
+        ///
+        /// Call this from SwiftUI when the `allowsLandscape` toggle changes.
+        /// On iPad in Split View or Slide Over the request may be denied
+        /// (`Code=101`), but the mask still prevents auto-rotation.
+        static func applyLock(allowsLandscape: Bool) {
+            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let controller = scene.keyWindow?.rootViewController
+            else { return }
+
+            controller.setNeedsUpdateOfSupportedInterfaceOrientations()
+            let mask = OrientationPolicy(allowsLandscape: allowsLandscape).mask
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
+                print("Orientation request failed: \(error.localizedDescription)")
+            }
+        }
+
+        func application(
+            _: UIApplication,
+            supportedInterfaceOrientationsFor _: UIWindow?) -> UIInterfaceOrientationMask {
+            OrientationPolicy(
+                allowsLandscape: OrientationPreference().isLandscapeEnabled).mask
         }
     }
 #endif

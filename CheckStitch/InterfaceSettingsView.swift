@@ -6,6 +6,9 @@ import SwiftUI
 struct InterfaceSettingsView: View {
     @Binding var appearanceMode: AppearanceMode
     @Binding var textSize: TextSize
+    #if os(iOS)
+        @Binding var allowsLandscape: Bool
+    #endif
 
     var body: some View {
         Form {
@@ -34,6 +37,20 @@ struct InterfaceSettingsView: View {
                 }
             }
             .accessibilityIdentifier("textSizePicker")
+
+            #if os(iOS)
+                Toggle(isOn: $allowsLandscape) {
+                    Label {
+                        VStack(alignment: .leading) {
+                            Text("Allow landscape")
+                            caption("Let the app rotate on iPhone.")
+                        }
+                    } icon: {
+                        Image(systemName: "rectangle.landscape.rotate")
+                    }
+                }
+                .accessibilityIdentifier("allowLandscapeToggle")
+            #endif
         }
         .navigationTitle("Interface")
         .settingsSubscreenLayout()
@@ -49,8 +66,15 @@ struct InterfaceSettingsView: View {
 
 #Preview {
     NavigationStack {
-        InterfaceSettingsView(
-            appearanceMode: .constant(AppearanceMode.system),
-            textSize: .constant(.system))
+        #if os(iOS)
+            InterfaceSettingsView(
+                appearanceMode: .constant(AppearanceMode.system),
+                textSize: .constant(.system),
+                allowsLandscape: .constant(true))
+        #else
+            InterfaceSettingsView(
+                appearanceMode: .constant(AppearanceMode.system),
+                textSize: .constant(.system))
+        #endif
     }
 }
