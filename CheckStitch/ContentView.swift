@@ -9,6 +9,8 @@ struct ContentView: View {
     @Environment(ChecklistRunViewModel.self) private var runVM
     @Environment(SettingsViewModel.self) private var settingsVM
     @Environment(ChecklistImportExportViewModel.self) private var importExportVM
+    @Environment(BackgroundViewModel.self) private var backgroundVM
+    @Environment(AppearanceViewModel.self) private var appearanceVM
     @Environment(ChecklistSyncService.self) private var syncService
     @Environment(\.colorScheme) private var colorScheme
 
@@ -24,13 +26,12 @@ struct ContentView: View {
     /// Present when the main-screen rows are in edit mode (remove/move
     /// controls instead of navigation and the run button).
     @State private var isEditing = false
-    @State private var backgroundImage = BackgroundImageStore()
 
     var body: some View {
         ZStack {
             Color.systemBackground.ignoresSafeArea()
             BackgroundPhotoLayer(
-                imageData: backgroundImage.imageData,
+                imageData: backgroundVM.image.imageData,
                 isEnabled: backgroundEnabled,
                 opacity: BackgroundFade.opacity(for: backgroundFadePercent))
             NavigationStack(path: $path) {
@@ -86,17 +87,10 @@ struct ContentView: View {
                 } message: { Text(importExportVM.importErrorMessage ?? "") }
             }
             .onChange(of: appearanceMode) { _, new in
-                #if os(iOS)
-                    AppDelegate.applyAppearance(new)
-                #endif
-                #if os(macOS)
-                    MacAppDelegate.applyAppearance(new)
-                #endif
+                appearanceVM.appearanceModeChanged(new)
             }
             .onChange(of: allowsLandscape) { _, new in
-                #if os(iOS)
-                    AppDelegate.applyLock(allowsLandscape: new)
-                #endif
+                appearanceVM.allowsLandscapeChanged(new)
             }
             #if os(macOS)
                 // The canvas does not pick up the window-level NSWindow.appearance,
@@ -151,11 +145,10 @@ struct ContentView: View {
         .task {
             // Pin BEFORE the first refresh so a pinned cold launch never
             // refetches a stale stored image (mirrors SingleThread's ordering).
-            await backgroundImage.setPinned(backgroundPinned)
-            await backgroundImage.refreshIfNeeded()
+            await backgroundVM.task(pinned: backgroundPinned)
         }
         .onChange(of: backgroundPinned) { _, pin in
-            Task { await backgroundImage.setPinned(pin) }
+            Task { await backgroundVM.setPinned(pin) }
         }
         .alert("Couldn't create reminders", isPresented: Binding(
             get: { runVM.runErrorMessage != nil },
@@ -512,7 +505,7 @@ extension ContentView {
             appearanceMode: $appearanceMode,
             appLanguage: appLanguageBinding,
             bindings: bag,
-            backgroundImage: backgroundImage,
+            backgroundImage: backgroundVM.image,
             onExport: { requestDataAction(.export) },
             onImport: { requestDataAction(.importChecklists) })
             .onChange(of: bag.backgroundEnabled) { _, _ in applySettings(settingsVM.writeBack(bag)) }
@@ -597,6 +590,8 @@ struct SyncStatusView: View {
         .environment(ChecklistListViewModel(store: store))
         .environment(ChecklistRunViewModel(store: store))
         .environment(ChecklistImportExportViewModel(store: store))
+        .environment(BackgroundViewModel())
+        .environment(AppearanceViewModel())
         // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
 }
