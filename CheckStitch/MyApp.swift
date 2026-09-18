@@ -66,7 +66,7 @@ import SwiftUI
                                 let coordinator = ChecklistSyncCoordinator(
                                     transport: PhoneSyncAdapter(),
                                     snapshot: { store.checklists },
-                                    createReminders: { await ChecklistReminders.create(from: $0) },
+                                    createReminders: { await ChecklistReminders.create(from: $0, prefixNumbers: ReminderNumberingPreference().isEnabled) },
                                     language: { AppLocaleState.current.language })
                                 self.coordinator = coordinator
                                 coordinator.start()
