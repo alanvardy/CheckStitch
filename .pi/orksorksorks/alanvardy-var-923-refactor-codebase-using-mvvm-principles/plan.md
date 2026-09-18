@@ -318,8 +318,8 @@ func unknownIDIsANoOp() {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (create/remove/move + sad path)
-- [ ] `make build` passes
+- [x] `make test-unit` passes (create/remove/move + sad path)
+- [x] `make build` passes
 
 #### Manual
 - [ ] `make run`: Edit → tap minus on a row shows the confirm dialog; Remove

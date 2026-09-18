@@ -21,9 +21,6 @@ struct ContentView: View {
     /// Present when the main-screen rows are in edit mode (remove/move
     /// controls instead of navigation and the run button).
     @State private var isEditing = false
-    /// The checklist waiting for its confirm/cancel in the remove dialog;
-    /// `nil` hides it.
-    @State private var checklistPendingRemoval: UUID?
     /// Transient per-checklist reminder feedback, keyed by id — never persisted.
     @State private var creating: Set<UUID> = []
     @State private var created: Set<UUID> = []
@@ -220,18 +217,18 @@ struct ContentView: View {
         // the removal.
         .confirmationDialog(
             "Remove Checklist",
-            isPresented: Binding(get: { checklistPendingRemoval != nil },
-                                 set: { if !$0 { checklistPendingRemoval = nil } }),
-            presenting: checklistPendingRemoval
+            isPresented: Binding(get: { listVM.checklistPendingRemoval != nil },
+                                 set: { if !$0 { listVM.checklistPendingRemoval = nil } }),
+            presenting: listVM.checklistPendingRemoval
         ) { id in
             Button("Remove", role: .destructive) {
                 // Clear the pending id explicitly rather than relying on the
                 // dialog's dismissal to fire the `isPresented` setter.
-                checklistPendingRemoval = nil
-                removeChecklist(id: id)
+                listVM.checklistPendingRemoval = nil
+                withAnimation { listVM.removeChecklist(id: id) }
             }
             .accessibilityIdentifier("confirmRemoveChecklistButton")
-            Button("Cancel", role: .cancel) { checklistPendingRemoval = nil }
+            Button("Cancel", role: .cancel) { listVM.checklistPendingRemoval = nil }
                 .accessibilityIdentifier("cancelRemoveChecklistButton")
         } message: { _ in
             Text("This removes the checklist and all its items.")
@@ -408,7 +405,7 @@ struct ContentView: View {
         HStack(spacing: 12) {
             if isEditing {
                 Button {
-                    checklistPendingRemoval = checklist.id
+                    listVM.checklistPendingRemoval = checklist.id
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.title3)
@@ -437,7 +434,7 @@ struct ContentView: View {
     @ViewBuilder
     private func checklistMoveControls(for checklist: Checklist) -> some View {
         HStack(spacing: 4) {
-            Button { moveChecklist(checklist.id, up: true) } label: {
+            Button { withAnimation { listVM.moveChecklist(id: checklist.id, up: true) } } label: {
                 Image(systemName: "chevron.up")
             }
             .buttonStyle(.plain)
@@ -445,7 +442,7 @@ struct ContentView: View {
             .accessibilityLabel("Move up")
             .accessibilityIdentifier("moveChecklistUp-\(checklist.id.uuidString)")
 
-            Button { moveChecklist(checklist.id, up: false) } label: {
+            Button { withAnimation { listVM.moveChecklist(id: checklist.id, up: false) } } label: {
                 Image(systemName: "chevron.down")
             }
             .buttonStyle(.plain)
@@ -518,26 +515,6 @@ struct ContentView: View {
                 // Never flash success: nothing (or only part) was created.
                 runErrorMessage = outcome.errorMessage
             }
-        }
-    }
-
-    /// Performs the destructive half of the removal gate: a single-row batch
-    /// into the store's `removeChecklists` (one tombstone, one save). The
-    /// animation transaction makes the row's removal (and any new last-row
-    /// divider) animate.
-    private func removeChecklist(id: UUID) {
-        guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
-        withAnimation { store.removeChecklists(at: IndexSet(integer: index)) }
-    }
-
-    /// Converts a one-row nudge into the `moved` index arithmetic: one row up
-    /// is `destination == index - 1`, one row down is `index + 2` (the
-    /// destination is adjusted for the removed element). The animation
-    /// transaction is what makes the swap animate in the `LazyVStack`.
-    private func moveChecklist(_ id: UUID, up: Bool) {
-        guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
-        withAnimation {
-            store.moveChecklists(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
         }
     }
 }
