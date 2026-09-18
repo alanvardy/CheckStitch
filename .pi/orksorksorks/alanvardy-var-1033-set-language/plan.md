@@ -660,10 +660,10 @@ to `DueDateLabel.resource(for:)` and resolve them for the assertion:
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `LocalizationTests` unchanged and green (no catalog keys touched this phase)
-- [ ] `LocalizedStringResolutionTests` green (the `de` resolution is the phase's key assertion)
-- [ ] No `String(localized:` remains in the phase's files: `rg -n "String\(localized" CheckStitchCore/Sources/CheckStitchCore/SharedStrings.swift CheckStitchCore/Sources/CheckStitchCore/AppearanceMode.swift CheckStitchCore/Sources/CheckStitchCore/AppInfo.swift CheckStitch/AppearanceMode.swift CheckStitch/BackgroundSettingsView.swift CheckStitch/DueDateLabel.swift` prints nothing
+- [x] `make test-unit` passes
+- [x] `LocalizationTests` unchanged and green (no catalog keys touched this phase)
+- [x] `LocalizedStringResolutionTests` green (the `de` resolution is the phase's key assertion)
+- [x] No `String(localized:` remains in the phase's files: `rg -n "String\(localized" CheckStitchCore/Sources/CheckStitchCore/SharedStrings.swift CheckStitchCore/Sources/CheckStitchCore/AppearanceMode.swift CheckStitchCore/Sources/CheckStitchCore/AppInfo.swift CheckStitch/AppearanceMode.swift CheckStitch/BackgroundSettingsView.swift CheckStitch/DueDateLabel.swift` prints nothing
 
 #### Manual
 - [ ] `make run`; switch to Deutsch and confirm **live, without relaunch**: appearance picker rows read System/Hell/Dunkel, the Background footer credit is German, due-date labels on a checklist detail row are German, and the About footer version line is unchanged in shape

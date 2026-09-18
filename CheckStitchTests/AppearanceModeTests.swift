@@ -23,10 +23,12 @@ struct AppearanceModeTests {
         (.dark, "Dark"),
     ])
     func titlesResolveThroughTheCoreCatalog(_ mode: AppearanceMode, _ key: String) {
-        // Resolve against the core bundle with the same default-locale semantics
-        // as `SharedStrings`, rather than pinning `en`, so the assertion does not
-        // depend on the test host's locale.
-        #expect(mode.title == String(
-            localized: String.LocalizationValue(key), table: "Localizable", bundle: .core))
+        // The title is a resource (so SwiftUI re-resolves it against
+        // `\.locale`), pinned to its catalog key; the second assertion
+        // confirms an explicit-locale resolution reaches the embedded core
+        // catalog rather than falling back to the key itself.
+        #expect(mode.title.key == key)
+        #expect(mode.title.resolved(in: Locale(identifier: "en"))
+            == String(localized: String.LocalizationValue(key), table: "Localizable", bundle: .core))
     }
 }

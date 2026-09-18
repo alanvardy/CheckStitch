@@ -66,11 +66,11 @@ enum AppearanceMode: String, CaseIterable {
     }
 
     /// Human-readable label shown in the appearance picker.
-    var title: String {
+    var title: LocalizedStringResource {
         switch self {
-        case .system: String(localized: "System", table: "Localizable", bundle: .main)
-        case .light: String(localized: "Light", table: "Localizable", bundle: .main)
-        case .dark: String(localized: "Dark", table: "Localizable", bundle: .main)
+        case .system: LocalizedStringResource("System", table: "Localizable", bundle: .main)
+        case .light: LocalizedStringResource("Light", table: "Localizable", bundle: .main)
+        case .dark: LocalizedStringResource("Dark", table: "Localizable", bundle: .main)
         }
     }
 

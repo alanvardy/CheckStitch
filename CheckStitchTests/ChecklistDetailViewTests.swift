@@ -80,24 +80,24 @@ struct ChecklistDetailViewTests {
     /// placeholder like "0".
     @Test
     func missingDateRendersAsBlank() {
-        #expect(DueDateLabel.text(for: nil).isEmpty)
+        #expect(DueDateLabel.resource(for: nil).resolved(in: Locale(identifier: "en")).isEmpty)
     }
 
     /// Every offset spells out to its own non-empty phrase, so no two offsets
     /// collapse onto the same label.
     @Test(arguments: [0, 1, -1, 3, -3, 12] as [Int])
     func everyOffsetRendersItsOwnPhrase(_ offset: Int) {
-        let label = DueDateLabel.text(for: offset)
+        let label = DueDateLabel.resource(for: offset).resolved(in: Locale(identifier: "en"))
         #expect(!label.isEmpty)
-        #expect(label != DueDateLabel.text(for: offset + 2))
+        #expect(label != DueDateLabel.resource(for: offset + 2).resolved(in: Locale(identifier: "en")))
     }
 
     /// The day count survives into the phrase, so "in 3 days" cannot silently
     /// become "in 0 days".
     @Test
     func futureAndPastPhrasesCarryTheirDayCount() {
-        #expect(DueDateLabel.text(for: 3).contains("3"))
-        #expect(DueDateLabel.text(for: -3).contains("3"))
+        #expect(DueDateLabel.resource(for: 3).resolved(in: Locale(identifier: "en")).contains("3"))
+        #expect(DueDateLabel.resource(for: -3).resolved(in: Locale(identifier: "en")).contains("3"))
     }
 
     /// The date field's text converts to a store value only when complete:

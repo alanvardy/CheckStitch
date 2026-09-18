@@ -9,20 +9,23 @@ import Foundation
 /// the two sides of the screen cannot spell the same day differently.
 enum DueDateLabel {
     /// `nil` renders as the empty string; every offset renders a non-empty
-    /// phrase, never a bare day count.
-    static func text(for relativeDate: Int?) -> String {
-        guard let relativeDate else { return "" }
+    /// phrase, never a bare day count. Returned as a resource so SwiftUI
+    /// re-resolves it against the environment locale on a language switch.
+    static func resource(for relativeDate: Int?) -> LocalizedStringResource {
+        guard let relativeDate else {
+            return LocalizedStringResource("", table: "Localizable", bundle: .main)
+        }
         switch relativeDate {
         case 0:
-            return String(localized: "Today")
+            return LocalizedStringResource("Today", table: "Localizable", bundle: .main)
         case 1:
-            return String(localized: "Tomorrow")
+            return LocalizedStringResource("Tomorrow", table: "Localizable", bundle: .main)
         case -1:
-            return String(localized: "Yesterday")
+            return LocalizedStringResource("Yesterday", table: "Localizable", bundle: .main)
         case 2...:
-            return String(localized: "In \(relativeDate) days")
+            return LocalizedStringResource("In \(relativeDate) days", table: "Localizable", bundle: .main)
         default:
-            return String(localized: "\(-relativeDate) days ago")
+            return LocalizedStringResource("\(-relativeDate) days ago", table: "Localizable", bundle: .main)
         }
     }
 }
