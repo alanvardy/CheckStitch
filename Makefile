@@ -9,6 +9,11 @@ WATCH_SCHEME := CheckStitchWatch
 SCHEME := CheckStitch
 CONFIGURATION := Debug
 DERIVED_DATA := DerivedData
+# Gate legs compile with warnings as errors: a compiler warning fails the leg.
+# scripts/test.sh and CI inherit this through the make recipes; local Xcode
+# builds and project.pbxproj are untouched. `build-mac-signed`,
+# run-watch.sh and run-devices.sh are device helpers and deliberately excluded.
+WARNINGS_AS_ERRORS := SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
 MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
 
@@ -33,6 +38,7 @@ build-mac:
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
 	  CODE_SIGNING_ALLOWED=NO \
+	  $(WARNINGS_AS_ERRORS) \
 	  build
 
 # Signed macOS leg. Requires the Mac provisioning profile for the development

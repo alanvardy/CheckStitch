@@ -225,7 +225,7 @@ final class ChecklistStore {
     @discardableResult
     func rename(id: UUID, to name: String) -> RenameOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
-        guard checklists.first { $0.id != id && Self.sameName($0.name, name) } == nil else {
+        guard checklists.first(where: { $0.id != id && Self.sameName($0.name, name) }) == nil else {
             return .nameTaken
         }
         checklists[index].name = name

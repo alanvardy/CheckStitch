@@ -97,7 +97,7 @@ struct ContentView: View {
                 // On the `Group` so the empty state is refreshable too — a fresh
                 // device has no rows to pull down, and that is exactly when a
                 // manual force-refresh matters most.
-                .refreshable { await syncService.refresh() }
+                .refreshable { _ = await syncService.refresh() }
                 .alert("Couldn't import",
                        isPresented: Binding(get: { importErrorMessage != nil },
                                             set: { if !$0 { importErrorMessage = nil } })) {
