@@ -167,6 +167,9 @@ final class FakeChecklistSyncTransport: ChecklistSyncTransport {
         return acceptsSends
     }
 
+    /// Lets a test ignore the cold-start push before asserting on later sends.
+    func clearSentMessages() { sentMessages = [] }
+
     func deliver(_ message: ChecklistSyncMessage) { onMessage?(message) }
 
     /// Stands in for `WCSession` finishing activation.

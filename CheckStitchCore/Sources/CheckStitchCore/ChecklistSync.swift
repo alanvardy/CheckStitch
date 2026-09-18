@@ -7,6 +7,7 @@ public enum ChecklistSyncKey {
     public static let runChecklist = "runChecklist"
     public static let runChecklistRunID = "runChecklistRunID"
     public static let requestChecklists = "requestChecklists"
+    public static let language = "language"
     public static let runResult = "runResult"
     public static let runResultRunID = "runID"
     public static let runResultChecklistID = "checklistID"
@@ -107,6 +108,8 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
     case runChecklist(id: UUID, runID: UUID)
     /// Watch → phone, via `transferUserInfo` (cold launch re-push request).
     case requestChecklists
+    /// Phone → watch, via `transferUserInfo`: the app-language raw value.
+    case language(String)
     /// Phone → watch, via `transferUserInfo` (the phone's answer to a run).
     /// `runID` echoes the request's id so the watch can match the result.
     case runResult(RunResult)
@@ -121,6 +124,11 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
             self = .runChecklist(id: id, runID: runID)
         } else if userInfo[ChecklistSyncKey.requestChecklists] as? Bool == true {
             self = .requestChecklists
+        } else if let raw = userInfo[ChecklistSyncKey.language] as? String,
+                  AppLanguage(rawValue: raw) != nil {
+            // A malformed or unknown language string is a rejected message,
+            // never a crash.
+            self = .language(raw)
         } else if let dict = userInfo[ChecklistSyncKey.runResult] as? [String: Any],
                   let runRaw = dict[ChecklistSyncKey.runResultRunID] as? String,
                   let runID = UUID(uuidString: runRaw),
@@ -146,6 +154,8 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
              ChecklistSyncKey.runChecklistRunID: runID.uuidString]
         case .requestChecklists:
             [ChecklistSyncKey.requestChecklists: true]
+        case .language(let raw):
+            [ChecklistSyncKey.language: raw]
         case .runResult(let result):
             [ChecklistSyncKey.runResult: runResultDict(result)]
         }
@@ -178,6 +188,7 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
         case .context(let data): "context(\(data.count))b"
         case .runChecklist(let id, let runID): "runChecklist(id:\(id.uuidString),run:\(runID.uuidString))"
         case .requestChecklists: "requestChecklists"
+        case .language(let raw): "language(\(raw))"
         case .runResult(let result):
             "runResult(run:\(result.runID.uuidString),kind:\(result.kind.wireName))"
         }
@@ -236,8 +247,11 @@ public enum RunPhase: Equatable, Sendable {
 @MainActor
 @Observable
 public final class WatchChecklistStore {
-    public init(transport: ChecklistSyncTransport) {
+    /// `locale` is injectable so tests use an isolated `UserDefaults` suite;
+    /// production gets the process-wide holder.
+    public init(transport: ChecklistSyncTransport, locale: AppLocaleState? = nil) {
         self.transport = transport
+        self.locale = locale ?? .current
     }
 
     public private(set) var checklists: [Checklist] = []
@@ -344,10 +358,16 @@ public final class WatchChecklistStore {
             case .permissionDenied, .destinationMissing, .notFound, .failed: .failed(result.kind.message)
             }
             setPhase(phase, for: result.runID)
+        case .language(let raw):
+            // Unknown values never clobber the persisted choice; a corrupted
+            // *stored* value is handled by AppLanguagePreference (→ .system).
+            guard let language = AppLanguage(rawValue: raw) else { break }
+            locale.set(language)
         case .runChecklist, .requestChecklists:
             break // phone-only directions
         }
     }
 
     private let transport: ChecklistSyncTransport
+    private let locale: AppLocaleState
 }

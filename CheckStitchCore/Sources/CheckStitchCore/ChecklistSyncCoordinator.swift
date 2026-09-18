@@ -7,20 +7,26 @@ public final class ChecklistSyncCoordinator {
     public init(
         transport: ChecklistSyncTransport,
         snapshot: @escaping () -> [Checklist],
-        createReminders: @escaping (Checklist) async -> ReminderRunOutcome
+        createReminders: @escaping (Checklist) async -> ReminderRunOutcome,
+        language: @escaping @MainActor () -> AppLanguage
     ) {
         self.transport = transport
         self.snapshot = snapshot
         self.createReminders = createReminders
+        self.language = language
     }
 
     public func start() {
         transport.onMessage = { [weak self] in self?.handle($0) }
-        // `activate()` is asynchronous, so the push below is dropped on a cold
+        // `activate()` is asynchronous, so the pushes below are dropped on a cold
         // start; `onActivated` is what actually seeds the watch.
-        transport.onActivated = { [weak self] in self?.pushContext() }
+        transport.onActivated = { [weak self] in
+            self?.pushContext()
+            self?.pushLanguage()
+        }
         transport.activate()
         pushContext()
+        pushLanguage()
     }
 
     public func checklistsDidChange() {
@@ -32,11 +38,19 @@ public final class ChecklistSyncCoordinator {
         transport.sendContext(data)
     }
 
+    /// Language travels on the `transferUserInfo` channel, not inside
+    /// `updateApplicationContext` — `sendContext` owns that dictionary and
+    /// would overwrite a sibling key.
+    private func pushLanguage() {
+        transport.sendUserInfo(.language(language().rawValue))
+    }
+
     private func handle(_ message: ChecklistSyncMessage) {
         ChecklistSyncDiagnostics.log(.phoneHandle, ["message": message.diagnosticName])
         switch message {
         case .requestChecklists:
             pushContext()
+            pushLanguage()
         case .runChecklist(let id, let runID):
             // A re-sent run (activation race, lost result) must not create
             // reminders twice: re-ack with the recorded result instead.
@@ -86,7 +100,7 @@ public final class ChecklistSyncCoordinator {
                     "run": runID.uuidString, "result": sent ? "acked" : "ack-dropped",
                 ])
             }
-        case .context, .runResult:
+        case .context, .runResult, .language:
             break // watch-only / phone→watch directions
         }
     }
@@ -94,6 +108,7 @@ public final class ChecklistSyncCoordinator {
     private let transport: ChecklistSyncTransport
     private let snapshot: () -> [Checklist]
     private let createReminders: (Checklist) async -> ReminderRunOutcome
+    private let language: @MainActor () -> AppLanguage
     /// Tail of the serialized run queue; see `handle`.
     private var pendingRun: Task<Void, Never>?
     /// Bounded memory of completed runs so a re-sent request is acked, never

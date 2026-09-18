@@ -12,7 +12,8 @@ struct ChecklistSyncCoordinatorTests {
         ChecklistSyncCoordinator(
             transport: transport,
             snapshot: { checklists },
-            createReminders: { await runner.run($0) })
+            createReminders: { await runner.run($0) },
+            language: { .system })
     }
 
     @Test
@@ -102,6 +103,7 @@ struct ChecklistSyncCoordinatorTests {
 
         let id = UUID()
         let runID = UUID()
+        transport.clearSentMessages()          // ignore the cold-start language push
         transport.deliver(.runChecklist(id: id, runID: runID))
         await Task.yield()
 
@@ -174,6 +176,23 @@ struct ChecklistSyncCoordinatorTests {
         transport.deliver(.requestChecklists)
 
         #expect(transport.sentContexts.count == 2)
+    }
+
+    @Test
+    func requestChecklistsRepushesTheLanguage() {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let coordinator = ChecklistSyncCoordinator(
+            transport: transport,
+            snapshot: { [] },
+            createReminders: { await runner.run($0) },
+            language: { .japanese })
+
+        coordinator.start()
+        transport.clearSentMessages()          // ignore the cold-start push
+        transport.deliver(.requestChecklists)
+
+        #expect(transport.sentMessages.contains(.language("ja")))
     }
 
     @Test
