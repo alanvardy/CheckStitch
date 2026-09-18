@@ -25,14 +25,14 @@ struct WatchChecklistDetailView: View {
     private var buttonTitle: String {
         switch phase {
         case .sending: String(localized: "Sending…", table: "Localizable", bundle: .main)
-        case .created: String(localized: "Created", table: "Localizable", bundle: .main)
+        case .created, .partiallyCreated: String(localized: "Created", table: "Localizable", bundle: .main)
         case .idle, .failed: String(localized: "Create reminders", table: "Localizable", bundle: .main)
         }
     }
 
     private var buttonDisabled: Bool {
         switch phase {
-        case .sending, .created: true
+        case .sending, .created, .partiallyCreated: true
         case .idle, .failed: visibleItems.isEmpty
         }
     }

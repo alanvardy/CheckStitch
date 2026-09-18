@@ -143,6 +143,7 @@ struct ChecklistSyncCoordinatorTests {
 
     @Test(arguments: [
         (ReminderRunOutcome.created(count: 2), RunResultKind.created(2)),
+        (.partiallyCreated(created: 2, total: 5, reason: "boom"), .partiallyCreated(created: 2, total: 5)),
         (.permissionDenied, .permissionDenied),
         (.destinationMissing, .destinationMissing),
         (.failed("boom"), .failed),

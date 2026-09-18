@@ -45,6 +45,12 @@ struct ChecklistSyncMessageTests {
     }
 
     @Test
+    func partiallyCreatedRunResultRoundTripsThroughUserInfo() {
+        let result = RunResult(runID: UUID(), checklistID: UUID(), kind: .partiallyCreated(created: 2, total: 5))
+        #expect(ChecklistSyncMessage(userInfo: ChecklistSyncMessage.runResult(result).userInfo) == .runResult(result))
+    }
+
+    @Test
     func runResultWithAMalformedKindIsRejected() {
         #expect(ChecklistSyncMessage(userInfo: [
             ChecklistSyncKey.runResult: [
@@ -58,6 +64,21 @@ struct ChecklistSyncMessageTests {
                 ChecklistSyncKey.runResultRunID: UUID().uuidString,
                 ChecklistSyncKey.runResultChecklistID: UUID().uuidString,
                 ChecklistSyncKey.runResultKind: "created", // no count
+            ],
+        ]) == nil)
+        #expect(ChecklistSyncMessage(userInfo: [
+            ChecklistSyncKey.runResult: [
+                ChecklistSyncKey.runResultRunID: UUID().uuidString,
+                ChecklistSyncKey.runResultChecklistID: UUID().uuidString,
+                ChecklistSyncKey.runResultKind: "partiallyCreated", // no count or total
+            ],
+        ]) == nil)
+        #expect(ChecklistSyncMessage(userInfo: [
+            ChecklistSyncKey.runResult: [
+                ChecklistSyncKey.runResultRunID: UUID().uuidString,
+                ChecklistSyncKey.runResultChecklistID: UUID().uuidString,
+                ChecklistSyncKey.runResultKind: "partiallyCreated",
+                ChecklistSyncKey.runResultCount: 2, // count but no total
             ],
         ]) == nil)
     }

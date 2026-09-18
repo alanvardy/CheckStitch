@@ -238,6 +238,7 @@ struct WatchChecklistStoreTests {
 
     @Test(arguments: [
         (RunResultKind.created(3), RunPhase.created(3)),
+        (.partiallyCreated(created: 2, total: 5), .partiallyCreated(created: 2, total: 5)),
         (.permissionDenied, .failed(RunResultKind.permissionDenied.message)),
         (.destinationMissing, .failed(RunResultKind.destinationMissing.message)),
         (.notFound, .failed(RunResultKind.notFound.message)),
@@ -288,6 +289,7 @@ struct WatchChecklistStoreTests {
 
     @Test(arguments: [
         (RunPhase.created(3), "Created 3 reminders." as String?),
+        (RunPhase.partiallyCreated(created: 2, total: 5), "Created 2 of 5 reminders." as String?),
         (RunPhase.failed("boom"), "boom" as String?),
         (RunPhase.idle, String?.none),
         (RunPhase.sending, String?.none),
