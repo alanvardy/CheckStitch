@@ -193,10 +193,10 @@ struct ChecklistListViewModelTests {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (including the new `ChecklistListViewModelTests`)
-- [ ] `make build` passes (iOS simulator leg)
-- [ ] `ls CheckStitchCore/Sources/CheckStitchCore/*ViewModel*` finds no file
-- [ ] `rg -n "ChecklistViewModel" CheckStitchCore CheckStitch CheckStitchTests` returns only unrelated comment text in `ChecklistCreator.swift`/`ReminderCreating.swift` (no type/suite)
+- [x] `make test-unit` passes (including the new `ChecklistListViewModelTests`)
+- [x] `make build` passes (iOS simulator leg)
+- [x] `ls CheckStitchCore/Sources/CheckStitchCore/*ViewModel*` finds no file
+- [x] `rg -n "ChecklistViewModel" CheckStitchCore CheckStitch CheckStitchTests` returns only unrelated comment text in `ChecklistCreator.swift`/`ReminderCreating.swift` (no type/suite)
 
 #### Manual
 - [ ] `make run`: tapping **+** (and the empty-state "Create checklist") opens a

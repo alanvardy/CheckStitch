@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(ChecklistStore.self) private var store
+    @Environment(ChecklistListViewModel.self) private var listVM
     @Environment(ChecklistSyncService.self) private var syncService
     @Environment(\.colorScheme) private var colorScheme
 
@@ -54,7 +55,7 @@ struct ContentView: View {
                 opacity: BackgroundFade.opacity(for: backgroundFadePercent))
             NavigationStack(path: $path) {
                 Group {
-                    if store.checklists.isEmpty {
+                    if listVM.checklists.isEmpty {
                         emptyState
                     } else {
                         checklistList
@@ -74,7 +75,7 @@ struct ContentView: View {
                         // Edit is hidden while the list is empty: the empty
                         // state owns that screen, and a stray edit toggle
                         // there would edit nothing.
-                        if !store.checklists.isEmpty {
+                        if !listVM.checklists.isEmpty {
                             ToolbarItem(placement: .primaryAction) {
                                 editToggleButton
                             }
@@ -237,7 +238,7 @@ struct ContentView: View {
         }
         // Leave edit mode when the last checklist goes: the empty state has no
         // toggle, so a later create must not open into a stale edit state.
-        .onChange(of: store.checklists.isEmpty) { _, isEmpty in
+        .onChange(of: listVM.checklists.isEmpty) { _, isEmpty in
             if isEmpty { isEditing = false }
         }
     }
@@ -366,9 +367,9 @@ struct ContentView: View {
                         .padding(.bottom, 8)
                     #endif
                     LazyVStack(spacing: 0) {
-                        ForEach(store.checklists) { checklist in
+                        ForEach(listVM.checklists) { checklist in
                             checklistRow(for: checklist)
-                            if checklist.id != store.checklists.last?.id {
+                            if checklist.id != listVM.checklists.last?.id {
                                 Divider()
                             }
                         }
@@ -440,7 +441,7 @@ struct ContentView: View {
                 Image(systemName: "chevron.up")
             }
             .buttonStyle(.plain)
-            .disabled(store.checklists.first?.id == checklist.id)
+            .disabled(listVM.checklists.first?.id == checklist.id)
             .accessibilityLabel("Move up")
             .accessibilityIdentifier("moveChecklistUp-\(checklist.id.uuidString)")
 
@@ -448,7 +449,7 @@ struct ContentView: View {
                 Image(systemName: "chevron.down")
             }
             .buttonStyle(.plain)
-            .disabled(store.checklists.last?.id == checklist.id)
+            .disabled(listVM.checklists.last?.id == checklist.id)
             .accessibilityLabel("Move down")
             .accessibilityIdentifier("moveChecklistDown-\(checklist.id.uuidString)")
         }
@@ -492,9 +493,8 @@ struct ContentView: View {
     }
 
     private func createChecklist() {
-        // `create()` disambiguates a duplicate name ("New checklist 2") rather
-        // than failing, so there is always a checklist to open.
-        path.append(store.create().id)
+        // Creation runs through the list view model, which owns the mutation.
+        path.append(listVM.createChecklist())
     }
 
     private func createReminders(for id: UUID) {
@@ -752,6 +752,7 @@ struct SyncStatusView: View {
     let store = ChecklistStore()
     ContentView()
         .environment(store)
+        .environment(ChecklistListViewModel(store: store))
         // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
 }
