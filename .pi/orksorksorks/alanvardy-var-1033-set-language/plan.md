@@ -83,8 +83,8 @@ optional `.id(appLanguage)` in Phase 2).
 ### Verification
 
 #### Automated
-- [ ] `make build` succeeds with the probe present (probe compiles, is `#if DEBUG`)
-- [ ] `make test-unit` still passes (probe is unreferenced by tests)
+- [x] `make build` succeeds with the probe present (probe compiles, is `#if DEBUG`)
+- [x] `make test-unit` still passes (probe is unreferenced by tests)
 
 #### Manual
 - [ ] iOS 18.7 simulator: `String(localized:)` from `.main` returns German under the swap

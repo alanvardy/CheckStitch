@@ -1,0 +1,16 @@
+probe-start
+baseline-main=Settings
+english-main-pin=Settings
+baseline-core=Dark
+english-core-pin=Dark
+de-main={Settings}
+de-core={Dark}
+explicit-de-main={Settings}
+routing-3arg-redirects={0}
+core-sub-bundle-lookup=Dunkel
+restored-core=Dark
+restored-core-matches-baseline=true
+restored-main=Settings
+restored-main-matches-baseline=true
+text-follows-locale=MANUAL-ONLY
+probe-completed
