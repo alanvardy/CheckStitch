@@ -21,6 +21,7 @@ import SwiftUI
     @State private var listViewModel: ChecklistListViewModel
     @State private var runViewModel: ChecklistRunViewModel
     @State private var settingsViewModel: SettingsViewModel
+    @State private var importExportViewModel: ChecklistImportExportViewModel
     @State private var syncService: ChecklistSyncService
     #if os(iOS)
         @State private var coordinator: ChecklistSyncCoordinator?
@@ -35,6 +36,7 @@ import SwiftUI
         _listViewModel = State(initialValue: ChecklistListViewModel(store: store))
         _runViewModel = State(initialValue: ChecklistRunViewModel(store: store))
         _settingsViewModel = State(initialValue: SettingsViewModel())
+        _importExportViewModel = State(initialValue: ChecklistImportExportViewModel(store: store))
         _syncService = State(initialValue: syncService)
     }
 
@@ -51,6 +53,7 @@ import SwiftUI
                     .environment(listViewModel)
                     .environment(runViewModel)
                     .environment(settingsViewModel)
+                    .environment(importExportViewModel)
                     .environment(syncService)
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     .task { await syncService.syncOnLaunch() }
@@ -70,6 +73,7 @@ import SwiftUI
                     .environment(listViewModel)
                     .environment(runViewModel)
                     .environment(settingsViewModel)
+                    .environment(importExportViewModel)
                     .environment(syncService)
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     #if os(iOS)
