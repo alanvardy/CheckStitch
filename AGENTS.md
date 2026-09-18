@@ -51,6 +51,12 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   `make watch-build` → `scripts/tests/run.sh` →
   `shellcheck scripts/*.sh scripts/tests/*.sh`,
   printing `gate: ok`.
+- Every gate leg that compiles Swift passes the shared `WARNINGS_AS_ERRORS`
+  Makefile variable (`SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+  GCC_TREAT_WARNINGS_AS_ERRORS=YES`), so a compiler warning fails the gate.
+  `scripts/tests/run.sh` (`warnings_as_errors_reaches_compiling_legs`) pins the
+  flag per leg; `build-mac-signed`, `run-watch.sh` and `run-devices.sh` are
+  intentionally outside enforcement.
 - `make test-unit` runs `CheckStitchTests` on `platform=macOS` with
   `CODE_SIGNING_ALLOWED=NO` (no sim, no signing). `make test-ui` runs exactly one
   `CheckStitchUITests` smoke case via `build-for-testing` →
