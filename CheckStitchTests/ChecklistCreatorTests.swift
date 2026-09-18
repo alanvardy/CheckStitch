@@ -105,4 +105,55 @@ struct ChecklistCreatorTests {
         #expect(spy.createdItems.map { $0.title } == ["a"])
         #expect(spy.createdItems[0].dueDateComponents == DateComponents(year: 2026, month: 3, day: 9))
     }
+
+    @Test
+    func numberingIsOffByDefault() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy)
+        let outcome = await creator.create(from: [makeItem("one"), makeItem("two")])
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["one", "two"])
+    }
+
+    @Test
+    func numberingPrefixesTitlesWithTheirPosition() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
+        let outcome = await creator.create(from: [makeItem("one"), makeItem("two")])
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["1: one", "2: two"])
+    }
+
+    @Test
+    func numberingSkipsBlankItemsWithoutGaps() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
+        let outcome = await creator.create(from: [
+            makeItem("one"), makeItem(""), makeItem("two"), makeItem("   "),
+        ])
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["1: one", "2: two"])
+    }
+
+    @Test
+    func numberingContinuesPastNine() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
+        let items = (1...10).map { makeItem("item \($0)") }
+        let outcome = await creator.create(from: items)
+        #expect(outcome == .created(count: 10))
+        #expect(spy.createdTitles.first == "1: item 1")
+        #expect(spy.createdTitles.last == "10: item 10")
+    }
+
+    /// Sad path: numbering must not bypass the permission gate.
+    @Test
+    func numberingStillRespectsPermissionDenial() async {
+        let spy = SpyReminderCreator()
+        spy.accessGranted = false
+        let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
+        let outcome = await creator.create(from: [makeItem("one")])
+        #expect(outcome == .permissionDenied)
+        #expect(spy.createdTitles.isEmpty)
+    }
 }
