@@ -1195,10 +1195,10 @@ struct ChecklistImportExportViewModelTests {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (export filter/empty; read vs format failure; FIFO
+- [x] `make test-unit` passes (export filter/empty; read vs format failure; FIFO
       advance)
-- [ ] `make build` passes
-- [ ] `rg -n "ChecklistImportSession|ChecklistExportDocument|startAccessingSecurityScopedResource" CheckStitch/ContentView.swift` finds nothing
+- [x] `make build` passes
+- [x] `rg -n "ChecklistImportSession|ChecklistExportDocument|startAccessingSecurityScopedResource" CheckStitch/ContentView.swift` finds nothing
 
 #### Manual
 - [ ] `make run`: Settings → Export → select a subset → share sheet writes a JSON

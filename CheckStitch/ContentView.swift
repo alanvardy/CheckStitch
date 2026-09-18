@@ -8,6 +8,7 @@ struct ContentView: View {
     @Environment(ChecklistListViewModel.self) private var listVM
     @Environment(ChecklistRunViewModel.self) private var runVM
     @Environment(SettingsViewModel.self) private var settingsVM
+    @Environment(ChecklistImportExportViewModel.self) private var importExportVM
     @Environment(ChecklistSyncService.self) private var syncService
     @Environment(\.colorScheme) private var colorScheme
 
@@ -24,15 +25,6 @@ struct ContentView: View {
     /// controls instead of navigation and the run button).
     @State private var isEditing = false
     @State private var backgroundImage = BackgroundImageStore()
-    @State private var isShowingExport = false
-    @State private var exportSelection: Set<UUID> = []
-    @State private var exportDocument: ChecklistExportDocument?
-    @State private var isExporting = false
-    @State private var isImporting = false
-    @State private var importSession: ChecklistImportSession?
-    @State private var conflict: ChecklistImportCandidate?
-    @State private var importErrorMessage: String?
-    @State private var exportErrorMessage: String?
 
     var body: some View {
         ZStack {
@@ -88,10 +80,10 @@ struct ContentView: View {
                 // manual force-refresh matters most.
                 .refreshable { _ = await syncService.refresh() }
                 .alert("Couldn't import",
-                       isPresented: Binding(get: { importErrorMessage != nil },
-                                            set: { if !$0 { importErrorMessage = nil } })) {
+                       isPresented: Binding(get: { importExportVM.importErrorMessage != nil },
+                                            set: { if !$0 { importExportVM.clearImportError() } })) {
                     Button("OK", role: .cancel) {}
-                } message: { Text(importErrorMessage ?? "") }
+                } message: { Text(importExportVM.importErrorMessage ?? "") }
             }
             .onChange(of: appearanceMode) { _, new in
                 #if os(iOS)
@@ -174,36 +166,44 @@ struct ContentView: View {
         } message: {
             Text(runVM.runErrorMessage ?? "")
         }
-        .sheet(isPresented: $isShowingExport) {
-            ExportChecklistsView(selection: $exportSelection) { exportSelected() }
+        .sheet(isPresented: Binding(get: { importExportVM.isShowingExport },
+                                    set: { if !$0 { importExportVM.dismissExportSelection() } })) {
+            ExportChecklistsView(
+                selection: Binding(get: { importExportVM.exportSelection },
+                                   set: { importExportVM.exportSelection = $0 })) {
+                importExportVM.exportSelected()
+            }
         }
-        .fileExporter(isPresented: $isExporting,
-                      document: exportDocument,
+        .fileExporter(isPresented: Binding(get: { importExportVM.isExporting },
+                                           set: { if !$0 { importExportVM.dismissExport() } }),
+                      document: importExportVM.exportDocument,
                       contentType: .json,
                       defaultFilename: ChecklistExport.filename()) { result in
-            if case .failure(let error) = result { exportErrorMessage = error.localizedDescription }
+            if case .failure(let error) = result { importExportVM.exportFailed(error) }
         }
-        .fileImporter(isPresented: $isImporting,
+        .fileImporter(isPresented: Binding(get: { importExportVM.isImporting },
+                                           set: { if !$0 { importExportVM.dismissImport() } }),
                       allowedContentTypes: [.json]) { result in
             switch result {
-            case .success(let url): importFile(at: url)
-            case .failure(let error): importErrorMessage = error.localizedDescription
+            case .success(let url): importExportVM.importFile(at: url)
+            case .failure(let error): importExportVM.importFailed(error)
             }
         }
         .confirmationDialog("Name conflict",
-                            isPresented: conflictPresented,
-                            presenting: conflict) { candidate in
-            Button("Replace") { choose(.replace) }
-            Button("Keep Both") { choose(.keepBoth) }
-            Button("Keep Existing", role: .cancel) { choose(.keepExisting) }
+                            isPresented: Binding(get: { importExportVM.conflict != nil },
+                                                 set: { if !$0 { importExportVM.dismissConflict() } }),
+                            presenting: importExportVM.conflict) { candidate in
+            Button("Replace") { importExportVM.decide(.replace) }
+            Button("Keep Both") { importExportVM.decide(.keepBoth) }
+            Button("Keep Existing", role: .cancel) { importExportVM.decide(.keepExisting) }
         } message: { candidate in
             Text("“\(candidate.checklist.name)” already exists.")
         }
         .alert("Couldn't export",
-               isPresented: Binding(get: { exportErrorMessage != nil },
-                                    set: { if !$0 { exportErrorMessage = nil } })) {
+               isPresented: Binding(get: { importExportVM.exportErrorMessage != nil },
+                                    set: { if !$0 { importExportVM.clearExportError() } })) {
             Button("OK", role: .cancel) {}
-        } message: { Text(exportErrorMessage ?? "") }
+        } message: { Text(importExportVM.exportErrorMessage ?? "") }
         // Two-step removal gate, mirroring the detail screen: the per-row
         // minus only raises this dialog, and its destructive button performs
         // the removal.
@@ -542,85 +542,8 @@ extension ContentView {
     /// dismissed.
     private func perform(_ action: SettingsDataAction) {
         switch action {
-        case .export: beginExport()
-        case .importChecklists: isImporting = true
-        }
-    }
-
-    private func beginExport() {
-        exportSelection = []
-        isShowingExport = true
-    }
-
-    private func exportSelected() {
-        isShowingExport = false
-        let selected = store.checklists.filter { exportSelection.contains($0.id) }
-        guard !selected.isEmpty else { return }
-        do {
-            exportDocument = try ChecklistExportDocument(checklists: selected)
-            isExporting = true
-        } catch {
-            exportErrorMessage = error.localizedDescription
-        }
-    }
-
-    private func importFile(at url: URL) {
-        // Security-scoped URLs require an access/stop pair around the read; a
-        // missing pair silently yields unreadable data on device.
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        let data: Data
-        do {
-            data = try Data(contentsOf: url)
-        } catch {
-            // A read failure (missing file, permissions) is not a format
-            // problem: report the system's description rather than mislabelling
-            // it as an unreadable export.
-            importErrorMessage = error.localizedDescription
-            return
-        }
-
-        let session = ChecklistImportSession(store: store)
-        do {
-            try session.prepare(data: data)
-        } catch let error as ChecklistImportError {
-            importErrorMessage = error.message
-            return
-        } catch {
-            importErrorMessage = "This file isn't a CheckStitch export."
-            return
-        }
-        importSession = session
-        conflict = session.pending.first
-    }
-
-    /// `conflict` is a snapshot of `pending.first`; each decision clears it before
-    /// advancing, so SwiftUI's own dismissal (setter fires `false`) cannot
-    /// double-handle the next candidate.
-    private var conflictPresented: Binding<Bool> {
-        Binding(
-            get: { conflict != nil },
-            set: { presented in
-                guard !presented, let current = conflict else { return }
-                conflict = nil
-                importSession?.decide(.keepExisting, for: current.id)
-                advanceConflict()
-            }
-        )
-    }
-
-    private func choose(_ decision: ImportDecision) {
-        guard let current = conflict else { return }
-        conflict = nil
-        importSession?.decide(decision, for: current.id)
-        advanceConflict()
-    }
-
-    /// Re-presents after the current dismissal completes, so the next conflict in
-    /// the FIFO queue is shown until the queue is empty.
-    private func advanceConflict() {
-        DispatchQueue.main.async {
-            conflict = importSession?.pending.first
+        case .export: importExportVM.beginExport()
+        case .importChecklists: importExportVM.beginImport()
         }
     }
 }
@@ -673,6 +596,7 @@ struct SyncStatusView: View {
         .environment(store)
         .environment(ChecklistListViewModel(store: store))
         .environment(ChecklistRunViewModel(store: store))
+        .environment(ChecklistImportExportViewModel(store: store))
         // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
 }
