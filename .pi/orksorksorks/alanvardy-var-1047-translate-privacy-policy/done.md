@@ -14,3 +14,43 @@
   - Bodies: **Erinnerungen werden über Apple Erinnerungen erstellt…** / **Ihre Checklisten werden auf Ihrem Gerät im gemeinsamen App-Speicher abgelegt…** / **Wenn der Hintergrund aktiviert ist, werden das Hintergrundbild und die Künstlerinformationen von einem Proxy unter vardy.cc heruntergeladen…**
   - Note: this session's blind agent could not read rendered pixels (no OCR/vision available), so the exact screen words above are quoted from the installed bundle's `de.lproj` rather than OCR'd.
   - Unrelated pre-existing dirt left untouched: unstaged deletion of the tracked junk file `DELETEME` (not part of this ticket; delete/commit as you see fit).
+## Review fix — the copy ignored the in-app language picker
+
+The human reviewer set the in-app language picker (Interface → Language) to
+Spanish, opened Settings → Privacy Policy and saw an English body under a
+Spanish row/title. Root cause: `PrivacyGuideContent.localized(_:)` resolved the
+copy **eagerly** with `String(localized:table:bundle:)`, which pins the
+*process* locale (`Locale.current`) and therefore ignores the app-language
+`\.locale` override that `MyApp` injects. The screen title and the settings row
+are SwiftUI string literals, which do resolve against `\.locale`, so only the
+body and the closing line stayed English.
+
+This is also why the "runtime verification" above missed it: it set the
+**system** language (`AppleLanguages=(de)`), an axis the eager lookup *does*
+honour. It never exercised the in-app picker. The `de.lproj` bundle check was
+sound but equally blind to the picker — both proved the catalog is translated,
+neither proved the screen resolves through the app language.
+
+Fix: `PrivacyGuideContent` now returns `LocalizedStringResource`s (deferred
+resolution) and `PrivacySettingsView` resolves them with `resolved(in:)`
+against `@Environment(\.locale)`, the seam the rest of the app uses.
+
+Verification:
+
+- New `PrivacySettingsContentTests.privacyCopyResolvesInTheSelectedLanguageRatherThanTheProcessLocale`
+  resolves the sections against `es` and `en`, asserting the Spanish values
+  match the compiled `es` table, differ from English, and that the first
+  section title is `Recordatorios`. It uses `resolved(in:)`; the test helper
+  `LocalizedStringResource.resolved(locale:)` in `LocalizationTestHelpers.swift`
+  is the spike-NO-GO `String(localized:locale:)` form and does **not** pin the
+  language — it is currently unused, and using it is how the first draft of
+  this test failed.
+- Render check: `PrivacySettingsView` rendered offscreen via `ImageRenderer`
+  with `\.locale = es` shows the whole screen in Spanish (title
+  `Recordatorios`, `Listas de verificación y sincronización`, `Imagen de
+  fondo`, closing `CheckStitch no utiliza analíticas ni seguimiento y no
+  muestra publicidad.`) — i.e. the in-app-picker axis, not the system-language
+  axis.
+- `make test-unit` — 333 tests in 44 suites passed (was 332; +1 regression
+  test). Full gate (`./scripts/test.sh`) — `gate: ok`.
+
