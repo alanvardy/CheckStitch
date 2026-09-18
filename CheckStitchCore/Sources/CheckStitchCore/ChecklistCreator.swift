@@ -26,7 +26,8 @@ public enum ChecklistTitleNumbering {
 /// arithmetic lives in `ChecklistItem.dueDateComponents`.
 ///
 /// Declared `Sendable` explicitly — a `public` struct gets no inferred
-/// conformance, and `ChecklistViewModel` would otherwise fail to send it.
+/// conformance, and callers would otherwise fail to send it across isolation
+/// boundaries.
 public struct ChecklistCreator: Sendable {
     public init(reminders: ReminderCreating,
                 now: @escaping @Sendable () -> Date = Date.init,
