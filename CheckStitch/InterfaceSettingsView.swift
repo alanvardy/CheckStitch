@@ -1,10 +1,12 @@
+import CheckStitchCore
 import SwiftUI
 
-/// Interface preferences: appearance, text size, and (on iOS) the orientation
-/// lock. Takes only the bindings it needs rather than the whole settings bag,
-/// matching `BackgroundSettingsView`.
+/// Interface preferences: appearance, language, text size, and (on iOS) the
+/// orientation lock. Takes only the bindings it needs rather than the whole
+/// settings bag, matching `BackgroundSettingsView`.
 struct InterfaceSettingsView: View {
     @Binding var appearanceMode: AppearanceMode
+    @Binding var appLanguage: AppLanguage
     @Binding var textSize: TextSize
     #if os(iOS)
         @Binding var allowsLandscape: Bool
@@ -24,6 +26,15 @@ struct InterfaceSettingsView: View {
                 }
             }
             .accessibilityIdentifier("appearancePicker")
+
+            Picker(selection: $appLanguage) {
+                ForEach(AppLanguage.allCases, id: \.self) { language in
+                    Text(language.title).tag(language)
+                }
+            } label: {
+                Text("Language")
+            }
+            .accessibilityIdentifier("languagePicker")
 
             Picker(selection: $textSize) {
                 ForEach(TextSize.allCases, id: \.self) { size in
@@ -69,11 +80,13 @@ struct InterfaceSettingsView: View {
         #if os(iOS)
             InterfaceSettingsView(
                 appearanceMode: .constant(AppearanceMode.system),
+                appLanguage: .constant(.system),
                 textSize: .constant(.system),
                 allowsLandscape: .constant(true))
         #else
             InterfaceSettingsView(
                 appearanceMode: .constant(AppearanceMode.system),
+                appLanguage: .constant(.system),
                 textSize: .constant(.system))
         #endif
     }

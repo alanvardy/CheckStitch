@@ -2,10 +2,10 @@ import CheckStitchCore
 import SwiftUI
 
 /// Modal settings screen presented from the gear button. Holds the Interface
-/// row — which pushes the subscreen owning the appearance (theme) picker,
-/// still bound back to the `@AppStorage`-backed property on `ContentView` —
-/// the row that pushes the Background subscreen over a staged
-/// `SettingsBindings` bag, and the import/export entry points.
+/// row — which pushes the subscreen owning the appearance (theme), language
+/// and text-size pickers, still bound back to the `@AppStorage`-backed
+/// properties on `ContentView` — the row that pushes the Background subscreen
+/// over a staged `SettingsBindings` bag, and the import/export entry points.
 struct SettingsView: View {
     @Binding var appearanceMode: AppearanceMode
     @Binding var appLanguage: AppLanguage
@@ -20,27 +20,18 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Interface") {
-                    Picker(selection: $appLanguage) {
-                        ForEach(AppLanguage.allCases, id: \.self) { language in
-                            Text(language.title).tag(language)
-                        }
-                    } label: {
-                        Text("Language")
-                    }
-                    .accessibilityIdentifier("languagePicker")
-                }
-
                 Section {
                     NavigationLink {
                         #if os(iOS)
                             InterfaceSettingsView(
                                 appearanceMode: $appearanceMode,
+                                appLanguage: $appLanguage,
                                 textSize: $bindings.textSize,
                                 allowsLandscape: $bindings.allowsLandscape)
                         #else
                             InterfaceSettingsView(
                                 appearanceMode: $appearanceMode,
+                                appLanguage: $appLanguage,
                                 textSize: $bindings.textSize)
                         #endif
                     } label: {
