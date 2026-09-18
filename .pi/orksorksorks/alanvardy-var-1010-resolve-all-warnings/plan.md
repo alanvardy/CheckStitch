@@ -472,10 +472,10 @@ gate does.)
 ### Verification
 
 #### Automated
-- [ ] `./scripts/test.sh` prints `gate: ok` (its three own `warning:` lines, if any, are unchanged and unrelated)
-- [ ] `bash scripts/tests/run.sh` → `0 failed`
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` clean
-- [ ] Fresh-cache confidence run: `rm -rf DerivedData && ./scripts/test.sh` → `gate: ok` (authoritative, since incremental DerivedData can skip recompiles)
+- [x] `./scripts/test.sh` prints `gate: ok` (its three own `warning:` lines, if any, are unchanged and unrelated)
+- [x] `bash scripts/tests/run.sh` → `0 failed`
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` clean
+- [x] Fresh-cache confidence run: `rm -rf DerivedData && ./scripts/test.sh` → `gate: ok` (authoritative, since incremental DerivedData can skip recompiles)
 
 #### Manual
 - [ ] For each of `make build-mac`, `make build`, `make test-unit`, `make watch-build`, inject the `__warnProbe` warning, confirm that leg fails, then revert — one representative leg is enough if time-boxed, but CI on a fresh checkout is the backstop

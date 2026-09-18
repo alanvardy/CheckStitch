@@ -13,6 +13,7 @@ DERIVED_DATA := DerivedData
 # scripts/test.sh and CI inherit this through the make recipes; local Xcode
 # builds and project.pbxproj are untouched. `build-mac-signed`,
 # run-watch.sh and run-devices.sh are device helpers and deliberately excluded.
+# scripts/tests/run.sh pins every enforced leg (WARNINGS_AS_ERRORS_LEGS).
 WARNINGS_AS_ERRORS := SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
 MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
