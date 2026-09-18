@@ -14,8 +14,9 @@ struct ExportChecklistsViewTests {
         let store = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
         let checklist = store.create(name: "Groceries")
 
-        let empty = ExportChecklistsView(selection: .constant([])) {}
-        let filled = ExportChecklistsView(selection: .constant(Set([checklist.id]))) {}
+        let empty = ExportChecklistsView(selection: .constant([]), onExport: {}, onShare: {})
+        let filled = ExportChecklistsView(selection: .constant(Set([checklist.id])),
+                                          onExport: {}, onShare: {})
 
         #expect(empty.canExport == false, "an empty selection must disable Export")
         #expect(filled.canExport == true, "a non-empty selection must enable Export")

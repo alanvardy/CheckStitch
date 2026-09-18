@@ -14,12 +14,14 @@ final class ChecklistImportExportViewModel {
 
     var exportSelection: Set<UUID> = []
     var exportDocument: ChecklistExportDocument?
+    var pendingShare: ChecklistExportDocument?
     var conflict: ChecklistImportCandidate?
     var isShowingExport = false
     var importCandidates: [ChecklistImportCandidate] = []
     var importSelection: Set<UUID> = []
     var isShowingImportSelection = false
     private(set) var isExporting = false
+    private(set) var isSharing = false
     private(set) var isImporting = false
     private(set) var importErrorMessage: String?
     private(set) var exportErrorMessage: String?
@@ -38,6 +40,10 @@ final class ChecklistImportExportViewModel {
 
     func dismissExportSelection() { isShowingExport = false }
     func dismissExport() { isExporting = false }
+    func dismissShare() {
+        isSharing = false
+        pendingShare = nil
+    }
     func dismissImport() { isImporting = false }
     func clearImportError() { importErrorMessage = nil }
     func clearExportError() { exportErrorMessage = nil }
@@ -54,6 +60,28 @@ final class ChecklistImportExportViewModel {
         } catch {
             exportErrorMessage = error.localizedDescription
         }
+    }
+
+    /// Builds the document for the current selection and records a *pending*
+    /// share. Mirrors `exportSelected()` but does not present: the root view's
+    /// export-sheet `onDismiss` promotes pending → presented, so no modal is
+    /// requested while the export sheet is mid-dismissal. An empty selection
+    /// shares nothing.
+    func shareSelected() {
+        isShowingExport = false
+        let selected = store.checklists.filter { exportSelection.contains($0.id) }
+        guard !selected.isEmpty else { return }
+        do {
+            pendingShare = try ChecklistExportDocument(checklists: selected)
+        } catch {
+            exportErrorMessage = error.localizedDescription
+        }
+    }
+
+    /// Promotes a pending share after the export sheet has finished dismissing.
+    func presentPendingShare() {
+        guard pendingShare != nil else { return }
+        isSharing = true
     }
 
     func exportFailed(_ error: Error) {

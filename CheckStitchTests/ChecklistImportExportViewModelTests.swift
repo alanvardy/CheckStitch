@@ -232,4 +232,63 @@ struct ChecklistImportExportViewModelTests {
         await Task.yield()
         #expect(viewModel.conflict == nil)
     }
+
+    @Test
+    func shareFiltersBySelectionAndRecordsPendingShareWithoutPresenting() {
+        let store = makeStore(names: ["Groceries", "Packing"])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = [store.checklists[0].id]
+
+        viewModel.shareSelected()
+
+        #expect(viewModel.pendingShare != nil)
+        #expect(!viewModel.isSharing)
+        #expect(!viewModel.isShowingExport)
+    }
+
+    @Test
+    func emptySelectionSharesNothing() {
+        let store = makeStore(names: ["Groceries"])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = []
+
+        viewModel.shareSelected()
+
+        #expect(viewModel.pendingShare == nil)
+        #expect(!viewModel.isSharing)
+    }
+
+    /// Design Open Risk 5: the export sheet's own dismissal must not clear the
+    /// pending share before `onDismiss` promotes it.
+    @Test
+    func pendingShareSurvivesTheExportSheetDismissal() {
+        let store = makeStore(names: ["Groceries"])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = [store.checklists[0].id]
+        viewModel.shareSelected()
+
+        viewModel.dismissExportSelection()   // the sheet's setter path
+        viewModel.presentPendingShare()      // the onDismiss handoff
+
+        #expect(viewModel.pendingShare != nil)
+        #expect(viewModel.isSharing)
+    }
+
+    @Test
+    func dismissShareClearsIsSharingAndPendingShare() {
+        let store = makeStore(names: ["Groceries"])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = [store.checklists[0].id]
+        viewModel.shareSelected()
+        viewModel.presentPendingShare()
+
+        viewModel.dismissShare()
+
+        #expect(!viewModel.isSharing)
+        #expect(viewModel.pendingShare == nil)
+    }
 }
