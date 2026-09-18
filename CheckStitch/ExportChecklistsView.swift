@@ -9,48 +9,24 @@ struct ExportChecklistsView: View {
     @Binding var selection: Set<UUID>
     let onExport: () -> Void
 
-    /// Pure, so the disable state is unit-testable without a live hierarchy.
     var canExport: Bool { !selection.isEmpty }
 
-    /// Pure toggle helper, exposed for tests.
+    /// Kept as a forwarding shim so `ExportChecklistsViewTests` is unchanged.
     static func toggled(_ selection: Set<UUID>, id: UUID) -> Set<UUID> {
-        var next = selection
-        if next.contains(id) { next.remove(id) } else { next.insert(id) }
-        return next
+        ChecklistSelectionView.toggled(selection, id: id)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Export Checklists").font(.headline)
-                Spacer()
-                Button("Cancel") { dismiss() }
-            }
-            .padding()
-            Text("Select the checklists to include.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            List(store.checklists) { checklist in
-                Button {
-                    selection = Self.toggled(selection, id: checklist.id)
-                } label: {
-                    HStack {
-                        Image(systemName: selection.contains(checklist.id)
-                              ? "checkmark.circle.fill" : "circle")
-                        Text(checklist.name)
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("exportSelectionRow")
-            }
-            Button("Export") { onExport() }
-                .disabled(!canExport)
-                .accessibilityIdentifier("confirmExportButton")
-                .padding()
-        }
-        #if os(iOS)
-        .presentationDetents([.medium, .large])
-        #endif
+        ChecklistSelectionView(
+            title: "Export Checklists",
+            rows: store.checklists.map {
+                ChecklistSelectionRow(id: $0.id, name: $0.name, detail: nil)
+            },
+            selection: $selection,
+            confirmTitle: "Export",
+            onConfirm: onExport,
+            onCancel: { dismiss() },
+            rowAccessibilityID: "exportSelectionRow",
+            confirmAccessibilityID: "confirmExportButton")
     }
 }

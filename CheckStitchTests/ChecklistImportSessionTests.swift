@@ -14,81 +14,186 @@ struct ChecklistImportSessionTests {
         try ChecklistCodec.encode(ChecklistEnvelope(version: version, deviceID: "", checklists: checklists))
     }
 
+    private func allIDs(_ candidates: [ChecklistImportCandidate]) -> Set<UUID> {
+        Set(candidates.map(\.id))
+    }
+
     @Test
-    func prepareInsertsNonConflictingCandidates() throws {
+    func stagingWritesNothingToStore() throws {
         let (session, store) = makeSession()
-        let candidates = try session.prepare(data: payload([
+        let candidates = try session.stage(data: payload([
             Checklist(name: "A"),
             Checklist(name: "B"),
         ]))
 
+        #expect(store.checklists.isEmpty, "stage writes nothing to the store")
+        #expect(store.tombstones.isEmpty)
+        #expect(session.pending.isEmpty)
+        #expect(session.summary == ImportSummary())
         #expect(candidates.count == 2, "one candidate per incoming checklist")
-        #expect(store.checklists.map(\.name) == ["A", "B"], "free names insert immediately")
-        #expect(session.summary.inserted == 2)
-        #expect(session.pending.isEmpty, "no conflicts left pending")
+        #expect(candidates.first?.conflicting == nil)
     }
 
     @Test
-    func prepareFlagsConflictAndLeavesItUninserted() throws {
+    func commitImportsOnlySelected() throws {
         let (session, store) = makeSession()
-        store.create(name: "Groceries")
-
-        let candidates = try session.prepare(data: payload([
-            Checklist(name: "groceries", items: [ChecklistItem(title: "Milk")]),
+        let candidates = try session.stage(data: payload([
+            Checklist(name: "A"),
+            Checklist(name: "B"),
         ]))
 
-        #expect(candidates.count == 1)
-        #expect(session.pending.count == 1, "conflicted name stays pending")
-        #expect(session.pending.first?.conflicting?.name == "Groceries")
-        #expect(store.checklists.count == 1, "conflicted import left the store untouched")
-        #expect(session.summary.inserted == 0)
+        session.commit(selectedIDs: allIDs([candidates[1]]))
+
+        #expect(store.checklists.map(\.name) == ["B"], "only the selected checklist imports")
+        #expect(session.summary.inserted == 1)
+        #expect(session.pending.isEmpty)
     }
 
     @Test
-    func unsupportedVersionThrowsAndMutatesNothing() throws {
+    func commitSkipsUnselectedConflicts() throws {
+        let (session, store) = makeSession()
+        store.create(name: "Groceries")
+        let candidates = try session.stage(data: payload([
+            Checklist(name: "Groceries"),
+            Checklist(name: "A"),
+        ]))
+
+        // Select only the free-name checklist; the unselected conflict is never
+        // enqueued.
+        session.commit(selectedIDs: allIDs([candidates[1]]))
+
+        #expect(store.checklists.map(\.name) == ["Groceries", "A"], "unselected conflict is not imported")
+        #expect(session.pending.isEmpty, "an unticked conflict is never enqueued")
+        #expect(session.summary.inserted == 1)
+    }
+
+    @Test
+    func commitEnqueuesSelectedConflictsInFileOrder() throws {
+        let (session, store) = makeSession()
+        store.create(name: "Groceries")
+        _ = try session.stage(data: payload([
+            Checklist(name: "Groceries"),
+            Checklist(name: "A"),
+            Checklist(name: "groceries"),
+        ]))
+
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(session.pending.map(\.checklist.name) == ["Groceries", "groceries"], "file order, second is the case-variant")
+        #expect(session.summary.inserted == 1, "only A inserted")
+    }
+
+    @Test
+    func discardLeavesStoreUnchanged() throws {
+        let (session, store) = makeSession()
+        _ = try session.stage(data: payload([Checklist(name: "A")]))
+
+        session.discard()
+
+        #expect(session.candidates.isEmpty)
+        #expect(session.pending.isEmpty)
+        #expect(store.checklists.isEmpty, "cancel touches nothing")
+    }
+
+    @Test
+    func unsupportedVersionThrowsBeforeStaging() throws {
         let (session, store) = makeSession()
         let id = store.create(name: "Local").id
         let data = try payload([Checklist(name: "A")], version: ChecklistCodec.currentVersion + 1)
 
         #expect(throws: ChecklistImportError.unsupportedVersion) {
-            try session.prepare(data: data)
+            try session.stage(data: data)
         }
 
         #expect(store.checklists.count == 1, "store untouched by a future-version payload")
         #expect(store.checklists.first?.id == id)
         #expect(store.tombstones.isEmpty)
-        #expect(session.pending.isEmpty)
+        #expect(session.candidates.isEmpty)
     }
 
     @Test
-    func unreadableThrowsAndMutatesNothing() {
+    func unreadableThrowsBeforeStaging() {
         let (session, store) = makeSession()
         let id = store.create(name: "Local").id
 
         #expect(throws: ChecklistImportError.unreadable) {
-            try session.prepare(data: Data("not json".utf8))
+            try session.stage(data: Data("not json".utf8))
         }
 
         #expect(store.checklists.count == 1, "store untouched by an unreadable payload")
         #expect(store.checklists.first?.id == id)
         #expect(store.tombstones.isEmpty)
+        #expect(session.candidates.isEmpty)
+    }
+
+    @Test
+    func migratableStagesNormalisedCandidates() throws {
+        let (session, store) = makeSession()
+
+        _ = try session.stage(data: payload([Checklist(name: "V1")], version: 1))
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(store.checklists.map(\.name) == ["V1"], "v1 payload migrates and commits")
+        #expect(session.summary.inserted == 1)
+        #expect(session.pending.isEmpty)
+
+        // The summary/candidates reset per file, so a second stage starts from zero.
+        _ = try session.stage(data: payload([Checklist(name: "V2")], version: 2))
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(store.checklists.map(\.name) == ["V1", "V2"], "v2 payload seeds ordering and commits")
+        #expect(session.summary.inserted == 1)
         #expect(session.pending.isEmpty)
     }
 
     @Test
-    func migratablePayloadIsAccepted() throws {
+    func reImportStability() throws {
         let (session, store) = makeSession()
+        let data = try payload([Checklist(name: "A")])
 
-        _ = try session.prepare(data: payload([Checklist(name: "V1")], version: 1))
-        #expect(store.checklists.map(\.name) == ["V1"], "v1 payload migrates and inserts")
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(store.checklists.map(\.name) == ["A"])
         #expect(session.summary.inserted == 1)
         #expect(session.pending.isEmpty)
 
-        // The summary resets per file, so a second `prepare` starts from zero.
-        _ = try session.prepare(data: payload([Checklist(name: "V2")], version: 2))
-        #expect(store.checklists.map(\.name) == ["V1", "V2"], "v2 payload seeds ordering and inserts")
-        #expect(session.summary.inserted == 1)
-        #expect(session.pending.isEmpty)
+        // The same bytes again now collide with the stored copy.
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(session.pending.count == 1, "second import presents a conflict")
+        #expect(session.summary.inserted == 0, "summary resets per file")
+        session.decide(.keepExisting, for: session.pending.first?.id ?? UUID())
+
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.map(\.name) == ["A"])
+        #expect(store.tombstones.isEmpty)
+    }
+
+    /// A payload whose item is `.high` imports with that priority intact —
+    /// through the plain insert path and through a Replace decision. Rebuilds on
+    /// both go through the store's `freshCopy`, which is the drop this test
+    /// would have caught (priority resetting to `.none`).
+    @Test
+    func priorityPreserved() throws {
+        let incoming = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", priority: .high)])
+
+        // Insert path: a free name lands on commit.
+        let (session, store) = makeSession()
+        _ = try session.stage(data: payload([incoming]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.first?.items.first?.priority == .high, "insert keeps the payload priority")
+        #expect(store.checklists.first?.items.first?.priorityRevision == store.checklists.first?.items.first?.revision)
+
+        // Replace path: the same name now conflicts, and replacing rebuilds the
+        // checklist from the same payload.
+        let (replacing, replaceStore) = makeSession()
+        replaceStore.create(name: "Groceries")
+        _ = try replacing.stage(data: payload([incoming]))
+        replacing.commit(selectedIDs: allIDs(replacing.candidates))
+        #expect(replacing.pending.count == 1)
+        replacing.decide(.replace, for: replacing.pending.first?.id ?? UUID())
+        #expect(replaceStore.checklists.count == 1)
+        #expect(replaceStore.checklists.first?.items.first?.priority == .high, "replace keeps the payload priority")
+        #expect(replaceStore.checklists.first?.items.first?.priorityRevision == replaceStore.checklists.first?.items.first?.revision)
     }
 
     @Test
@@ -99,7 +204,8 @@ struct ChecklistImportSessionTests {
             ChecklistItem(title: "Milk", description: "2%", relativeDate: 1),
         ], modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
 
-        try session.prepare(data: payload([incoming]))
+        _ = try session.stage(data: payload([incoming]))
+        session.commit(selectedIDs: allIDs(session.candidates))
         #expect(session.pending.count == 1)
         let candidateID = session.pending.first?.id ?? UUID()
         session.decide(.replace, for: candidateID)
@@ -121,9 +227,10 @@ struct ChecklistImportSessionTests {
         let (session, store) = makeSession()
         store.create(name: "Groceries")
 
-        try session.prepare(data: payload([
+        _ = try session.stage(data: payload([
             Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")]),
         ]))
+        session.commit(selectedIDs: allIDs(session.candidates))
         #expect(session.pending.count == 1)
         session.decide(.keepBoth, for: session.pending.first?.id ?? UUID())
 
@@ -137,7 +244,8 @@ struct ChecklistImportSessionTests {
         let (session, store) = makeSession()
         store.create(name: "Groceries")
 
-        try session.prepare(data: payload([Checklist(name: "groceries")]))
+        _ = try session.stage(data: payload([Checklist(name: "groceries")]))
+        session.commit(selectedIDs: allIDs(session.candidates))
         session.decide(.keepExisting, for: session.pending.first?.id ?? UUID())
 
         #expect(store.checklists.count == 1)
@@ -145,54 +253,5 @@ struct ChecklistImportSessionTests {
         #expect(store.tombstones.isEmpty)
         #expect(session.summary.keptExisting == 1)
         #expect(session.pending.isEmpty)
-    }
-
-    @Test
-    func importingSameFileTwiceIsStable() throws {
-        let (session, store) = makeSession()
-        let data = try payload([Checklist(name: "A")])
-
-        let first = try session.prepare(data: data)
-        #expect(first.count == 1)
-        #expect(store.checklists.map(\.name) == ["A"])
-        #expect(session.summary.inserted == 1)
-        #expect(session.pending.isEmpty)
-
-        // The same bytes again now collide with the stored copy.
-        let second = try session.prepare(data: data)
-        #expect(second.count == 1)
-        #expect(session.pending.count == 1, "second import presents a conflict")
-        #expect(session.summary.inserted == 0, "summary resets per file")
-        session.decide(.keepExisting, for: session.pending.first?.id ?? UUID())
-
-        #expect(store.checklists.count == 1)
-        #expect(store.checklists.map(\.name) == ["A"])
-    }
-
-    /// A payload whose item is `.medium` imports with that priority intact —
-    /// through the plain insert path and through a Replace decision. Rebuilds on
-    /// both go through the store's `freshCopy`, which is the drop this test
-    /// would have caught (priority resetting to `.none`).
-    @Test
-    func importPreservesPriority() throws {
-        let incoming = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", priority: .medium)])
-
-        // Insert path: a free name lands immediately.
-        let (session, store) = makeSession()
-        try session.prepare(data: payload([incoming]))
-        #expect(store.checklists.count == 1)
-        #expect(store.checklists.first?.items.first?.priority == .medium, "insert keeps the payload priority")
-        #expect(store.checklists.first?.items.first?.priorityRevision == store.checklists.first?.items.first?.revision)
-
-        // Replace path: the same name now conflicts, and replacing rebuilds the
-        // checklist from the same payload.
-        let (replacing, replaceStore) = makeSession()
-        replaceStore.create(name: "Groceries")
-        try replacing.prepare(data: payload([incoming]))
-        #expect(replacing.pending.count == 1)
-        replacing.decide(.replace, for: replacing.pending.first?.id ?? UUID())
-        #expect(replaceStore.checklists.count == 1)
-        #expect(replaceStore.checklists.first?.items.first?.priority == .medium, "replace keeps the payload priority")
-        #expect(replaceStore.checklists.first?.items.first?.priorityRevision == replaceStore.checklists.first?.items.first?.revision)
     }
 }
