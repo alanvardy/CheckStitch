@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(ChecklistStore.self) private var store
     @Environment(ChecklistListViewModel.self) private var listVM
     @Environment(ChecklistRunViewModel.self) private var runVM
+    @Environment(SettingsViewModel.self) private var settingsVM
     @Environment(ChecklistSyncService.self) private var syncService
     @Environment(\.colorScheme) private var colorScheme
 
@@ -22,12 +23,7 @@ struct ContentView: View {
     /// Present when the main-screen rows are in edit mode (remove/move
     /// controls instead of navigation and the run button).
     @State private var isEditing = false
-    @State private var isShowingSettings = false
-    /// Import/export chosen in the Settings menu, handed over once the settings
-    /// sheet has dismissed (see `requestDataAction`).
-    @State private var dataActionQueue = SettingsDataActionQueue()
     @State private var backgroundImage = BackgroundImageStore()
-    @State private var settingsBag: SettingsBindings?
     @State private var isShowingExport = false
     @State private var exportSelection: Set<UUID> = []
     @State private var exportDocument: ChecklistExportDocument?
@@ -116,15 +112,16 @@ struct ContentView: View {
                 // (mirrors the 974 macOS-canvas fix).
                 .preferredColorScheme(appearanceMode.colorScheme)
             #endif
-            .sheet(isPresented: $isShowingSettings) {
-                if let bag = settingsBag {
+            .sheet(isPresented: Binding(get: { settingsVM.showsSettings },
+                                        set: { settingsVM.showsSettings = $0 })) {
+                if let bag = settingsVM.bag {
                     settingsSheetWritebacks(bag)
                 }
             }
-            .onChange(of: isShowingSettings) { _, showing in
+            .onChange(of: settingsVM.showsSettings) { _, showing in
                 guard !showing else { return }
-                settingsBag = nil
-                guard let action = dataActionQueue.take() else { return }
+                settingsVM.sheetDidDismiss()
+                guard let action = settingsVM.takeStaged() else { return }
                 // The file panels live on this root view: a sheet-nested
                 // `.fileExporter` never presents on macOS. So the settings
                 // sheet has to finish dismissing before the panel is asked for.
@@ -288,8 +285,12 @@ struct ContentView: View {
     private var settingsButton: some View {
         #if os(iOS)
             Button {
-                settingsBag = makeSettingsBag()
-                isShowingSettings = true
+                settingsVM.begin(from: SettingsSnapshot(
+                    backgroundEnabled: backgroundEnabled,
+                    backgroundFadePercent: backgroundFadePercent,
+                    backgroundPinned: backgroundPinned,
+                    textSize: textSize,
+                    allowsLandscape: allowsLandscape))
             } label: {
                 Image(systemName: "gearshape")
                     .font(.title2.weight(.semibold))
@@ -310,8 +311,12 @@ struct ContentView: View {
             .checkStitchButton()
         #else
             Button {
-                settingsBag = makeSettingsBag()
-                isShowingSettings = true
+                settingsVM.begin(from: SettingsSnapshot(
+                    backgroundEnabled: backgroundEnabled,
+                    backgroundFadePercent: backgroundFadePercent,
+                    backgroundPinned: backgroundPinned,
+                    textSize: textSize,
+                    allowsLandscape: allowsLandscape))
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
@@ -510,38 +515,27 @@ extension ContentView {
             backgroundImage: backgroundImage,
             onExport: { requestDataAction(.export) },
             onImport: { requestDataAction(.importChecklists) })
-            .onChange(of: bag.backgroundEnabled) { _, _ in writeBack(bag) }
-            .onChange(of: bag.backgroundFadePercent) { _, _ in writeBack(bag) }
-            .onChange(of: bag.backgroundPinned) { _, _ in writeBack(bag) }
-            .onChange(of: bag.textSize) { _, _ in writeBack(bag) }
-            .onChange(of: bag.allowsLandscape) { _, _ in writeBack(bag) }
+            .onChange(of: bag.backgroundEnabled) { _, _ in applySettings(settingsVM.writeBack(bag)) }
+            .onChange(of: bag.backgroundFadePercent) { _, _ in applySettings(settingsVM.writeBack(bag)) }
+            .onChange(of: bag.backgroundPinned) { _, _ in applySettings(settingsVM.writeBack(bag)) }
+            .onChange(of: bag.textSize) { _, _ in applySettings(settingsVM.writeBack(bag)) }
+            .onChange(of: bag.allowsLandscape) { _, _ in applySettings(settingsVM.writeBack(bag)) }
     }
 
-    /// Persists every staged background preference. Extracted so it is
-    /// exercisable without a live SwiftUI hierarchy (see SettingsBindingsTests).
-    func writeBack(_ bag: SettingsBindings) {
-        backgroundEnabled = bag.backgroundEnabled
-        backgroundFadePercent = bag.backgroundFadePercent
-        backgroundPinned = bag.backgroundPinned
-        textSize = bag.textSize
-        allowsLandscape = bag.allowsLandscape
-    }
-
-    /// Fresh bag snapshotted from the current stored preferences on sheet open.
-    func makeSettingsBag() -> SettingsBindings {
-        SettingsBindings(
-            backgroundEnabled: backgroundEnabled,
-            backgroundFadePercent: backgroundFadePercent,
-            backgroundPinned: backgroundPinned,
-            textSize: textSize,
-            allowsLandscape: allowsLandscape)
+    /// Applies the VM's staged writeback to the `@AppStorage`-backed properties.
+    func applySettings(_ writeback: SettingsWriteback) {
+        backgroundEnabled = writeback.backgroundEnabled
+        backgroundFadePercent = writeback.backgroundFadePercent
+        backgroundPinned = writeback.backgroundPinned
+        textSize = writeback.textSize
+        allowsLandscape = writeback.allowsLandscape
     }
 
     /// Stages an import/export chosen in the Settings menu and closes the sheet,
-    /// so the root-owned file panel presents unobstructed.
+    /// so the root-owned file panel presents unobstructed. The VM owns the queue
+    /// and fakes `isShowingSettings = false`.
     private func requestDataAction(_ action: SettingsDataAction) {
-        dataActionQueue.stage(action)
-        isShowingSettings = false
+        settingsVM.stage(action)
     }
 
     /// Opens the panel the Settings menu staged, once the settings sheet has
@@ -628,29 +622,6 @@ extension ContentView {
         DispatchQueue.main.async {
             conflict = importSession?.pending.first
         }
-    }
-}
-
-/// Import/export entry points offered by the Settings menu.
-enum SettingsDataAction: Equatable {
-    case export
-    case importChecklists
-}
-
-/// Stages a Settings-menu import/export request until the settings sheet has
-/// dismissed and the root-owned file panel can present.
-struct SettingsDataActionQueue {
-    private var pending: SettingsDataAction?
-
-    mutating func stage(_ action: SettingsDataAction) {
-        pending = action
-    }
-
-    /// Hands the staged action over exactly once, so a dismissal callback that
-    /// fires again cannot open a second panel.
-    mutating func take() -> SettingsDataAction? {
-        defer { pending = nil }
-        return pending
     }
 }
 

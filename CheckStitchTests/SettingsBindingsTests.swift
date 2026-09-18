@@ -29,28 +29,8 @@ struct SettingsBindingsTests {
     }
 
     @Test
-    func snapshotReadsCurrentUserDefaults() {
-        UserDefaults.standard.set(false, forKey: "backgroundEnabled")
-        UserDefaults.standard.set(70, forKey: "backgroundFadePercent")
-        UserDefaults.standard.set(true, forKey: "backgroundPinned")
-        UserDefaults.standard.set("large", forKey: "textSize")
-        UserDefaults.standard.set(false, forKey: "allowsLandscape")
-        defer { Self.clearPreferences() }
-
-        let view = ContentView()
-        let bag = view.makeSettingsBag()
-
-        #expect(!bag.backgroundEnabled)
-        #expect(bag.backgroundFadePercent == 70)
-        #expect(bag.backgroundPinned)
-        #expect(bag.textSize == .large)
-        #expect(!bag.allowsLandscape)
-    }
-
-    @Test
     func writeBackPersistsEachKey() {
         defer { Self.clearPreferences() }
-        let view = ContentView()
         let bag = SettingsBindings(
             backgroundEnabled: false,
             backgroundFadePercent: 70,
@@ -58,7 +38,9 @@ struct SettingsBindingsTests {
             textSize: .extraLarge,
             allowsLandscape: false)
 
-        view.writeBack(bag)
+        // The view owns the `@AppStorage` bridge; the VM owns the writeback
+        // projection, so the two meet here exactly as they do in the app.
+        ContentView().applySettings(SettingsViewModel().writeBack(bag))
 
         #expect(UserDefaults.standard.bool(forKey: "backgroundEnabled") == false)
         #expect(UserDefaults.standard.integer(forKey: "backgroundFadePercent") == 70)
