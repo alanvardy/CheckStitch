@@ -12,6 +12,7 @@ public enum ChecklistSyncKey {
     public static let runResultChecklistID = "checklistID"
     public static let runResultKind = "kind"
     public static let runResultCount = "count"
+    public static let runResultTotal = "total"
 }
 
 /// The phone's answer to one run request. Mirrors `ReminderRunOutcome` and
@@ -19,6 +20,9 @@ public enum ChecklistSyncKey {
 /// kind.
 public enum RunResultKind: Equatable, Sendable {
     case created(Int)
+    /// Some, but not all, items became reminders; `total` is how many were
+    /// requested.
+    case partiallyCreated(created: Int, total: Int)
     case permissionDenied
     case destinationMissing
     /// The phone no longer has this checklist; it is re-pushing its context.
@@ -28,6 +32,8 @@ public enum RunResultKind: Equatable, Sendable {
     public init(_ outcome: ReminderRunOutcome) {
         switch outcome {
         case .created(let count): self = .created(count)
+        case .partiallyCreated(let created, let total, _):
+            self = .partiallyCreated(created: created, total: total)
         case .permissionDenied: self = .permissionDenied
         case .destinationMissing: self = .destinationMissing
         case .failed: self = .failed
@@ -40,6 +46,7 @@ public enum RunResultKind: Equatable, Sendable {
     public var message: String {
         switch self {
         case .created(let count): "Created \(count) reminders."
+        case .partiallyCreated(let created, let total): "Created \(created) of \(total) reminders."
         case .permissionDenied: "CheckStitch doesn't have permission to access Reminders."
         case .destinationMissing: "That list no longer exists."
         case .notFound: "Not found — refreshing."
@@ -50,6 +57,7 @@ public enum RunResultKind: Equatable, Sendable {
     var wireName: String {
         switch self {
         case .created: "created"
+        case .partiallyCreated: "partiallyCreated"
         case .permissionDenied: "permissionDenied"
         case .destinationMissing: "destinationMissing"
         case .notFound: "notFound"
@@ -57,11 +65,14 @@ public enum RunResultKind: Equatable, Sendable {
         }
     }
 
-    init?(wireName: String, count: Int?) {
+    init?(wireName: String, count: Int?, total: Int?) {
         switch wireName {
         case "created":
             guard let count else { return nil }
             self = .created(count)
+        case "partiallyCreated":
+            guard let count, let total else { return nil }
+            self = .partiallyCreated(created: count, total: total)
         case "permissionDenied": self = .permissionDenied
         case "destinationMissing": self = .destinationMissing
         case "notFound": self = .notFound
@@ -116,7 +127,10 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
                   let checklistRaw = dict[ChecklistSyncKey.runResultChecklistID] as? String,
                   let checklistID = UUID(uuidString: checklistRaw),
                   let kindRaw = dict[ChecklistSyncKey.runResultKind] as? String,
-                  let kind = RunResultKind(wireName: kindRaw, count: dict[ChecklistSyncKey.runResultCount] as? Int) {
+                  let kind = RunResultKind(
+                      wireName: kindRaw,
+                      count: dict[ChecklistSyncKey.runResultCount] as? Int,
+                      total: dict[ChecklistSyncKey.runResultTotal] as? Int) {
             self = .runResult(RunResult(runID: runID, checklistID: checklistID, kind: kind))
         } else {
             return nil
@@ -137,15 +151,23 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
         }
     }
 
-    /// The `runResult` payload, including `count` only for `.created`.
+    /// The `runResult` payload. `count` (created reminders) travels for
+    /// `.created` and `.partiallyCreated`; `total` (requested) only for the
+    /// latter.
     private func runResultDict(_ result: RunResult) -> [String: Any] {
         var dict: [String: Any] = [
             ChecklistSyncKey.runResultRunID: result.runID.uuidString,
             ChecklistSyncKey.runResultChecklistID: result.checklistID.uuidString,
             ChecklistSyncKey.runResultKind: result.kind.wireName,
         ]
-        if case .created(let count) = result.kind {
+        switch result.kind {
+        case .created(let count):
             dict[ChecklistSyncKey.runResultCount] = count
+        case .partiallyCreated(let created, let total):
+            dict[ChecklistSyncKey.runResultCount] = created
+            dict[ChecklistSyncKey.runResultTotal] = total
+        case .permissionDenied, .destinationMissing, .notFound, .failed:
+            break
         }
         return dict
     }
@@ -193,6 +215,7 @@ public enum RunPhase: Equatable, Sendable {
     case idle
     case sending
     case created(Int)
+    case partiallyCreated(created: Int, total: Int)
     case failed(String)
 
     /// The line under the button: the reminder count on success, the reason on
@@ -201,6 +224,8 @@ public enum RunPhase: Equatable, Sendable {
         switch self {
         case .idle, .sending: nil
         case .created(let count): RunResultKind.created(count).message
+        case .partiallyCreated(let created, let total):
+            RunResultKind.partiallyCreated(created: created, total: total).message
         case .failed(let reason): reason
         }
     }
@@ -315,6 +340,7 @@ public final class WatchChecklistStore {
             }
             let phase: RunPhase = switch result.kind {
             case .created(let count): .created(count)
+            case .partiallyCreated(let created, let total): .partiallyCreated(created: created, total: total)
             case .permissionDenied, .destinationMissing, .notFound, .failed: .failed(result.kind.message)
             }
             setPhase(phase, for: result.runID)
