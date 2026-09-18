@@ -59,8 +59,7 @@ struct RunChecklistIntent: AppIntent {
 
         let outcome = await ChecklistReminders.create(
             from: stored,
-            targeting: targeting,
-            prefixNumbers: ReminderNumberingPreference().isEnabled)
+            targeting: targeting)
         return .result(dialog: IntentDialog(
             RunChecklistDialogue.message(for: outcome, checklistName: stored.name)))
     }

@@ -161,6 +161,31 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).first?.destinationListIdentifier, "list-a")
     }
 
+    /// A v4 payload written before the per-checklist numbering field existed:
+    /// the absent key decodes to `false` (the additive-optional guarantee), so
+    /// every stored checklist keeps working without a version bump.
+    func testDecodesV4PayloadWithoutPrefixesReminderNumbersAsFalse() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertFalse(envelope.checklists.first?.prefixesReminderNumbers ?? true)
+    }
+
+    func testPrefixesReminderNumbersSurvivesEnvelopeRoundTrip() throws {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")],
+                                  prefixesReminderNumbers: true)
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [checklist])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.prefixesReminderNumbers, true)
+    }
+
     /// A current-version (v4) envelope whose item carries no `description` key:
     /// must stay `.loaded` with an empty description (the additive-field
     /// guarantee). v3 payloads predate `relativeDate`, so they classify as

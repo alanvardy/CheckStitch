@@ -9,13 +9,14 @@ enum ChecklistReminders {
     /// destination (or the system default) BEFORE creating anything, then
     /// creates one reminder per non-blank item. Returns an outcome the caller
     /// can surface — permission denial and missing lists are no longer silent.
-    static func create(from checklist: Checklist, prefixNumbers: Bool = false) async -> ReminderRunOutcome {
-        await create(from: checklist, targeting: EventKitReminderDestination.shared, prefixNumbers: prefixNumbers)
+    /// The checklist's own `prefixesReminderNumbers` decides numbering.
+    static func create(from checklist: Checklist) async -> ReminderRunOutcome {
+        await create(from: checklist, targeting: EventKitReminderDestination.shared)
     }
 
     static func create(from checklist: Checklist,
-                       targeting: ReminderDestinationTargeting,
-                       prefixNumbers: Bool = false) async -> ReminderRunOutcome {
+                       targeting: ReminderDestinationTargeting) async -> ReminderRunOutcome {
+        let prefixNumbers = checklist.prefixesReminderNumbers
         var created = 0
         do {
             guard try await targeting.requestAccess() else { return .permissionDenied }

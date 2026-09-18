@@ -15,7 +15,6 @@ struct ContentView: View {
     @AppStorage("backgroundPinned") var backgroundPinned = false
     @AppStorage("textSize") var textSize = TextSize.system
     @AppStorage("allowsLandscape") var allowsLandscape = true
-    @AppStorage(ReminderNumberingPreference.defaultsKey) var prefixReminderNumbers = false
 
     @State private var path: [UUID] = []
     /// Present when the main-screen rows are in edit mode (remove/move
@@ -507,7 +506,7 @@ struct ContentView: View {
             // Hold the spinner for at least a second so saving quickly
             // doesn't flash the progress feedback past the user.
             async let minimumSpinner: Void = Task.sleep(for: .seconds(1))
-            let outcome = await ChecklistReminders.create(from: checklist, prefixNumbers: prefixReminderNumbers)
+            let outcome = await ChecklistReminders.create(from: checklist)
             try? await minimumSpinner
             creating.remove(id)
             switch outcome {
@@ -568,7 +567,6 @@ extension ContentView {
             .onChange(of: bag.backgroundPinned) { _, _ in writeBack(bag) }
             .onChange(of: bag.textSize) { _, _ in writeBack(bag) }
             .onChange(of: bag.allowsLandscape) { _, _ in writeBack(bag) }
-            .onChange(of: bag.prefixReminderNumbers) { _, _ in writeBack(bag) }
     }
 
     /// Persists every staged background preference. Extracted so it is
@@ -579,7 +577,6 @@ extension ContentView {
         backgroundPinned = bag.backgroundPinned
         textSize = bag.textSize
         allowsLandscape = bag.allowsLandscape
-        prefixReminderNumbers = bag.prefixReminderNumbers
     }
 
     /// Fresh bag snapshotted from the current stored preferences on sheet open.
@@ -589,8 +586,7 @@ extension ContentView {
             backgroundFadePercent: backgroundFadePercent,
             backgroundPinned: backgroundPinned,
             textSize: textSize,
-            allowsLandscape: allowsLandscape,
-            prefixReminderNumbers: prefixReminderNumbers)
+            allowsLandscape: allowsLandscape)
     }
 
     /// Stages an import/export chosen in the Settings menu and closes the sheet,

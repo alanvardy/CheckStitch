@@ -748,6 +748,36 @@ struct ChecklistMergeTests {
 
         #expect(merged.checklists.first?.destinationListIdentifier == "list-b", "an older revision must not leak its destination in")
     }
+
+    @Test
+    func winnerNumberingOverwritesLoser() {
+        let id = UUID()
+        var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        newer.prefixesReminderNumbers = true
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [older]),
+            remote: envelope(device: "device-b", checklists: [newer])
+        )
+
+        #expect(merged.checklists.first?.prefixesReminderNumbers == true, "the newest editor controls the numbering toggle")
+    }
+
+    @Test
+    func loserNumberingIsPreservedWhenNonWinning() {
+        let id = UUID()
+        var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        newer.prefixesReminderNumbers = true
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [newer]),
+            remote: envelope(device: "device-b", checklists: [older])
+        )
+
+        #expect(merged.checklists.first?.prefixesReminderNumbers == true, "an older revision must not leak its numbering in")
+    }
 }
 
 @MainActor

@@ -302,10 +302,10 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("one"), makeItem("two")],
-                                  destinationListIdentifier: "list-a")
+                                  destinationListIdentifier: "list-a",
+                                  prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(
-            from: checklist, targeting: spy, prefixNumbers: true)
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdTitles == ["1: one", "2: two"])
@@ -317,10 +317,10 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [makeItem("one"), makeItem(""), makeItem("two"), makeItem("   ")],
-            destinationListIdentifier: "list-a")
+            destinationListIdentifier: "list-a",
+            prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(
-            from: checklist, targeting: spy, prefixNumbers: true)
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdTitles == ["1: one", "2: two"])
@@ -332,10 +332,10 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: (1...10).map { makeItem("item \($0)") },
-            destinationListIdentifier: "list-a")
+            destinationListIdentifier: "list-a",
+            prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(
-            from: checklist, targeting: spy, prefixNumbers: true)
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
 
         #expect(outcome == .created(count: 10))
         #expect(spy.createdTitles.first == "1: item 1")
@@ -349,10 +349,10 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("one")],
-                                  destinationListIdentifier: "list-deleted")
+                                  destinationListIdentifier: "list-deleted",
+                                  prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(
-            from: checklist, targeting: spy, prefixNumbers: true)
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
 
         #expect(outcome == .destinationMissing)
         #expect(spy.createdTitles.isEmpty)

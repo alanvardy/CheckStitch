@@ -65,6 +65,14 @@ struct ChecklistDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Section {
+                    Toggle(isOn: numberingBinding(checklistID: checklistID)) {
+                        Label("Number Reminders", systemImage: "textformat.123")
+                    }
+                    .accessibilityIdentifier("checklistPrefixNumbersToggle")
+                } footer: {
+                    Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
+                }
                 Section("Items") {
                     ForEach(checklist.items) { item in
                         ItemRow(
@@ -236,6 +244,17 @@ struct ChecklistDetailView: View {
               listsSnapshot.pickerSelection(for: destination) != nil
         else { return false }
         return !listsSnapshot.selectableOptions.contains { $0.id == destination }
+    }
+
+    /// Per-selection write through the store for the numbering toggle. The
+    /// getter reads the store so a value that arrives over sync updates the
+    /// toggle; `.notFound` (deleted while this screen was open) is ignored,
+    /// matching `destinationBinding`.
+    private func numberingBinding(checklistID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { store.checklist(id: checklistID)?.prefixesReminderNumbers ?? false },
+            set: { store.setPrefixesReminderNumbers($0, for: checklistID) }
+        )
     }
 
     /// Per-selection write through the store (Phase 2). `nil` is the "Default

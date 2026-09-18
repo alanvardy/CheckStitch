@@ -160,6 +160,7 @@ final class ChecklistStore {
         let copy = Checklist(
             name: Self.uniqueName(basedOn: requested, taken: checklists.map(\.name)),
             items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate, priority: $0.priority) },
+            prefixesReminderNumbers: source.prefixesReminderNumbers,
             modifiedAt: now(),
             revision: 1
         )
@@ -180,6 +181,7 @@ final class ChecklistStore {
                               modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate,
                               priority: $0.priority)
             },
+            prefixesReminderNumbers: checklist.prefixesReminderNumbers,
             modifiedAt: now(),
             revision: 1
         )
@@ -240,6 +242,22 @@ final class ChecklistStore {
     func setDestination(_ identifier: String?, for id: UUID) -> SetDestinationOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
         checklists[index].destinationListIdentifier = identifier
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
+        scheduleSave()
+        return .updated
+    }
+
+    /// Sets a checklist's per-checklist reminder-numbering toggle and reports
+    /// whether it applied. Shares the checklist's coarse `revision`/`modifiedAt`
+    /// clock with `rename`/`setDestination`, so the toggle rides the same
+    /// last-write-wins rule as the name and destination. An unchanged value is a
+    /// no-op, so re-rendering the toggle never manufactures a spurious LWW win.
+    @discardableResult
+    func setPrefixesReminderNumbers(_ enabled: Bool, for id: UUID) -> SetDestinationOutcome {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
+        guard checklists[index].prefixesReminderNumbers != enabled else { return .updated }
+        checklists[index].prefixesReminderNumbers = enabled
         checklists[index].revision += 1
         checklists[index].modifiedAt = now()
         scheduleSave()
