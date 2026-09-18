@@ -168,12 +168,13 @@ struct ContentView: View {
             Text(runVM.runErrorMessage ?? "")
         }
         .sheet(isPresented: Binding(get: { importExportVM.isShowingExport },
-                                    set: { if !$0 { importExportVM.dismissExportSelection() } })) {
+                                    set: { if !$0 { importExportVM.dismissExportSelection() } }),
+               onDismiss: { importExportVM.presentPendingShare() }) {
             ExportChecklistsView(
                 selection: Binding(get: { importExportVM.exportSelection },
-                                   set: { importExportVM.exportSelection = $0 })) {
-                importExportVM.exportSelected()
-            }
+                                   set: { importExportVM.exportSelection = $0 }),
+                onExport: { importExportVM.exportSelected() },
+                onShare: { importExportVM.shareSelected() })
         }
         .sheet(isPresented: Binding(get: { importExportVM.isShowingImportSelection },
                                     set: { if !$0 { importExportVM.cancelImport() } })) {
@@ -208,6 +209,15 @@ struct ContentView: View {
             case .failure(let error): importExportVM.importFailed(error)
             }
         }
+        #if os(iOS)
+        .sheet(isPresented: Binding(get: { importExportVM.isSharing },
+                                    set: { if !$0 { importExportVM.dismissShare() } })) {
+            if let pending = importExportVM.pendingShare {
+                ShareSheet(document: pending,
+                           filename: ChecklistExport.filename() + ".json")
+            }
+        }
+        #endif
         .confirmationDialog("Name conflict",
                             isPresented: Binding(get: { importExportVM.conflict != nil },
                                                  set: { if !$0 { importExportVM.dismissConflict() } }),

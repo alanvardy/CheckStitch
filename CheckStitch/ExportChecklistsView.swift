@@ -8,6 +8,7 @@ struct ExportChecklistsView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: Set<UUID>
     let onExport: () -> Void
+    let onShare: () -> Void
 
     var canExport: Bool { !selection.isEmpty }
 
@@ -27,6 +28,9 @@ struct ExportChecklistsView: View {
             onConfirm: onExport,
             onCancel: { dismiss() },
             rowAccessibilityID: "exportSelectionRow",
-            confirmAccessibilityID: "confirmExportButton")
+            confirmAccessibilityID: "confirmExportButton",
+            secondaryTitle: "Share…",
+            secondaryAccessibilityID: "shareChecklistsButton",
+            onSecondary: onShare)
     }
 }
