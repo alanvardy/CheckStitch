@@ -1362,9 +1362,9 @@ struct BackgroundViewModelTests {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (`BackgroundViewModelTests`)
-- [ ] `make build` passes
-- [ ] `make build-mac` passes (the appearance VM carries the `#if os(macOS)` leg)
+- [x] `make test-unit` passes (`BackgroundViewModelTests`)
+- [x] `make build` passes
+- [x] `make build-mac` passes (the appearance VM carries the `#if os(macOS)` leg)
 
 #### Manual
 - [ ] `make build-mac-signed` + launch: the background photo still loads; toggling
