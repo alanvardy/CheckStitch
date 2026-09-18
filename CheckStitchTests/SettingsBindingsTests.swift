@@ -13,7 +13,6 @@ struct SettingsBindingsTests {
         #expect(!bag.backgroundPinned)
         #expect(bag.textSize == .system)
         #expect(bag.allowsLandscape)
-        #expect(!bag.prefixReminderNumbers)
     }
 
     @Test
@@ -36,7 +35,6 @@ struct SettingsBindingsTests {
         UserDefaults.standard.set(true, forKey: "backgroundPinned")
         UserDefaults.standard.set("large", forKey: "textSize")
         UserDefaults.standard.set(false, forKey: "allowsLandscape")
-        UserDefaults.standard.set(true, forKey: "prefixReminderNumbers")
         defer { Self.clearPreferences() }
 
         let view = ContentView()
@@ -47,7 +45,6 @@ struct SettingsBindingsTests {
         #expect(bag.backgroundPinned)
         #expect(bag.textSize == .large)
         #expect(!bag.allowsLandscape)
-        #expect(bag.prefixReminderNumbers)
     }
 
     @Test
@@ -59,8 +56,7 @@ struct SettingsBindingsTests {
             backgroundFadePercent: 70,
             backgroundPinned: true,
             textSize: .extraLarge,
-            allowsLandscape: false,
-            prefixReminderNumbers: true)
+            allowsLandscape: false)
 
         view.writeBack(bag)
 
@@ -69,11 +65,10 @@ struct SettingsBindingsTests {
         #expect(UserDefaults.standard.bool(forKey: "backgroundPinned") == true)
         #expect(UserDefaults.standard.string(forKey: "textSize") == "extraLarge")
         #expect(UserDefaults.standard.bool(forKey: "allowsLandscape") == false)
-        #expect(UserDefaults.standard.bool(forKey: "prefixReminderNumbers") == true)
     }
 
     private static func clearPreferences() {
-        for key in ["backgroundEnabled", "backgroundFadePercent", "backgroundPinned", "textSize", "allowsLandscape", "prefixReminderNumbers"] {
+        for key in ["backgroundEnabled", "backgroundFadePercent", "backgroundPinned", "textSize", "allowsLandscape"] {
             UserDefaults.standard.removeObject(forKey: key)
         }
     }

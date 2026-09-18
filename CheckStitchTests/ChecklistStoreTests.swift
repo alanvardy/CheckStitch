@@ -1720,6 +1720,31 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(replacedItem.priorityRevision, replacedItem.revision)
     }
 
+    func testPrefixesReminderNumbersSurvivesDuplicateAndImport() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.setPrefixesReminderNumbers(true, for: source.id)
+
+        let copy = store.duplicate(id: source.id, name: "Groceries copy")
+        XCTAssertEqual(copy?.prefixesReminderNumbers, true)
+
+        let incoming = Checklist(name: "Packing",
+                                 prefixesReminderNumbers: true,
+                                 modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
+        let inserted = store.importInsert(incoming)
+        XCTAssertEqual(store.checklist(id: inserted)?.prefixesReminderNumbers, true)
+
+        let local = store.create(name: "Trip")
+        guard let replaced = store.importReplace(id: local.id, with: incoming) else {
+            XCTFail("expected the replace to land")
+            return
+        }
+        XCTAssertEqual(store.checklist(id: replaced)?.prefixesReminderNumbers, true)
+    }
+
     func testSetDestinationUpdatesRevisionAndPersists() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
@@ -1756,6 +1781,52 @@ final class ChecklistStoreTests: XCTestCase {
         let store = makeStore(defaults: suite.defaults)
 
         XCTAssertEqual(store.setDestination("list-a", for: UUID()), .notFound)
+        XCTAssertTrue(store.checklists.isEmpty)
+    }
+
+    func testSetPrefixesReminderNumbersUpdatesRevisionAndPersists() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        clock.now = Date(timeIntervalSince1970: 5)
+
+        XCTAssertEqual(store.setPrefixesReminderNumbers(true, for: created.id), .updated)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.prefixesReminderNumbers, true)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.revision, 2)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.modifiedAt, clock.now)
+    }
+
+    /// Re-applying the same value must not bump the sync clock and manufacture a
+    /// spurious last-write-wins win.
+    func testSetPrefixesReminderNumbersUnchangedValueIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.setPrefixesReminderNumbers(true, for: created.id)
+        let revisionAfterToggle = store.checklist(id: created.id)?.revision
+        let modifiedAfterToggle = store.checklist(id: created.id)?.modifiedAt
+        clock.now = Date(timeIntervalSince1970: 9)
+
+        XCTAssertEqual(store.setPrefixesReminderNumbers(true, for: created.id), .updated)
+
+        XCTAssertEqual(store.checklist(id: created.id)?.revision, revisionAfterToggle)
+        XCTAssertEqual(store.checklist(id: created.id)?.modifiedAt, modifiedAfterToggle)
+    }
+
+    /// Sad path: an id deleted while its edit screen was on the stack changes
+    /// nothing and reports not-found.
+    func testSetPrefixesReminderNumbersForUnknownChecklistReturnsNotFound() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+
+        XCTAssertEqual(store.setPrefixesReminderNumbers(true, for: UUID()), .notFound)
         XCTAssertTrue(store.checklists.isEmpty)
     }
 

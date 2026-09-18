@@ -11,14 +11,12 @@ final class SettingsBindings {
         backgroundFadePercent: Int = BackgroundFade.defaultValue,
         backgroundPinned: Bool = false,
         textSize: TextSize = .system,
-        allowsLandscape: Bool = true,
-        prefixReminderNumbers: Bool = false) {
+        allowsLandscape: Bool = true) {
         self.backgroundEnabled = backgroundEnabled
         self.backgroundFadePercent = backgroundFadePercent
         self.backgroundPinned = backgroundPinned
         self.textSize = textSize
         self.allowsLandscape = allowsLandscape
-        self.prefixReminderNumbers = prefixReminderNumbers
     }
 
     var backgroundEnabled: Bool
@@ -26,5 +24,4 @@ final class SettingsBindings {
     var backgroundPinned: Bool
     var textSize: TextSize
     var allowsLandscape: Bool
-    var prefixReminderNumbers: Bool
 }

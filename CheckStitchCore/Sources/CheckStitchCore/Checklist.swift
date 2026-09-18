@@ -146,6 +146,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public init(
         id: UUID = UUID(), name: String = "New checklist", items: [ChecklistItem] = [],
         destinationListIdentifier: String? = nil,
+        prefixesReminderNumbers: Bool = false,
         modifiedAt: Date = .distantPast, revision: Int = 0,
         itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast
     ) {
@@ -153,6 +154,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self.name = name
         self.items = items
         self.destinationListIdentifier = destinationListIdentifier
+        self.prefixesReminderNumbers = prefixesReminderNumbers
         self.modifiedAt = modifiedAt
         self.revision = revision
         // Canonical order defaults to the array's own order; an explicit value is
@@ -168,6 +170,13 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     /// `EKCalendar.calendarIdentifier` of the chosen Reminders list. `nil` means
     /// "system default list", so legacy payloads keep today's behaviour.
     public var destinationListIdentifier: String?
+    /// Whether this checklist's created reminder titles get a 1-based prefix.
+    /// Per-checklist so two checklists can differ; it shares the checklist's
+    /// coarse `revision`/`modifiedAt` clock (like the name and destination), so
+    /// a toggle is decided by the same last-write-wins rule. Additive optional
+    /// key: absent in v4-and-earlier payloads decodes to `false` with no version
+    /// bump (the `relativeDate` precedent).
+    public var prefixesReminderNumbers: Bool
     public var modifiedAt: Date
     public var revision: Int
     /// Canonical item ordering as a list of item ids. Kept in lockstep with
@@ -178,7 +187,8 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, destinationListIdentifier, modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
+        case id, name, items, destinationListIdentifier, prefixesReminderNumbers
+        case modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -187,6 +197,9 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         let name = try container.decode(String.self, forKey: .name)
         let items = try container.decodeIfPresent([ChecklistItem].self, forKey: .items) ?? []
         let destinationListIdentifier = try container.decodeIfPresent(String.self, forKey: .destinationListIdentifier)
+        // Additive optional field: absent key decodes to false, matching the
+        // `description`/`relativeDate` precedent — no version bump.
+        let prefixesReminderNumbers = try container.decodeIfPresent(Bool.self, forKey: .prefixesReminderNumbers) ?? false
         let modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? .distantPast
         let revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
         let itemOrder = try container.decodeIfPresent([UUID].self, forKey: .itemOrder) ?? items.map(\.id)
@@ -197,6 +210,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // the public init so the whole value is assigned at once.
         self = Checklist(id: id, name: name, items: items,
                          destinationListIdentifier: destinationListIdentifier,
+                         prefixesReminderNumbers: prefixesReminderNumbers,
                          modifiedAt: modifiedAt, revision: revision,
                          itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
             .normalizedOrder()
@@ -208,6 +222,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         try container.encode(name, forKey: .name)
         try container.encode(items, forKey: .items)
         try container.encode(destinationListIdentifier, forKey: .destinationListIdentifier)
+        try container.encode(prefixesReminderNumbers, forKey: .prefixesReminderNumbers)
         try container.encode(modifiedAt, forKey: .modifiedAt)
         try container.encode(revision, forKey: .revision)
         try container.encode(itemOrder, forKey: .itemOrder)
