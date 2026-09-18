@@ -1479,8 +1479,8 @@ underneath. Watch verification is compile + device.
 ### Verification
 
 #### Automated
-- [ ] `make watch-build` passes
-- [ ] `make build` passes (the iOS app still embeds the watch target)
+- [x] `make watch-build` passes
+- [x] `make build` passes (the iOS app still embeds the watch target)
 
 #### Manual (sync/render ticket — not closeable on static evidence)
 - [ ] `bash scripts/run-watch.sh`: the watch list renders the phone's checklists;

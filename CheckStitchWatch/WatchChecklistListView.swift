@@ -2,18 +2,18 @@ import CheckStitchCore
 import SwiftUI
 
 struct WatchChecklistListView: View {
-    @Environment(WatchChecklistStore.self) private var store
+    @Environment(WatchChecklistViewModel.self) private var viewModel
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.checklists.isEmpty {
+                if viewModel.checklists.isEmpty {
                     ContentUnavailableView(
                         "No checklists",
                         systemImage: "checklist",
                         description: Text("Open CheckStitch on your iPhone."))
                 } else {
-                    List(store.checklists) { checklist in
+                    List(viewModel.checklists) { checklist in
                         NavigationLink(checklist.name) {
                             WatchChecklistDetailView(checklist: checklist)
                         }
@@ -23,8 +23,7 @@ struct WatchChecklistListView: View {
             .navigationTitle("Checklists")
         }
         .task {
-            store.start()
-            store.requestRefresh()
+            viewModel.onAppear()
         }
     }
 }
