@@ -1000,9 +1000,9 @@ possible, assert `contains(.language("ja"))` without clearing, or add a
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make watch-build` compiles (the watchOS leg exercises `WatchSyncAdapter` and the watch root)
-- [ ] `AppLanguageSyncTests`, `WatchChecklistStoreTests`, `ChecklistSyncCoordinatorTests` green
+- [x] `make test-unit` passes
+- [x] `make watch-build` compiles (the watchOS leg exercises `WatchSyncAdapter` and the watch root)
+- [x] `AppLanguageSyncTests`, `WatchChecklistStoreTests`, `ChecklistSyncCoordinatorTests` green
 
 #### Manual
 - [ ] `bash scripts/run-watch.sh` with the watch paired; set **日本語** on the phone

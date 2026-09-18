@@ -9,6 +9,7 @@ struct CheckStitchWatchApp: App {
         WindowGroup {
             WatchChecklistListView()
                 .environment(store)
+                .environment(\.locale, AppLocaleState.current.effectiveLocale)
         }
     }
 }
