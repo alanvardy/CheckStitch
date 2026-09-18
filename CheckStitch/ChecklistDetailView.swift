@@ -40,160 +40,163 @@ struct ChecklistDetailView: View {
     @State private var destinationUnavailable = false
 
     var body: some View {
-        if let checklist = store.checklist(id: checklistID) {
-            Form {
-                Section("Checklist name") {
-                    TextField("Name", text: $draftName)
-                        .accessibilityIdentifier("checklistNameField")
-                }
-                Section("Destination list") {
-                    Picker("List", selection: destinationBinding(checklistID: checklistID)) {
-                        Text("Default (Inbox)").tag(String?.none)
-                        ForEach(listsSnapshot?.selectableOptions ?? []) { list in
-                            Text(list.title).tag(String?.some(list.id))
+        GeometryReader { geometry in
+            if let checklist = store.checklist(id: checklistID) {
+                Form {
+                    Section("Checklist name") {
+                        TextField("Name", text: $draftName)
+                            .accessibilityIdentifier("checklistNameField")
+                    }
+                    Section("Destination list") {
+                        Picker("List", selection: destinationBinding(checklistID: checklistID)) {
+                            Text("Default (Inbox)").tag(String?.none)
+                            ForEach(listsSnapshot?.selectableOptions ?? []) { list in
+                                Text(list.title).tag(String?.some(list.id))
+                            }
+                        }
+                        .accessibilityIdentifier("destinationListPicker")
+
+                        if destinationUnavailable {
+                            Text("Reminder lists aren't available, so a destination can't be chosen here.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else if destinationIsStale {
+                            Text("The previously selected list no longer exists. Choose another list or Default (Inbox).")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .accessibilityIdentifier("destinationListPicker")
+                    Section {
+                        Toggle(isOn: numberingBinding(checklistID: checklistID)) {
+                            Label("Number Reminders", systemImage: "textformat.123")
+                        }
+                        .accessibilityIdentifier("checklistPrefixNumbersToggle")
+                    } footer: {
+                        Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
+                    }
+                    Section("Items") {
+                        ForEach(checklist.items) { item in
+                            ItemRow(
+                                checklistID: checklistID,
+                                itemID: item.id,
+                                title: item.title,
+                                description: item.description,
+                                relativeDate: item.relativeDate,
+                                priority: item.priority
+                            )
+                        }
+                        .onDelete { offsets in
+                            store.removeItems(from: checklistID, at: offsets)
+                        }
+                        .onMove { offsets, destination in
+                            store.moveItems(checklistID: checklistID, from: offsets, to: destination)
+                        }
+                    }
+                    Section {
+                        Button {
+                            addItemDraftName = ""
+                            isAddItemPresented = true
+                        } label: {
+                            Label("Add Item", systemImage: "plus.circle.fill")
+                        }
+                        .accessibilityIdentifier("addItemButton")
+                        .checkStitchButton()
 
-                    if destinationUnavailable {
-                        Text("Reminder lists aren't available, so a destination can't be chosen here.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } else if destinationIsStale {
-                        Text("The previously selected list no longer exists. Choose another list or Default (Inbox).")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Section {
-                    Toggle(isOn: numberingBinding(checklistID: checklistID)) {
-                        Label("Number Reminders", systemImage: "textformat.123")
-                    }
-                    .accessibilityIdentifier("checklistPrefixNumbersToggle")
-                } footer: {
-                    Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
-                }
-                Section("Items") {
-                    ForEach(checklist.items) { item in
-                        ItemRow(
-                            checklistID: checklistID,
-                            itemID: item.id,
-                            title: item.title,
-                            description: item.description,
-                            relativeDate: item.relativeDate,
-                            priority: item.priority
-                        )
-                    }
-                    .onDelete { offsets in
-                        store.removeItems(from: checklistID, at: offsets)
-                    }
-                    .onMove { offsets, destination in
-                        store.moveItems(checklistID: checklistID, from: offsets, to: destination)
-                    }
-                }
-                Section {
-                    Button {
-                        addItemDraftName = ""
-                        isAddItemPresented = true
-                    } label: {
-                        Label("Add Item", systemImage: "plus.circle.fill")
-                    }
-                    .accessibilityIdentifier("addItemButton")
-                    .checkStitchButton()
+                        Button {
+                            duplicateDraftName = ChecklistStore.duplicateName(basedOn: checklist.name)
+                            isDuplicatePresented = true
+                        } label: {
+                            Label("Duplicate Checklist", systemImage: "doc.on.doc")
+                        }
+                        .accessibilityIdentifier("duplicateChecklistButton")
+                        .checkStitchButton()
 
-                    Button {
-                        duplicateDraftName = ChecklistStore.duplicateName(basedOn: checklist.name)
-                        isDuplicatePresented = true
-                    } label: {
-                        Label("Duplicate Checklist", systemImage: "doc.on.doc")
+                        Button(role: .destructive) {
+                            isRemoveConfirmPresented = true
+                        } label: {
+                            Label("Remove Checklist", systemImage: "trash")
+                        }
+                        .accessibilityIdentifier("removeChecklistButton")
+                        .checkStitchButton()
                     }
-                    .accessibilityIdentifier("duplicateChecklistButton")
-                    .checkStitchButton()
-
-                    Button(role: .destructive) {
-                        isRemoveConfirmPresented = true
-                    } label: {
-                        Label("Remove Checklist", systemImage: "trash")
+                }
+                .navigationTitle("Edit checklist")
+                .toolbarTitleDisplayMode(.inline)
+                .toolbar {
+                    #if os(iOS)
+                    // `EditButton` is unavailable on macOS, so the edit-mode toggle
+                    // is iOS-only; macOS reorders by drag without edit mode.
+                    ToolbarItem(placement: .topBarLeading) { EditButton() }
+                    #endif
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { commitRename() }
+                            // iOS 26 wraps bar items in a system glass container.
+                            // `fixedSize()` stops it collapsing that container to
+                            // a circle that clips the title, so "Done" keeps its
+                            // natural width. Deliberately no `checkStitchButton()`:
+                            // that modifier drops form-button chrome, but in a bar
+                            // the native styling owns the shape.
+                            .fixedSize()
                     }
-                    .accessibilityIdentifier("removeChecklistButton")
-                    .checkStitchButton()
                 }
-            }
-            .navigationTitle("Edit checklist")
-            .toolbarTitleDisplayMode(.inline)
-            .toolbar {
-                #if os(iOS)
-                // `EditButton` is unavailable on macOS, so the edit-mode toggle
-                // is iOS-only; macOS reorders by drag without edit mode.
-                ToolbarItem(placement: .topBarLeading) { EditButton() }
-                #endif
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { commitRename() }
-                        // iOS 26 wraps bar items in a system glass container.
-                        // `fixedSize()` stops it collapsing that container to
-                        // a circle that clips the title, so "Done" keeps its
-                        // natural width. Deliberately no `checkStitchButton()`:
-                        // that modifier drops form-button chrome, but in a bar
-                        // the native styling owns the shape.
-                        .fixedSize()
+                .onAppear {
+                    guard !didLoadDraft else { return }
+                    draftName = checklist.name
+                    didLoadDraft = true
+                    Task { await loadReminderLists() }
                 }
-            }
-            .onAppear {
-                guard !didLoadDraft else { return }
-                draftName = checklist.name
-                didLoadDraft = true
-                Task { await loadReminderLists() }
-            }
-            .onDisappear {
-                // Leaving without Done still keeps a valid edit; a conflicting
-                // one is dropped rather than alerted after the screen is gone.
-                commitDraftIfChanged()
-                store.flushPendingSave()
-            }
-            .alert("Name already in use", isPresented: $isNameConflictPresented) {
-                Button("OK", role: .cancel) {}
-                    .accessibilityIdentifier("renameNameConflictButton")
-            } message: {
-                Text("Another checklist already uses \(draftName) — choose a different name.")
-            }
-            .alert("Add Item", isPresented: $isAddItemPresented) {
-                TextField("Name", text: $addItemDraftName)
-                    .accessibilityIdentifier("addItemNameField")
-                Button("Cancel", role: .cancel) {}
-                    .accessibilityIdentifier("cancelAddItemButton")
-                Button("Add") {
-                    store.addItem(to: checklistID, title: addItemDraftName)
+                .onDisappear {
+                    // Leaving without Done still keeps a valid edit; a conflicting
+                    // one is dropped rather than alerted after the screen is gone.
+                    commitDraftIfChanged()
+                    store.flushPendingSave()
                 }
-                .accessibilityIdentifier("confirmAddItemButton")
-            }
-            .alert("Duplicate Checklist", isPresented: $isDuplicatePresented) {
-                TextField("Name", text: $duplicateDraftName)
-                    .accessibilityIdentifier("duplicateChecklistNameField")
-                Button("Cancel", role: .cancel) {}
-                    .accessibilityIdentifier("cancelDuplicateChecklistButton")
-                Button("Duplicate") {
-                    store.duplicate(id: checklistID, name: duplicateDraftName)
+                .alert("Name already in use", isPresented: $isNameConflictPresented) {
+                    Button("OK", role: .cancel) {}
+                        .accessibilityIdentifier("renameNameConflictButton")
+                } message: {
+                    Text("Another checklist already uses \(draftName) — choose a different name.")
                 }
-                .accessibilityIdentifier("confirmDuplicateChecklistButton")
-            } message: {
-                Text("Creates a copy with the same items.")
-            }
-            .confirmationDialog("Remove Checklist", isPresented: $isRemoveConfirmPresented) {
-                Button("Cancel", role: .cancel) {}
-                    .accessibilityIdentifier("cancelRemoveChecklistButton")
-                Button("Remove", role: .destructive) {
-                    isRemoving = true
-                    store.delete(id: checklistID)
-                    dismiss()
+                .alert("Add Item", isPresented: $isAddItemPresented) {
+                    TextField("Name", text: $addItemDraftName)
+                        .accessibilityIdentifier("addItemNameField")
+                    Button("Cancel", role: .cancel) {}
+                        .accessibilityIdentifier("cancelAddItemButton")
+                    Button("Add") {
+                        store.addItem(to: checklistID, title: addItemDraftName)
+                    }
+                    .accessibilityIdentifier("confirmAddItemButton")
                 }
-                .accessibilityIdentifier("confirmRemoveChecklistButton")
-            } message: {
-                Text("This removes the checklist and all its items.")
+                .alert("Duplicate Checklist", isPresented: $isDuplicatePresented) {
+                    TextField("Name", text: $duplicateDraftName)
+                        .accessibilityIdentifier("duplicateChecklistNameField")
+                    Button("Cancel", role: .cancel) {}
+                        .accessibilityIdentifier("cancelDuplicateChecklistButton")
+                    Button("Duplicate") {
+                        store.duplicate(id: checklistID, name: duplicateDraftName)
+                    }
+                    .accessibilityIdentifier("confirmDuplicateChecklistButton")
+                } message: {
+                    Text("Creates a copy with the same items.")
+                }
+                .confirmationDialog("Remove Checklist", isPresented: $isRemoveConfirmPresented) {
+                    Button("Cancel", role: .cancel) {}
+                        .accessibilityIdentifier("cancelRemoveChecklistButton")
+                    Button("Remove", role: .destructive) {
+                        isRemoving = true
+                        store.delete(id: checklistID)
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("confirmRemoveChecklistButton")
+                } message: {
+                    Text("This removes the checklist and all its items.")
+                }
+                .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width), alignment: .center)
+            } else if !isRemoving {
+                // Deleted elsewhere while this screen was on the stack. A delete
+                // from this screen skips the message so the pop never flashes it.
+                ContentUnavailableView("Checklist not found", systemImage: "trash")
             }
-        } else if !isRemoving {
-            // Deleted elsewhere while this screen was on the stack. A delete
-            // from this screen skips the message so the pop never flashes it.
-            ContentUnavailableView("Checklist not found", systemImage: "trash")
         }
     }
 
