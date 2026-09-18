@@ -522,7 +522,7 @@ bytes. No additional provider test is added in Phase 2.
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes — all Phase 1 tests remain green unchanged, plus
+- [x] `make test-unit` passes — all Phase 1 tests remain green unchanged, plus
       `presentingTwicePresentsOnce`, `presentingWithNoPendingShareDoesNothing`
       and `shareSelectedReportsNoErrorOnSuccess`.
 - [ ] `./scripts/test.sh` prints `gate: ok` (all compiling legs with

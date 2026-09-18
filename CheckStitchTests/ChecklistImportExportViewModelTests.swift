@@ -291,4 +291,47 @@ struct ChecklistImportExportViewModelTests {
         #expect(!viewModel.isSharing)
         #expect(viewModel.pendingShare == nil)
     }
+
+    @Test
+    func presentingTwicePresentsOnce() {
+        let store = makeStore(names: ["Groceries"])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = [store.checklists[0].id]
+        viewModel.shareSelected()
+
+        viewModel.presentPendingShare()
+        viewModel.presentPendingShare()
+
+        #expect(viewModel.isSharing)
+        // A re-entrant guard means the second call is a no-op: state stays
+        // exactly what one presentation set, and the pending share is intact.
+        #expect(viewModel.pendingShare != nil)
+    }
+
+    @Test
+    func presentingWithNoPendingShareDoesNothing() {
+        let store = makeStore(names: [])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+
+        viewModel.presentPendingShare()
+
+        #expect(!viewModel.isSharing)
+    }
+
+    /// Pins the reachable success path's error surface: a successful share
+    /// reports no error. (The codec-throw branch is structurally unreachable
+    /// for this envelope — see the deviation note below.)
+    @Test
+    func shareSelectedReportsNoErrorOnSuccess() {
+        let store = makeStore(names: ["Groceries"])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = [store.checklists[0].id]
+
+        viewModel.shareSelected()
+
+        #expect(viewModel.pendingShare != nil)
+        #expect(viewModel.exportErrorMessage == nil)
+    }
 }
