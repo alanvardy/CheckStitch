@@ -74,6 +74,103 @@ Repo root: `/Users/vardy/dev/alanvardy-var-1033-set-language` (slice of
 - **Fixtures** (`CheckStitchTests/LocalizationFixtures.swift`): `guardedCatalogs` (8), `requiredKeys` App ~70 keys / Core 5 / Watch 5 (16-82), `infoPlistTargets` App requires `NSRemindersFullAccessUsageDescription`, `NSRemindersUsageDescription`, `CFBundleDisplayName`; Watch only `CFBundleDisplayName` (92-104), `excludedIdentities` (106-121).
 - **Locale pinning limit**: `String.en(...)` makes assertions host-locale independent, but the hosted runner resolves `String(localized:)` with the process (English) locale, so a pin cannot observe e.g. German — the embedding tests bypass `String(localized:)` and diff the compiled `de.lproj` tables via `PropertyListSerialization` (`LocalizationTests.swift:69-76,101-123`). **Consequence**: any new dynamically-resolving locale mechanism cannot be asserted through the current pin; a language switch changes what `String(localized:)` returns only if it changes the process/preferred localization.
 
+## Q6 (post-spike): Runtime override mechanism — empirically resolved (NO-GO for Bundle subclassing)
+
+Spike evidence record: `.pi/orksorksorks/alanvardy-var-1033-set-language/spike.md`,
+`spike-ios-report.txt` (raw iOS probe output), `phase0_output.md` (worker run
+record). Probe code was throwaway and deleted.
+
+### Findings
+- The probe swapped `Bundle.main`'s `isa` (via `object_setClass`) to a
+  `Bundle, @unchecked Sendable` subclass overriding the 3-arg
+  `localizedString(forKey:value:table:)` and forwarding to the compiled
+  `de.lproj` as a sub-bundle while an override code was installed. On the
+  **iOS 18.7 simulator** (the plan's primary runtime) the redirect counter
+  stayed `0` and `String(localized:)` returned English under the swap
+  (`de-main={Settings}`, `de-core={Dark}`, `routing-3arg-redirects={0}`) — the
+  runtime does not call the 3-arg method.
+- `String(localized:)` on this toolchain routes through the 4-arg
+  `localizedString(forKey:value:table:localizations:)`
+  (`@available(macOS 15.4, iOS 18.4, …)`), declared in
+  `extension Foundation::Bundle`; Swift 6 rejects an override:
+  `instance method 'localizedString(forKey:value:table:localizations:)' is
+  declared in extension of 'Bundle' and cannot be overridden` (macOS leg
+  build error). A Bundle subclass cannot redirect `String(localized:)` on
+  macOS 15 / iOS 18 — the runtime-override mechanism is a dead end.
+- The explicit-locale **parameter** form
+  `String(localized: key, table:, bundle:, locale: Locale(identifier: "de"))`
+  also returned English (`explicit-de-main={Settings}`) — wrong seam too.
+- The German data is present and decodable at runtime: opening the compiled
+  `de.lproj` as its own `Bundle` and calling
+  `localizedString(forKey: "Dark", value: "Dark", table: "Localizable")`
+  returns `Dunkel` (`core-sub-bundle-lookup=Dunkel`).
+- The nil/unsupported-code path with the subclass installed is byte-identical
+  to baseline English (`restored-*-matches-baseline=true`) — a no-op override
+  is safe but useless.
+- Whether `Text("literal")` follows `\.locale` at render was not
+  machine-observable headlessly (SwiftUI resolves literals at render; no
+  accessibility introspection) — recorded `MANUAL-ONLY` in the spike. Q7's
+  shipped behavior (whole-app re-render via `\.locale`, `Text("literal")`
+  compiling to `LocalizedStringResource`) implies it does.
+- macOS observability quirk: containerized `open`-launches run the app but
+  its stdout / unified-log / Application Support writes never surface to the
+  host (one unreproducible full probe report from a non-containerized
+  execution). Machine-readable runtime evidence must be captured via the iOS
+  simulator's app data container
+  (`xcrun simctl get_app_container <udid> app.alanvardy.CheckStitch data`) or
+  through a bounded logging channel — never stdout/open.
+
+## Q7 (reference): SingleThread's working app-language mechanism
+
+Repo root `/Users/vardy/dev/SingleThread` — same Xcode 26.x / Swift 6 / iOS
+18.7 toolchain, and it ships a six-language UI on iOS + macOS + watch today.
+It **never subclasses `Bundle` and never overrides `localizedString`**; the
+mechanism is SwiftUI `\.locale` + observable state + explicit resource-locale
+resolution.
+
+### Findings
+- **Enum** `AppLanguage: String, CaseIterable` (Core): `.system` + six catalog
+  languages; `locale` = `.system → .current` (process/device locale), else
+  `Locale(identifier: rawValue)`
+  (`SingleThreadCore/Sources/SingleThreadCore/AppLanguage.swift:18-19`).
+- **State holder** `AppLocaleState` (Core): `@MainActor @Observable`
+  process-wide singleton `current`; `init` loads `AppLanguagePreference`
+  (validates, unknown → `.system`); `set` persists via `AppLanguagePreference`
+  (App Group defaults, key `"appLanguage"`) **and** publishes the `language`
+  observable; `effectiveLocale` = `language.locale`; `storedEffectiveLocale`
+  (nonisolated static) serves non-View consumers
+  (`SingleThreadCore/Sources/SingleThreadCore/AppLocaleState.swift:7-45`).
+- **Persistence** `AppLanguagePreference`: `defaultsKey = "appLanguage"`,
+  raw string validated against `AppLanguage.allCases` else `.system`
+  (`SingleThreadCore/Sources/SingleThreadCore/AppLanguagePreference.swift:16-34`).
+- **Live re-render seam = `\.locale`**: the app and watch roots set
+  `.environment(\.locale, AppLocaleState.current.effectiveLocale)`
+  (`SingleThread/SingleThreadApp.swift:19,44`;
+  `SingleThreadWatch/SingleThreadWatchApp.swift:17`). A picker change mutates
+  the observable → SwiftUI re-renders the tree → every `Text(...)` /
+  `Text("literal")` (all `LocalizedStringResource`) re-resolves against the
+  new `\.locale` immediately, no restart.
+- **Eager / non-View strings**: `SharedStrings` returns `LocalizedStringResource`
+  (lazy, `.module`); callers resolve via `resolved(in: Locale)`, which sets
+  `resource.locale = locale` **before** evaluating
+  `String(localized: resource)` (the working seam, vs. Q6's parameter form),
+  or `resolvedInAppLanguage()` against
+  `AppLocaleState.storedEffectiveLocale`
+  (`SingleThreadCore/Sources/SingleThreadCore/LocalizedString+Shared.swift:107-117`).
+- **Picker wiring**: `SettingsBindings.appLanguage` is store-backed through
+  `AppLocaleState.current` (get reads the live holder, set persists +
+  republishes — a WatchConnectivity-delivered value updates the picker too)
+  (`SingleThread/SettingsBindings.swift:177-188`); the picker renders
+  `Text(language.title)` (verbatim endonyms; only `System` is a catalog key)
+  and its `.onChange` only fires a preference-changed toast — the binding
+  already flipped the observable (`SingleThread/InterfaceSettingsView.swift:63-76`).
+- **Watch**: phone choice arrives over WatchConnectivity →
+  `service.onAppLanguageReceived = { value in Task { @MainActor in AppLocaleState.current.set(value) } }`
+  — live flip, persisted, so a cold launch without the phone keeps it
+  (`SingleThreadWatch/WatchAppViewModel.swift:285-291`).
+- **Tests**: `SingleThreadTests/AppLanguageTests.swift` and
+  `AppLanguageSyncTests.swift` cover resolution and the sync path.
+
 ## Cross-Cutting Observations
 - **Single-process model**: iOS and macOS are one `MyApp` process with per-OS delegates; a locale override applied at process level on startup would cover both. The watch is a separate `@main` app with its own `.main` catalog and no settings/delegate machinery at all.
 - **AppearanceMode is the canonical preference template**: enum keyed in `UserDefaults.standard` via a `*Preference` struct with raw-string validation + fallback, mirrored by an `@AppStorage` prop of the same key whose `onChange` applies the value app-wide through per-platform delegates; tests cover round-trip, unknown-value fallback, and write-back.
@@ -82,7 +179,7 @@ Repo root: `/Users/vardy/dev/alanvardy-var-1033-set-language` (slice of
 - **Catalog discipline is enforced exhaustively**: tests require non-empty all six languages for every key in all three catalogs, plus a canary that non-English values actually differ — new UI strings land in the catalogs or those suites fail.
 
 ## Open Areas
-- **The runtime override mechanism itself** (the ticket's core UNKNOWN): no Foundation/Swift API for overriding `String(localized:)` resolution is referenced anywhere in the repo, and the codebase cannot tell us whether such an API exists (would need an SDK/compile probe or spike — out of scope for codebase research).
+- **The runtime override mechanism itself** — resolved by the Phase 0 spike: a `Bundle` subclass (isa-swap or override) **cannot** redirect `String(localized:)` on macOS 15 / iOS 18 (Q6). The working alternative is demonstrated by the `SingleThread` reference: SwiftUI `\.locale` environment + an observable `AppLocaleState` (Q7). Catalog readiness is confirmed: `CheckStitch/` already ships compiled `{de,en,es,fr,ja,zh-Hans}.lproj` dirs, and the spike verified the `de` catalog decodes at runtime (`Dunkel`).
 - Whether the watch target is in scope: it has no settings surface and no `@AppStorage`; its UI strings are mostly literals, with five catalog keys.
 - `InfoPlist.strings` is generated per-language from catalog keys; interplay between a runtime language preference and these OS-level tables is unexamined.
 - Watchlist: an interface grouping does not exist in the current Settings `Form` — placement must be decided by Design (following the Q3 mapping of sibling sections).
