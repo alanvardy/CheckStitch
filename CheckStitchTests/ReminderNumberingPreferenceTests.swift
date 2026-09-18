@@ -3,7 +3,6 @@ import Foundation
 import Testing
 
 @MainActor
-@Suite(.serialized)
 struct ReminderNumberingPreferenceTests {
     @Test
     func missingKeyDefaultsToDisabled() {
@@ -17,5 +16,12 @@ struct ReminderNumberingPreferenceTests {
         let preference = ReminderNumberingPreference(defaults: defaults)
         preference.setEnabled(true)
         #expect(ReminderNumberingPreference(defaults: defaults).isEnabled)
+    }
+
+    @Test
+    func nonBooleanStoredValueIsTreatedAsDisabled() {
+        let defaults = makeIsolatedDefaults()
+        defaults.set("yes", forKey: ReminderNumberingPreference.defaultsKey)
+        #expect(!ReminderNumberingPreference(defaults: defaults).isEnabled)
     }
 }

@@ -15,7 +15,7 @@ struct ContentView: View {
     @AppStorage("backgroundPinned") var backgroundPinned = false
     @AppStorage("textSize") var textSize = TextSize.system
     @AppStorage("allowsLandscape") var allowsLandscape = true
-    @AppStorage("prefixReminderNumbers") var prefixReminderNumbers = false
+    @AppStorage(ReminderNumberingPreference.defaultsKey) var prefixReminderNumbers = false
 
     @State private var path: [UUID] = []
     /// Present when the main-screen rows are in edit mode (remove/move
