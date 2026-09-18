@@ -54,6 +54,15 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(isOn: $bindings.prefixReminderNumbers) {
+                        Label("Number Reminders", systemImage: "textformat.123")
+                    }
+                    .accessibilityIdentifier("settingsPrefixNumbersRow")
+                } footer: {
+                    Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
+                }
+
+                Section {
                     Button(action: onExport) {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }

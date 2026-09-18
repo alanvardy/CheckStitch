@@ -568,6 +568,7 @@ extension ContentView {
             .onChange(of: bag.backgroundPinned) { _, _ in writeBack(bag) }
             .onChange(of: bag.textSize) { _, _ in writeBack(bag) }
             .onChange(of: bag.allowsLandscape) { _, _ in writeBack(bag) }
+            .onChange(of: bag.prefixReminderNumbers) { _, _ in writeBack(bag) }
     }
 
     /// Persists every staged background preference. Extracted so it is
@@ -578,6 +579,7 @@ extension ContentView {
         backgroundPinned = bag.backgroundPinned
         textSize = bag.textSize
         allowsLandscape = bag.allowsLandscape
+        prefixReminderNumbers = bag.prefixReminderNumbers
     }
 
     /// Fresh bag snapshotted from the current stored preferences on sheet open.
@@ -587,7 +589,8 @@ extension ContentView {
             backgroundFadePercent: backgroundFadePercent,
             backgroundPinned: backgroundPinned,
             textSize: textSize,
-            allowsLandscape: allowsLandscape)
+            allowsLandscape: allowsLandscape,
+            prefixReminderNumbers: prefixReminderNumbers)
     }
 
     /// Stages an import/export chosen in the Settings menu and closes the sheet,

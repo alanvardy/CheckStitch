@@ -457,8 +457,8 @@ Add the new key to all four existing tests so the staged bag stays covered:
 
 ### Verification
 #### Automated
-- [ ] `make test-unit` passes (all `SettingsBindingsTests`, old and new assertions)
-- [ ] `make build` passes (SettingsView compiles with the new Section)
+- [x] `make test-unit` passes (all `SettingsBindingsTests`, old and new assertions)
+- [x] `make build` passes (SettingsView compiles with the new Section)
 - [ ] Full gate `bash scripts/test.sh` prints `gate: ok`
 
 #### Manual
