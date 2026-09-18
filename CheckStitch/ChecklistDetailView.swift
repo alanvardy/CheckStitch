@@ -191,7 +191,7 @@ struct ChecklistDetailView: View {
                 } message: {
                     Text("This removes the checklist and all its items.")
                 }
-                .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width), alignment: .center)
+                .checklistEditFormWidth(viewportWidth: geometry.size.width)
             } else if !isRemoving {
                 // Deleted elsewhere while this screen was on the stack. A delete
                 // from this screen skips the message so the pop never flashes it.

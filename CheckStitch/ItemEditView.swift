@@ -80,7 +80,7 @@ struct ItemEditView: View {
             .navigationTitle("Edit item")
             .toolbarTitleDisplayMode(.inline)
             .settingsSubscreenLayout()
-            .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width), alignment: .center)
+            .checklistEditFormWidth(viewportWidth: geometry.size.width)
             .onAppear {
                 guard !didLoadDraft else { return }
                 let item = store.checklist(id: checklistID)?.items.first { $0.id == itemID }
