@@ -167,7 +167,9 @@ final class FakeChecklistSyncTransport: ChecklistSyncTransport {
         return acceptsSends
     }
 
-    /// Lets a test ignore the cold-start push before asserting on later sends.
+    /// Clears only `sentMessages` (the `transferUserInfo` channel), so tests
+    /// can ignore the cold-start language push. `sentContexts` is deliberately
+    /// left intact for assertions that still expect the context pushes.
     func clearSentMessages() { sentMessages = [] }
 
     func deliver(_ message: ChecklistSyncMessage) { onMessage?(message) }

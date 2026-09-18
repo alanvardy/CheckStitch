@@ -75,6 +75,13 @@ import SwiftUI
                         .onChange(of: store.checklists) { _, _ in
                             coordinator?.checklistsDidChange()
                         }
+                        // The language picker writes straight to the holder, so
+                        // push on the change itself: `start()`/`onActivated`
+                        // fire once per session and would leave a mid-session
+                        // change unseen until a process restart.
+                        .onChange(of: AppLocaleState.current.language) { _, _ in
+                            coordinator?.languageDidChange()
+                        }
                     #endif
                     .task { await syncService.syncOnLaunch() }
             }
