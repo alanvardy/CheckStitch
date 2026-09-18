@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Environment(ChecklistStore.self) private var store
     @Environment(ChecklistListViewModel.self) private var listVM
+    @Environment(ChecklistRunViewModel.self) private var runVM
     @Environment(ChecklistSyncService.self) private var syncService
     @Environment(\.colorScheme) private var colorScheme
 
@@ -21,18 +22,12 @@ struct ContentView: View {
     /// Present when the main-screen rows are in edit mode (remove/move
     /// controls instead of navigation and the run button).
     @State private var isEditing = false
-    /// Transient per-checklist reminder feedback, keyed by id — never persisted.
-    @State private var creating: Set<UUID> = []
-    @State private var created: Set<UUID> = []
     @State private var isShowingSettings = false
     /// Import/export chosen in the Settings menu, handed over once the settings
     /// sheet has dismissed (see `requestDataAction`).
     @State private var dataActionQueue = SettingsDataActionQueue()
     @State private var backgroundImage = BackgroundImageStore()
     @State private var settingsBag: SettingsBindings?
-    /// Message for the run-failure alert; `nil` hides it. Set only when a run
-    /// produced no reminders (missing destination, permission, or a thrown error).
-    @State private var runErrorMessage: String?
     @State private var isShowingExport = false
     @State private var exportSelection: Set<UUID> = []
     @State private var exportDocument: ChecklistExportDocument?
@@ -174,13 +169,13 @@ struct ContentView: View {
             Task { await backgroundImage.setPinned(pin) }
         }
         .alert("Couldn't create reminders", isPresented: Binding(
-            get: { runErrorMessage != nil },
-            set: { if !$0 { runErrorMessage = nil } })
+            get: { runVM.runErrorMessage != nil },
+            set: { if !$0 { runVM.clearRunError() } })
         ) {
             Button("OK", role: .cancel) {}
                 .accessibilityIdentifier("runErrorMessageButton")
         } message: {
-            Text(runErrorMessage ?? "")
+            Text(runVM.runErrorMessage ?? "")
         }
         .sheet(isPresented: $isShowingExport) {
             ExportChecklistsView(selection: $exportSelection) { exportSelected() }
@@ -471,12 +466,12 @@ struct ContentView: View {
     @ViewBuilder
     private func createRemindersButton(for id: UUID) -> some View {
         Button {
-            createReminders(for: id)
+            Task { await runVM.createReminders(for: id) }
         } label: {
-            if creating.contains(id) {
+            if runVM.creating.contains(id) {
                 ProgressView()
                     .controlSize(.small)
-            } else if created.contains(id) {
+            } else if runVM.created.contains(id) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
@@ -484,7 +479,7 @@ struct ContentView: View {
             }
         }
         .buttonStyle(.borderless)
-        .disabled(creating.contains(id))
+        .disabled(runVM.creating.contains(id))
         .accessibilityLabel("Create reminders from checklist")
         .accessibilityIdentifier("createRemindersButton")
     }
@@ -492,30 +487,6 @@ struct ContentView: View {
     private func createChecklist() {
         // Creation runs through the list view model, which owns the mutation.
         path.append(listVM.createChecklist())
-    }
-
-    private func createReminders(for id: UUID) {
-        // Mark the checklist as creating before spawning the task so a second
-        // tap can't enqueue duplicate reminders while the first task starts.
-        guard !creating.contains(id), let checklist = store.checklist(id: id) else { return }
-        creating.insert(id)
-        Task {
-            // Hold the spinner for at least a second so saving quickly
-            // doesn't flash the progress feedback past the user.
-            async let minimumSpinner: Void = Task.sleep(for: .seconds(1))
-            let outcome = await ChecklistReminders.create(from: checklist)
-            try? await minimumSpinner
-            creating.remove(id)
-            switch outcome {
-            case .created:
-                created.insert(id)
-                try? await Task.sleep(for: .seconds(1))
-                created.remove(id)
-            case .destinationMissing, .permissionDenied, .partiallyCreated, .failed:
-                // Never flash success: nothing (or only part) was created.
-                runErrorMessage = outcome.errorMessage
-            }
-        }
     }
 }
 
@@ -730,6 +701,7 @@ struct SyncStatusView: View {
     ContentView()
         .environment(store)
         .environment(ChecklistListViewModel(store: store))
+        .environment(ChecklistRunViewModel(store: store))
         // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
 }

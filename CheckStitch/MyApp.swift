@@ -19,6 +19,7 @@ import SwiftUI
 
     @State private var store: ChecklistStore
     @State private var listViewModel: ChecklistListViewModel
+    @State private var runViewModel: ChecklistRunViewModel
     @State private var syncService: ChecklistSyncService
     #if os(iOS)
         @State private var coordinator: ChecklistSyncCoordinator?
@@ -31,6 +32,7 @@ import SwiftUI
         syncService.start()
         _store = State(initialValue: store)
         _listViewModel = State(initialValue: ChecklistListViewModel(store: store))
+        _runViewModel = State(initialValue: ChecklistRunViewModel(store: store))
         _syncService = State(initialValue: syncService)
     }
 
@@ -45,6 +47,7 @@ import SwiftUI
                 ContentView()
                     .environment(store)
                     .environment(listViewModel)
+                    .environment(runViewModel)
                     .environment(syncService)
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     .task { await syncService.syncOnLaunch() }
@@ -62,6 +65,7 @@ import SwiftUI
                 ContentView()
                     .environment(store)
                     .environment(listViewModel)
+                    .environment(runViewModel)
                     .environment(syncService)
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     #if os(iOS)
