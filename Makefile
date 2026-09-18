@@ -74,6 +74,7 @@ test-unit:
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
 	  CODE_SIGNING_ALLOWED=NO \
+	  $(WARNINGS_AS_ERRORS) \
 	  -only-testing:CheckStitchTests \
 	  test
 

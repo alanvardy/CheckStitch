@@ -392,7 +392,7 @@ run_case macos_slice_requests_outgoing_network macos_slice_requests_outgoing_net
 
 # Every gate leg that compiles Swift must carry the shared Makefile
 # warnings-as-errors setting. Later phases append their leg here.
-WARNINGS_AS_ERRORS_LEGS=(build-mac build)
+WARNINGS_AS_ERRORS_LEGS=(build-mac build test-unit)
 
 # True when every xcodebuild argv line in $1 carries both compiler flags.
 warnings_as_errors_logged() {

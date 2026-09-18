@@ -79,13 +79,13 @@ struct ChecklistImportSessionTests {
     func migratablePayloadIsAccepted() throws {
         let (session, store) = makeSession()
 
-        let v1 = try session.prepare(data: payload([Checklist(name: "V1")], version: 1))
+        _ = try session.prepare(data: payload([Checklist(name: "V1")], version: 1))
         #expect(store.checklists.map(\.name) == ["V1"], "v1 payload migrates and inserts")
         #expect(session.summary.inserted == 1)
         #expect(session.pending.isEmpty)
 
         // The summary resets per file, so a second `prepare` starts from zero.
-        let v2 = try session.prepare(data: payload([Checklist(name: "V2")], version: 2))
+        _ = try session.prepare(data: payload([Checklist(name: "V2")], version: 2))
         #expect(store.checklists.map(\.name) == ["V1", "V2"], "v2 payload seeds ordering and inserts")
         #expect(session.summary.inserted == 1)
         #expect(session.pending.isEmpty)
