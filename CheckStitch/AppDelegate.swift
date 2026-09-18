@@ -1,4 +1,5 @@
 #if os(iOS)
+    import os
     import UIKit
 
     /// Bridges the persisted appearance setting into the UIKit window so the
@@ -7,6 +8,9 @@
     ///
     /// Registered via `@UIApplicationDelegateAdaptor` in `MyApp`.
     final class AppDelegate: NSObject, UIApplicationDelegate {
+        private static let logger = Logger(
+            subsystem: "app.alanvardy.CheckStitch", category: "Orientation")
+
         /// Applies the persisted appearance to every window in every connected
         /// scene, and on demand to explicit windows. The `.system` sentinel
         /// (`.unspecified`) clears any prior override so the window re-follows
@@ -32,14 +36,18 @@
         /// On iPad in Split View or Slide Over the request may be denied
         /// (`Code=101`), but the mask still prevents auto-rotation.
         static func applyLock(allowsLandscape: Bool) {
-            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+            // Prefer the active scene; fall back to the first window scene so a
+            // toggle during a transient activation state still re-evaluates the mask.
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
                   let controller = scene.keyWindow?.rootViewController
             else { return }
 
             controller.setNeedsUpdateOfSupportedInterfaceOrientations()
             let mask = OrientationPolicy(allowsLandscape: allowsLandscape).mask
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
-                print("Orientation request failed: \(error.localizedDescription)")
+                Self.logger.error(
+                    "Orientation request failed: \(error.localizedDescription, privacy: .public)")
             }
         }
 
