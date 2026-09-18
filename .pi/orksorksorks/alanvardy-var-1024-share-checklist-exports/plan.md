@@ -525,7 +525,7 @@ bytes. No additional provider test is added in Phase 2.
 - [x] `make test-unit` passes — all Phase 1 tests remain green unchanged, plus
       `presentingTwicePresentsOnce`, `presentingWithNoPendingShareDoesNothing`
       and `shareSelectedReportsNoErrorOnSuccess`.
-- [ ] `./scripts/test.sh` prints `gate: ok` (all compiling legs with
+- [x] `./scripts/test.sh` prints `gate: ok` (all compiling legs with
       warnings-as-errors, shellcheck, watch build, shell tests).
 
 #### Manual (required before close — sync/icon/render tickets cannot close on
