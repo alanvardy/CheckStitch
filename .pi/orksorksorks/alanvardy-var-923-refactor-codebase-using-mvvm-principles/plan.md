@@ -841,9 +841,9 @@ struct SettingsViewModelTests {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (`SettingsViewModelTests` + retargeted
+- [x] `make test-unit` passes (`SettingsViewModelTests` + retargeted
       `SettingsBindingsTests` + unchanged `SettingsDataActionQueueTests`)
-- [ ] `make build` passes
+- [x] `make build` passes
 
 #### Manual
 - [ ] `make run`: open Settings, toggle a background pref, close the sheet →

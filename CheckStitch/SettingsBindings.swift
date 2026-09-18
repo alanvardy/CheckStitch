@@ -25,3 +25,45 @@ final class SettingsBindings {
     var textSize: TextSize
     var allowsLandscape: Bool
 }
+
+/// Import/export entry points offered by the Settings menu.
+enum SettingsDataAction: Equatable {
+    case export
+    case importChecklists
+}
+
+/// Stages a Settings-menu import/export request until the settings sheet has
+/// dismissed and the root-owned file panel can present.
+struct SettingsDataActionQueue {
+    private var pending: SettingsDataAction?
+
+    mutating func stage(_ action: SettingsDataAction) {
+        pending = action
+    }
+
+    /// Hands the staged action over exactly once, so a dismissal callback that
+    /// fires again cannot open a second panel.
+    mutating func take() -> SettingsDataAction? {
+        defer { pending = nil }
+        return pending
+    }
+}
+
+/// The five prefs the settings sheet stages, read from the view's `@AppStorage`
+/// before the sheet opens.
+struct SettingsSnapshot: Equatable {
+    var backgroundEnabled: Bool
+    var backgroundFadePercent: Int
+    var backgroundPinned: Bool
+    var textSize: TextSize
+    var allowsLandscape: Bool
+}
+
+/// The staged prefs handed back for the view to write to `@AppStorage`.
+struct SettingsWriteback: Equatable {
+    var backgroundEnabled: Bool
+    var backgroundFadePercent: Int
+    var backgroundPinned: Bool
+    var textSize: TextSize
+    var allowsLandscape: Bool
+}
