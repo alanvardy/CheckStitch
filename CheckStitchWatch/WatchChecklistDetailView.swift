@@ -3,23 +3,23 @@ import SwiftUI
 
 struct WatchChecklistDetailView: View {
     let checklist: Checklist
-    @Environment(WatchChecklistStore.self) private var store
+    @Environment(WatchChecklistViewModel.self) private var viewModel
     @State private var runID: UUID?
 
     /// The live copy from the store once a `notFound` refresh lands; the value
     /// this screen was pushed with is only the seed. Without this the screen
     /// would keep showing stale items after the watch self-corrects the list.
     private var current: Checklist {
-        store.checklists.first { $0.id == checklist.id } ?? checklist
+        viewModel.current(checklist)
     }
 
     /// Blank rows are never turned into reminders, so the watch hides them too.
     private var visibleItems: [ChecklistItem] {
-        current.items.filter { !$0.isBlank }
+        viewModel.visibleItems(of: checklist)
     }
 
     private var phase: RunPhase {
-        runID.map { store.runPhase(runID: $0) } ?? .idle
+        viewModel.phase(runID: runID)
     }
 
     /// A resource, not an eager `String(localized:)`: `Button`'s `String`
@@ -56,7 +56,7 @@ struct WatchChecklistDetailView: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 4) {
                 Button {
-                    runID = store.run(checklist)
+                    runID = viewModel.run(checklist)
                 } label: {
                     Text(buttonTitle)
                 }
