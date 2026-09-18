@@ -59,6 +59,7 @@ watch-build:
 	  -destination '$(WATCH_SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
+	  $(WARNINGS_AS_ERRORS) \
 	  build
 
 run: build
@@ -85,11 +86,13 @@ test-ui:
 	  -destination '$(SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
+	  $(WARNINGS_AS_ERRORS) \
 	  build-for-testing
 	xcodebuild -scheme '$(SCHEME)' \
 	  -destination '$(SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
+	  $(WARNINGS_AS_ERRORS) \
 	  -only-testing:CheckStitchUITests \
 	  test-without-building
 

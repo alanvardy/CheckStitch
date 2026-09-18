@@ -413,9 +413,9 @@ WARNINGS_AS_ERRORS_LEGS=(build-mac build test-unit test-ui watch-build)
 ### Verification
 
 #### Automated
-- [ ] `make watch-build` exits 0 with no compiler `warning:` lines
-- [ ] `make test-ui` exits 0 (boots this worktree's `.simulator_id` simulator; run under the gate's lock or accept a window)
-- [ ] `bash scripts/tests/run.sh` → `0 failed`; `warnings_as_errors_reaches_compiling_legs` logs 2 `xcodebuild` calls for `test-ui`
+- [x] `make watch-build` exits 0 with no compiler `warning:` lines
+- [x] `make test-ui` exits 0 (boots this worktree's `.simulator_id` simulator; run under the gate's lock or accept a window)
+- [x] `bash scripts/tests/run.sh` → `0 failed`; `warnings_as_errors_reaches_compiling_legs` logs 2 `xcodebuild` calls for `test-ui`
 
 #### Manual
 - [ ] Deliberate-warning probe: confirm `make watch-build` and `make test-ui` fail on it, then revert
