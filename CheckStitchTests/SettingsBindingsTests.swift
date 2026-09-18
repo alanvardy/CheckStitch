@@ -29,6 +29,24 @@ struct SettingsBindingsTests {
     }
 
     @Test
+    func snapshotReadsCurrentUserDefaults() {
+        UserDefaults.standard.set(false, forKey: "backgroundEnabled")
+        UserDefaults.standard.set(70, forKey: "backgroundFadePercent")
+        UserDefaults.standard.set(true, forKey: "backgroundPinned")
+        UserDefaults.standard.set("large", forKey: "textSize")
+        UserDefaults.standard.set(false, forKey: "allowsLandscape")
+        defer { Self.clearPreferences() }
+
+        let snapshot = ContentView().settingsSnapshot()
+
+        #expect(!snapshot.backgroundEnabled)
+        #expect(snapshot.backgroundFadePercent == 70)
+        #expect(snapshot.backgroundPinned)
+        #expect(snapshot.textSize == .large)
+        #expect(!snapshot.allowsLandscape)
+    }
+
+    @Test
     func writeBackPersistsEachKey() {
         defer { Self.clearPreferences() }
         let bag = SettingsBindings(

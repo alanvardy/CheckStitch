@@ -277,12 +277,7 @@ struct ContentView: View {
     private var settingsButton: some View {
         #if os(iOS)
             Button {
-                settingsVM.begin(from: SettingsSnapshot(
-                    backgroundEnabled: backgroundEnabled,
-                    backgroundFadePercent: backgroundFadePercent,
-                    backgroundPinned: backgroundPinned,
-                    textSize: textSize,
-                    allowsLandscape: allowsLandscape))
+                settingsVM.begin(from: settingsSnapshot())
             } label: {
                 Image(systemName: "gearshape")
                     .font(.title2.weight(.semibold))
@@ -303,12 +298,7 @@ struct ContentView: View {
             .checkStitchButton()
         #else
             Button {
-                settingsVM.begin(from: SettingsSnapshot(
-                    backgroundEnabled: backgroundEnabled,
-                    backgroundFadePercent: backgroundFadePercent,
-                    backgroundPinned: backgroundPinned,
-                    textSize: textSize,
-                    allowsLandscape: allowsLandscape))
+                settingsVM.begin(from: settingsSnapshot())
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
@@ -523,6 +513,17 @@ extension ContentView {
         allowsLandscape = writeback.allowsLandscape
     }
 
+    /// Snapshots the five `@AppStorage` prefs into the VM's staging bag before
+    /// the Settings sheet opens.
+    func settingsSnapshot() -> SettingsSnapshot {
+        SettingsSnapshot(
+            backgroundEnabled: backgroundEnabled,
+            backgroundFadePercent: backgroundFadePercent,
+            backgroundPinned: backgroundPinned,
+            textSize: textSize,
+            allowsLandscape: allowsLandscape)
+    }
+
     /// Stages an import/export chosen in the Settings menu and closes the sheet,
     /// so the root-owned file panel presents unobstructed. The VM owns the queue
     /// and fakes `isShowingSettings = false`.
@@ -591,6 +592,7 @@ struct SyncStatusView: View {
         .environment(ChecklistImportExportViewModel(store: store))
         .environment(BackgroundViewModel())
         .environment(AppearanceViewModel())
+        .environment(SettingsViewModel())
         // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
 }
