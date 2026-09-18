@@ -543,11 +543,21 @@ struct ContentView: View {
 }
 
 extension ContentView {
+    /// Write-through language binding: reads the live holder (so a value that
+    /// arrives over sync or lands from another scene updates the picker) and
+    /// persists immediately on change — no staging bag (design decision 9).
+    var appLanguageBinding: Binding<AppLanguage> {
+        Binding(
+            get: { AppLocaleState.current.language },
+            set: { AppLocaleState.current.set($0) })
+    }
+
     /// Renders the Settings sheet over the staged bag and writes each staged
     /// change back to the `@AppStorage`-backed property so it survives relaunch.
     func settingsSheetWritebacks(_ bag: SettingsBindings) -> some View {
         SettingsView(
             appearanceMode: $appearanceMode,
+            appLanguage: appLanguageBinding,
             bindings: bag,
             backgroundImage: backgroundImage,
             onExport: { requestDataAction(.export) },
