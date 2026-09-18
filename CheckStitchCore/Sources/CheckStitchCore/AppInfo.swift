@@ -32,15 +32,13 @@ public struct AppInfo: Sendable {
     public var versionDescription: String {
         guard let marketing = marketingVersion else { return "" }
         if let build = buildNumber {
-            return String(
-                localized: "Version \(marketing) (\(build))",
-                table: "Localizable",
-                bundle: .module)
+            return LocalizedStringResource(
+                "Version \(marketing) (\(build))", table: "Localizable", bundle: .module)
+                .resolvedInAppLanguage()
         }
-        return String(
-            localized: "Version \(marketing)",
-            table: "Localizable",
-            bundle: .module)
+        return LocalizedStringResource(
+            "Version \(marketing)", table: "Localizable", bundle: .module)
+            .resolvedInAppLanguage()
     }
 
     private let bundle: Bundle

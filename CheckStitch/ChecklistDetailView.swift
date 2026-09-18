@@ -290,7 +290,7 @@ struct ItemRow: View {
                     Text(Self.displayTitle(title))
                     Spacer(minLength: 0)
                     // Blank when the item carries no date, per the product ask.
-                    Text(DueDateLabel.text(for: relativeDate))
+                    Text(DueDateLabel.resource(for: relativeDate))
                         .foregroundStyle(.secondary)
                 }
                 if !description.isEmpty {

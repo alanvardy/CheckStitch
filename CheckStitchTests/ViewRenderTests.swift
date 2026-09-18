@@ -40,8 +40,9 @@ struct ViewRenderTests {
             backgroundImage: BackgroundImageStore())
         #expect(String(describing: view.body).isEmpty == false)
         // The app target carries its own `AppearanceMode` alongside the
-        // core package's, so qualify explicitly to avoid ambiguity.
-        #expect(CheckStitch.AppearanceMode.allCases.map(\.title) == ["System", "Light", "Dark"])
+        // core package's, so qualify explicitly to avoid ambiguity. Title is a
+        // resource (pinned by key — the app's own catalog carries the text).
+        #expect(CheckStitch.AppearanceMode.allCases.map(\.title.key) == ["System", "Light", "Dark"])
         #expect(CheckStitch.AppearanceMode.allCases.map(\.systemImage).allSatisfy { !$0.isEmpty })
     }
 

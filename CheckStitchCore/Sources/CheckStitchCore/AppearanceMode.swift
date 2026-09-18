@@ -66,8 +66,9 @@ public enum AppearanceMode: String, CaseIterable, Sendable {
         }
     }
 
-    /// Human-readable label shown in the appearance picker.
-    public var title: String {
+    /// Human-readable label shown in the appearance picker. A resource, so
+    /// SwiftUI re-resolves it against `\.locale` on a live language switch.
+    public var title: LocalizedStringResource {
         switch self {
         case .system: SharedStrings.system
         case .light: SharedStrings.light
