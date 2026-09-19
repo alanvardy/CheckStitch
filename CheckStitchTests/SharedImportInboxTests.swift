@@ -45,4 +45,21 @@ struct SharedImportInboxTests {
         #expect(inbox.consume()?.url == second)
         #expect(inbox.consume() == nil)
     }
+
+    /// Deliberate (plan.md): `lastReceivedURL` survives `consume()` so a single
+    /// delivery's double-fire (scene + delegate) cannot re-open the sheet.
+    /// Re-opening the same URL later is therefore a silent no-op, not a second
+    /// import — pinned here so the behaviour is not changed by accident.
+    @Test
+    func sameURLAfterConsumeIsDroppedByDesign() {
+        let inbox = SharedImportInbox.shared
+        _ = inbox.consume()                       // isolate from other suites
+        let url = URL(fileURLWithPath: "/tmp/reopened.json")
+
+        inbox.receive(url: url)
+        #expect(inbox.consume()?.url == url)
+
+        inbox.receive(url: url)
+        #expect(inbox.pending == nil, "a re-shared identical URL is deliberately dropped")
+    }
 }

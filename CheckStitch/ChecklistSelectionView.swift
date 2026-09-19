@@ -2,19 +2,22 @@ import Foundation
 import SwiftUI
 
 /// One selectable row: a checklist identity, its display name, optional caption.
+/// `detail` is a localizable key (`LocalizedStringKey`), so the conflict caption
+/// resolves through the app's string catalog.
 struct ChecklistSelectionRow: Identifiable, Equatable {
     let id: UUID
     let name: String
-    let detail: String?
+    let detail: LocalizedStringKey?
 }
 
 /// Shared checkmark multi-select sheet for export and import. Pure selection
-/// helpers (`toggled`, `canConfirm`) are exposed for tests.
+/// helpers (`toggled`, `canConfirm`) are exposed for tests. `title` and
+/// `confirmTitle` are keys, not verbatim strings, so both sheets localize.
 struct ChecklistSelectionView: View {
-    let title: String
+    let title: LocalizedStringKey
     let rows: [ChecklistSelectionRow]
     @Binding var selection: Set<UUID>
-    let confirmTitle: String
+    let confirmTitle: LocalizedStringKey
     let onConfirm: () -> Void
     let onCancel: () -> Void
     let rowAccessibilityID: String
