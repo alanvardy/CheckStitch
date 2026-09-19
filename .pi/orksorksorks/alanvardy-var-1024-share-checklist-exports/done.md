@@ -42,13 +42,19 @@
 
 ## Review round 2 — post-review feedback
 
-- **Head SHA**: `8245bc7` (`ui: outline the export sheet's actions and unblock
-  row taps`); prior tip `a221e0e`.
+- **Head SHA**: `e08e6b9` (the rebase resolution — see "Rebase onto main"
+  below); prior tip before the rebase `a221e0e`. The round-2 work no longer has
+  a standalone `ui:` commit: it replayed empty against main's refactor and is
+  carried by the conflict resolution instead.
 - **Requested (styling)**: the export sheet's "Export" and "Share…" drew as two
   bare words side by side. They now render as outlined plates — the app's
   existing treatment (`CardPlate.cornerRadius` + a 2pt tint stroke over
   `CardPlate.iconPlateFill`) — with 16pt between them. The plate sits inside the
-  button's label, so the whole outline is tappable.
+  button's label, so the whole outline is tappable. After the rebase this
+  styling lives in the shared `ChecklistSelectionView`, so the **import**
+  sheet's single confirm button is plated as well — one button treatment for
+  both sheets rather than two. That is a visual change to a screen VAR-1023
+  introduced; trivial to scope to export-only if unwanted.
 - **Found while verifying that render (not requested)**: the multi-select rows
   could not be tapped over most of their width. The row label is an `HStack`
   ending in `Spacer()`, and a `.buttonStyle(.plain)` button hit-tests only its
@@ -70,7 +76,42 @@
   `exportSelectionRow`, assert `confirmExportButton` enables. That needs
   `make test-ui` to run more than the single pinned smoke case. Raised with the
   user rather than applied unilaterally.
-- **Still open from round 1**: CheckStitch does not appear as a destination in
-  the iOS share sheet. That is a Share Extension (a new app-extension target, an
-  activation rule for `UTType.json`, plus an App Group handoff into the app),
-  not a settings change. Awaiting the user's decision.
+- **Round-1 question answered by the rebase** — and the answer is that no new
+  extension is needed. VAR-1023
+  (`alanvardy-var-1023-import-checklists-through-sharesheet`) landed on `main`
+  while this branch was in review: it registers CheckStitch as a `public.json`
+  viewer (`CheckStitch/Info.plist` → `CFBundleDocumentTypes` +
+  `LSSupportsOpeningDocumentsInPlace`, wired through `project.pbxproj` and
+  pinned by the new shell test `documentTypeRegistrationWiresInfoPlist`), with
+  `SharedImportInbox` + `AppDelegate` receiving the arrival. So **Option B is
+  the project's chosen mechanism**; the round-1 "Option A — Share Extension
+  target" recommendation is withdrawn.
+
+## Rebase onto main (11 commits, VAR-1023)
+
+- `main` had moved 11 commits ahead: the whole VAR-1023 inbound-share ticket
+  plus its review fixes. One of those fixes refactored this ticket's export
+  sheet into a shared `ChecklistSelectionView` used by both the export and the
+  import sheet (and dropped the Share button, which main never had).
+- **Conflicts — 2, both in `CheckStitch/ExportChecklistsView.swift`** (main's
+  shared-view delegation vs. our inline sheet + Share button). Resolved by
+  keeping main's delegation and moving the Share action into the shared view as
+  an optional second action — `secondaryTitle` / `secondaryAccessibilityID` /
+  `onSecondary`, all optional `var`s so the import call site is unchanged, and
+  the second button stays `#if os(iOS)` (the round-1 B1 fix, preserved).
+- `ChecklistImportExportViewModel.swift` and `ContentView.swift` auto-merged:
+  the share members (`shareSelected` / `presentPendingShare` / `isSharing`) and
+  VAR-1023's import-selection and arrival members coexist; both were verified
+  present by grep after the rebase.
+- **The row hit-testing fix now also covers the import sheet**, whose rows had
+  the same dead right-hand tap region. That is a win, not a regression — but it
+  is unrequested surface, so flagging it.
+- Post-rebase gate: `./scripts/test.sh` → `gate: ok` (25 shell tests now,
+  including VAR-1023's `documentTypeRegistrationWiresInfoPlist`).
+- Post-rebase visual check: the export sheet was re-driven on the simulator —
+  both plates render, the row toggles, and the probe asserted **both** action
+  buttons enable. The import sheet's one-button configuration was *not* driven
+  (reaching it needs a file through the system document picker); it shares the
+  exact `actionButton` code path, so its paint is inferred, not observed.
+- Push: `git push --force-with-lease origin HEAD` (the rebase rewrote the
+  branch).
