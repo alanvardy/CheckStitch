@@ -1,5 +1,4 @@
 import Foundation
-import Observation
 
 /// A file handed to CheckStitch by the OS (Open In / share / document open).
 struct SharedImportFile: Identifiable, Equatable {
@@ -13,9 +12,10 @@ struct SharedImportFile: Identifiable, Equatable {
 /// a cold-start arrival is held in `pending` until the root view consumes it.
 ///
 /// Idempotent per URL: the same URL delivered twice (both hooks firing, or a
-/// re-delivery) neither replaces nor duplicates the pending file.
+/// re-delivery) neither replaces nor duplicates the pending file. The guard is
+/// deliberately not reset by `consume()` (plan.md), so a delivery's double-fire
+/// cannot re-open the sheet.
 @MainActor
-@Observable
 final class SharedImportInbox {
     static let shared = SharedImportInbox()
 

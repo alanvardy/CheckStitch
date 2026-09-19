@@ -70,11 +70,11 @@ final class ChecklistImportExportViewModel {
     /// reports the CheckStitch-specific one. Neither shows a sheet.
     ///
     /// A distinct URL received while the sheet is open replaces the staged
-    /// file: `importFile` overwrites `importSession`/`importCandidates`/
-    /// `importSelection` and re-shows the sheet, and the in-flight conflict is
-    /// cleared first so "last arrival wins".
+    /// file once it stages: `importFile` overwrites `importSession`/
+    /// `importCandidates`/`importSelection` and re-shows the sheet, and the
+    /// in-flight conflict is cleared so "last arrival wins". A file that fails
+    /// to read or parse leaves the currently staged sheet and conflict alone.
     func importFile(at url: URL) {
-        conflict = nil
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         let data: Data
@@ -86,8 +86,9 @@ final class ChecklistImportExportViewModel {
         }
 
         let session = ChecklistImportSession(store: store)
+        let staged: [ChecklistImportCandidate]
         do {
-            importCandidates = try session.stage(data: data)
+            staged = try session.stage(data: data)
         } catch let error as ChecklistImportError {
             importErrorMessage = error.message
             return
@@ -95,14 +96,16 @@ final class ChecklistImportExportViewModel {
             importErrorMessage = "This file isn't a CheckStitch export."
             return
         }
+        conflict = nil
         importSession = session
-        importSelection = Set(importCandidates.map(\.id))   // all ticked by default
+        importCandidates = staged
+        importSelection = Set(staged.map(\.id))   // all ticked by default
         isShowingImportSelection = true
     }
 
     /// Commits the ticked checklists, then presents the first selected conflict.
     func commitImport() {
-        guard let session = importSession else { return }
+        guard let session = importSession, !importSelection.isEmpty else { return }
         isShowingImportSelection = false
         session.commit(selectedIDs: importSelection)
         conflict = session.pending.first
@@ -116,14 +119,6 @@ final class ChecklistImportExportViewModel {
         importSession = nil
         importCandidates = []
         importSelection = []
-    }
-
-    func clearImportSelection() {
-        importSession?.discard()
-        importSession = nil
-        importCandidates = []
-        importSelection = []
-        isShowingImportSelection = false
     }
 
     /// Applies one decision to the current conflict and advances the queue.
