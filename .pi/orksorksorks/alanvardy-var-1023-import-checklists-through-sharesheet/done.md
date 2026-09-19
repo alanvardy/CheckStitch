@@ -1,0 +1,16 @@
+# Done
+
+- **Branch / head SHA**: `alanvardy-var-1023-import-checklists-through-sharesheet` @ `5a2f82ab1cd0f938e2c8480f834882be3cc5f6e3` (in sync with `origin/…`; force-with-lease push was a no-op — branch already carried the rebased commits, 8 ahead / 0 behind `origin/main`).
+- **Rebase conflicts**: none. Working tree clean, no rebase in progress.
+- **Mechanical checks**: `bash scripts/test.sh` printed **`gate: ok`** — `make build` (simulator, warnings-as-errors) → pre-boot of this worktree's `.simulator_id` → `make test` (run) → `make build-mac` → `make watch-build` → `bash scripts/tests/run.sh` (`tests: 25 passed, 0 failed`, incl. new `documentTypeRegistrationWiresInfoPlist`) → `shellcheck scripts/*.sh scripts/tests/*.sh`. No warnings surfaced as errors.
+- **Review outcome**:
+  - **Blockers: none.** Stage-without-writes, file-id selection, authoritative conflict re-check at commit, FIFO decisions, `@MainActor` funnel isolation, and security-scoped read all verified correct; test coverage is strong.
+  - **Reviewer P1 (same URL re-shared after consume is dropped) — deferred as deliberate design, NOT a blocker.** `plan.md:137` explicitly keeps `lastReceivedURL` across `consume()` so a delivery's double-fire (scene + delegate) cannot re-open the sheet, and `implement.md` asserts the second Files-open must not double-import. The reviewer's suggested `consume()` reset would reintroduce the double-fire because the scene hook consumes before a possible delegate hook fires. Revisit only if on-device testing shows a real re-share failure (e.g. Mail re-share producing a byte-identical URL).
+  - **Fixes worth doing now (offered, not applied — no `autofix` in invocation)**: delete dead `clearImportSelection()` (`ChecklistImportExportViewModel.swift:121-126`, zero call sites); optionally add a test pinning "same URL after consume is a deliberate no-op".
+  - **Optional improvements noted**: localize the new user-facing strings (repo uses `Localizable.xcstrings`); drop `@Observable` from `SharedImportInbox` or drive delivery via observation instead of imperatives; clear staged state / in-flight conflict when a bad file arrives while the sheet is open; `guard !importSelection.isEmpty` in `commitImport`; add trailing newlines to new files.
+  - **Verdict**: OK with notes — mergeable as-is.
+- **Remaining manual items (from `plan.md`/`implement.md`, unverifiable statically)**:
+  - On-device iOS share-sheet flow: Mail attachment → Share → CheckStitch → selection screen; untick one → only ticked import; re-share same Mail attachment → sheet reappears.
+  - Verify the **macOS while-running consume path**: `MacAppDelegate.application(_:open:)` calls `receive` but never consumes; if SwiftUI `.onOpenURL` does not also fire on macOS, a Finder "Open With" while running would sit pending until relaunch. Needs simulator/device validation.
+  - `make run` plist regression check; plain `.json` → "Couldn't import" alert, no sheet; cold-start share yields exactly one sheet.
+  - `bash scripts/run-devices.sh` installs + launches on the real iPhone and host Mac.
