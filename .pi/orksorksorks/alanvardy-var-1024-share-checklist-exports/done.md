@@ -39,3 +39,38 @@
   - iPad simulator: **Share…** opens without the popover trap.
   - **Export** still opens the save panel and writes the same file (no
     regression).
+
+## Review round 2 — post-review feedback
+
+- **Head SHA**: `8245bc7` (`ui: outline the export sheet's actions and unblock
+  row taps`); prior tip `a221e0e`.
+- **Requested (styling)**: the export sheet's "Export" and "Share…" drew as two
+  bare words side by side. They now render as outlined plates — the app's
+  existing treatment (`CardPlate.cornerRadius` + a 2pt tint stroke over
+  `CardPlate.iconPlateFill`) — with 16pt between them. The plate sits inside the
+  button's label, so the whole outline is tappable.
+- **Found while verifying that render (not requested)**: the multi-select rows
+  could not be tapped over most of their width. The row label is an `HStack`
+  ending in `Spacer()`, and a `.buttonStyle(.plain)` button hit-tests only its
+  drawn subviews, so taps on the row's right side did nothing — including the
+  element centre XCUITest targets. `exportSelection` therefore stayed empty and
+  Export/Share stayed permanently disabled. Fixed with
+  `.contentShape(Rectangle())` on the row label; the checkmark now fills and
+  both action buttons enable.
+- **Verification**: driven on this worktree's simulator (iOS 26, `.simulator_id`
+  UDID) with a throwaway UI test — screenshots before the fix
+  (`canExport=false count=0` after a row tap) and after
+  (`canExport=true count=1`, checkmark filled, both plates enabled). The probe
+  and its debug counters were removed before the commit; nothing temporary
+  remains. `./scripts/test.sh` → `gate: ok`.
+- **Gap — no automated regression test for the hit-testing fix**: hit regions
+  are not reachable from the macOS-hosted unit suites, and `ImageRenderer`
+  cannot draw a `Button` with a composed label (it substitutes an unsupported
+  placeholder), so the only real regression test is a UI case — tap
+  `exportSelectionRow`, assert `confirmExportButton` enables. That needs
+  `make test-ui` to run more than the single pinned smoke case. Raised with the
+  user rather than applied unilaterally.
+- **Still open from round 1**: CheckStitch does not appear as a destination in
+  the iOS share sheet. That is a Share Extension (a new app-extension target, an
+  activation rule for `UTType.json`, plus an App Group handoff into the app),
+  not a settings change. Awaiting the user's decision.
