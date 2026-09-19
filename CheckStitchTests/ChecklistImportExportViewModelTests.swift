@@ -321,7 +321,7 @@ struct ChecklistImportExportViewModelTests {
 
     /// Pins the reachable success path's error surface: a successful share
     /// reports no error. (The codec-throw branch is structurally unreachable
-    /// for this envelope — see the deviation note below.)
+    /// for this envelope — see the deviation note in plan.md.)
     @Test
     func shareSelectedReportsNoErrorOnSuccess() {
         let store = makeStore(names: ["Groceries"])
