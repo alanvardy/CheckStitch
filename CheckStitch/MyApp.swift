@@ -25,6 +25,7 @@ import SwiftUI
     @State private var backgroundViewModel: BackgroundViewModel
     @State private var appearanceViewModel: AppearanceViewModel
     @State private var syncService: ChecklistSyncService
+    @State private var purchaseService: PurchaseService
     #if os(iOS)
         @State private var coordinator: ChecklistSyncCoordinator?
     #endif
@@ -42,6 +43,7 @@ import SwiftUI
         _backgroundViewModel = State(initialValue: BackgroundViewModel())
         _appearanceViewModel = State(initialValue: AppearanceViewModel())
         _syncService = State(initialValue: syncService)
+        _purchaseService = State(initialValue: PurchaseEnvironment.service)
     }
 
     var body: some Scene {
@@ -61,8 +63,10 @@ import SwiftUI
                     .environment(backgroundViewModel)
                     .environment(appearanceViewModel)
                     .environment(syncService)
+                    .environment(purchaseService)
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     .task { await syncService.syncOnLaunch() }
+                    .task { await purchaseService.start() }
             }
             .restorationBehavior(.disabled)
             .onChange(of: scenePhase) { _, phase in
@@ -83,6 +87,7 @@ import SwiftUI
                     .environment(backgroundViewModel)
                     .environment(appearanceViewModel)
                     .environment(syncService)
+                    .environment(purchaseService)
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     #if os(iOS)
                         .task {
@@ -108,6 +113,7 @@ import SwiftUI
                         }
                     #endif
                     .task { await syncService.syncOnLaunch() }
+                    .task { await purchaseService.start() }
             }
             .onChange(of: scenePhase) { _, phase in
                 // Flush coalesced text edits and push before the app suspends.
@@ -118,4 +124,11 @@ import SwiftUI
             }
         #endif
     }
+}
+
+/// The one purchase service the UI, the intent and the sync coordinator share.
+/// Defined here (app target) because `StoreKitPurchaseService` is app-side while
+/// `PurchaseService` lives in Core.
+enum PurchaseEnvironment {
+    static let service = PurchaseService()
 }

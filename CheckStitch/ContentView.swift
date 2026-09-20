@@ -167,6 +167,10 @@ struct ContentView: View {
         } message: {
             Text(runVM.runErrorMessage ?? "")
         }
+        .sheet(isPresented: Binding(get: { runVM.isShowingPaywall },
+                                    set: { if !$0 { runVM.dismissPaywall() } })) {
+            PaywallView()
+        }
         .sheet(isPresented: Binding(get: { importExportVM.isShowingExport },
                                     set: { if !$0 { importExportVM.dismissExportSelection() } }),
                onDismiss: { importExportVM.presentPendingShare() }) {
@@ -637,4 +641,5 @@ struct SyncStatusView: View {
         .environment(SettingsViewModel())
         // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
+        .environment(PurchaseEnvironment.service)
 }

@@ -70,11 +70,15 @@ final class SpyReminderDestination: ReminderDestinationTargeting {
     var createFailureCount: Int?
     private(set) var createdTitles: [String] = []
     private(set) var createdNotes: [String?] = []
+    /// How many times `requestAccess()` has been entered — lets the gate tests
+    /// assert a refused run performs no EventKit work.
+    private(set) var requestAccessCount = 0
     /// The priority passed to each `create`. Index-aligned with `createdTitles`.
     private(set) var createdPriorities: [ChecklistItemPriority] = []
     private(set) var createdListIDs: [String] = []
 
     func requestAccess() async throws -> Bool {
+        requestAccessCount += 1
         if let onRequestAccess { await onRequestAccess() }
         if let accessError { throw accessError }
         return accessGranted

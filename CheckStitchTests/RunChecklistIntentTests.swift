@@ -14,7 +14,10 @@ struct RunChecklistIntentTests {
         spy.lists = ReminderListsSnapshot(
             options: [ReminderListOption(id: "list-1", title: "Reminders")],
             defaultIdentifier: "list-1")
-        let intent = RunChecklistIntent(store: store, targeting: spy)
+        let intent = RunChecklistIntent(
+            store: store,
+            targeting: spy,
+            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true))
         intent.checklist = ChecklistEntity(id: store.checklists[0].id.uuidString, name: "Groceries")
         return (intent: intent, spy: spy, store: store)
     }
@@ -191,5 +194,12 @@ struct RunChecklistIntentTests {
         let dialogue = RunChecklistDialogue.message(for: .created(count: 2), checklistName: longName).resolved()
 
         #expect(dialogue == "Created 2 reminders for " + longName + ".")
+    }
+
+    @Test
+    func purchaseRequiredSpeaksTheLimitDialogue() {
+        #expect(RunChecklistDialogue.message(for: .purchaseRequired, checklistName: "Groceries")
+            .resolved()
+            == "You've reached the CheckStitch free limit. Open CheckStitch to buy a license.")
     }
 }

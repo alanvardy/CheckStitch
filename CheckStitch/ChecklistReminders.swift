@@ -5,17 +5,28 @@ import os
 enum ChecklistReminders {
     private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "ChecklistReminders")
 
-    /// Production entry point: requests access, resolves the checklist's
-    /// destination (or the system default) BEFORE creating anything, then
-    /// creates one reminder per non-blank item. Returns an outcome the caller
-    /// can surface — permission denial and missing lists are no longer silent.
-    /// The checklist's own `prefixesReminderNumbers` decides numbering.
+    /// Production entry point: resolves entitlement, builds the gate, then delegates.
     static func create(from checklist: Checklist) async -> ReminderRunOutcome {
-        await create(from: checklist, targeting: EventKitReminderDestination.shared)
+        await create(from: checklist,
+                     targeting: EventKitReminderDestination.shared,
+                     gate: await productionGate())
+    }
+
+    /// The gate every entry point shares: the one injected purchase service plus
+    /// the durable App-Group counter.
+    static func productionGate() async -> RunGate {
+        let purchases = PurchaseEnvironment.service
+        await purchases.start()
+        return RunGate(counter: RunCounter(defaults: AppGroup.defaults),
+                       isUnlocked: purchases.isUnlocked)
     }
 
     static func create(from checklist: Checklist,
-                       targeting: ReminderDestinationTargeting) async -> ReminderRunOutcome {
+                       targeting: ReminderDestinationTargeting,
+                       gate: RunGate) async -> ReminderRunOutcome {
+        // Gate first: a refused run performs no EventKit work and writes nothing.
+        guard gate.permitsRun else { return .purchaseRequired }
+
         let prefixNumbers = checklist.prefixesReminderNumbers
         var created = 0
         do {
@@ -44,6 +55,8 @@ enum ChecklistReminders {
                     dueDateComponents: dueDateComponents)
                 created += 1
             }
+            // Exactly once, and only for a fully successful run.
+            gate.recordSuccess()
             return .created(count: created)
         } catch {
             logger.error("Failed to create checklist reminders: \(error.localizedDescription, privacy: .public)")
