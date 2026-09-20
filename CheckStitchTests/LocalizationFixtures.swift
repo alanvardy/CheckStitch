@@ -115,7 +115,8 @@ enum LocalizationFixtures {
             "Not now",
             "Unlock CheckStitch",
             "You've reached the CheckStitch free limit. Open CheckStitch to buy a license.",
-            "You've run %lld checklists. Buy once to keep creating reminders."
+            "You've run %lld checklists. Buy once to keep creating reminders.",
+            "Purchasing…"
         ]),
         ("Core", ["System", "Light", "Dark", "None", "Low", "Medium", "High", "Version %@ (%@)", "Version %@"]),
         ("Watch", [

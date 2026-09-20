@@ -130,5 +130,5 @@ import SwiftUI
 /// Defined here (app target) because `StoreKitPurchaseService` is app-side while
 /// `PurchaseService` lives in Core.
 enum PurchaseEnvironment {
-    static let service = PurchaseService()
+    static let service = PurchaseService(provider: StoreKitPurchaseService())
 }
