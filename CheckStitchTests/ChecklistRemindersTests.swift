@@ -14,6 +14,15 @@ struct ChecklistRemindersTests {
             defaultIdentifier: defaultIdentifier)
     }
 
+    /// Gate-free seam for the existing sequencing/outcome tests: unlocked, and its
+    /// counter lives in an isolated suite.
+    private func create(_ checklist: Checklist,
+                        targeting: SpyReminderDestination) async -> ReminderRunOutcome {
+        let gate = RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()),
+                           isUnlocked: true)
+        return await ChecklistReminders.create(from: checklist, targeting: targeting, gate: gate)
+    }
+
     @Test
     func createsInChosenList() async {
         let spy = SpyReminderDestination()
@@ -21,7 +30,7 @@ struct ChecklistRemindersTests {
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
                                   destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdTitles == ["Milk", "Eggs"])
@@ -34,7 +43,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot(defaultIdentifier: "list-default")
         let checklist = Checklist(items: [makeItem("Milk")])
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 1))
         #expect(spy.createdListIDs == ["list-default"])
@@ -48,7 +57,7 @@ struct ChecklistRemindersTests {
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
                                   destinationListIdentifier: "list-deleted")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .destinationMissing)
         #expect(spy.createdTitles.isEmpty)
@@ -62,7 +71,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot(defaultIdentifier: nil)
         let checklist = Checklist(items: [makeItem("Milk")])
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .destinationMissing)
         #expect(spy.createdTitles.isEmpty)
@@ -75,7 +84,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .permissionDenied)
         #expect(spy.createdTitles.isEmpty)
@@ -88,7 +97,7 @@ struct ChecklistRemindersTests {
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("   "), makeItem("")],
                                   destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 1))
         #expect(spy.createdTitles == ["Milk"])
@@ -102,7 +111,7 @@ struct ChecklistRemindersTests {
             items: [makeItem("Milk", description: "2 litres"), makeItem("Eggs", description: "a dozen")],
             destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdNotes == ["2 litres", "a dozen"])
@@ -114,7 +123,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
 
-        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+        _ = await create(checklist, targeting: spy)
 
         #expect(spy.createdNotes == [nil])
     }
@@ -125,7 +134,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk", description: "   ")], destinationListIdentifier: "list-a")
 
-        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+        _ = await create(checklist, targeting: spy)
 
         #expect(spy.createdNotes == [nil])
     }
@@ -139,7 +148,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk", description: "2 litres")], destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .permissionDenied)
         #expect(spy.createdNotes.isEmpty)
@@ -152,7 +161,7 @@ struct ChecklistRemindersTests {
         spy.createError = TestError.boom
         let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         guard case .failed = outcome else {
             Issue.record("expected .failed, got \(outcome)")
@@ -172,7 +181,7 @@ struct ChecklistRemindersTests {
             makeItem("Butter"), makeItem("Cheese"), makeItem("Yogurt"), makeItem("Juice"),
         ], destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .partiallyCreated(
             created: 3, total: 7, reason: TestError.boom.localizedDescription))
@@ -190,7 +199,7 @@ struct ChecklistRemindersTests {
             makeItem("Milk"), makeItem("   "), makeItem("Eggs"), makeItem("Bread"),
         ], destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .partiallyCreated(
             created: 2, total: 3, reason: TestError.boom.localizedDescription))
@@ -205,7 +214,7 @@ struct ChecklistRemindersTests {
         spy.createFailureCount = 0
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")], destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .failed(TestError.boom.localizedDescription))
         #expect(spy.createdTitles.isEmpty)
@@ -216,6 +225,7 @@ struct ChecklistRemindersTests {
         #expect(ReminderRunOutcome.created(count: 1).errorMessage == nil)
         #expect(ReminderRunOutcome.destinationMissing.errorMessage == "That list no longer exists; no reminders were created.")
         #expect(ReminderRunOutcome.permissionDenied.errorMessage != nil)
+        #expect(ReminderRunOutcome.purchaseRequired.errorMessage != nil)
         #expect(ReminderRunOutcome.failed("boom").errorMessage == "boom")
     }
 
@@ -230,7 +240,7 @@ struct ChecklistRemindersTests {
             items: [ChecklistItem(title: "Milk", priority: priority)],
             destinationListIdentifier: "list-a")
 
-        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+        _ = await create(checklist, targeting: spy)
 
         #expect(spy.createdPriorities == [priority])
         var expectedRawValue = 0
@@ -250,7 +260,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
 
-        _ = await ChecklistReminders.create(from: checklist, targeting: spy)
+        _ = await create(checklist, targeting: spy)
 
         #expect(spy.createdPriorities == [.none])
         #expect(ChecklistItemPriority.none.rawValue == 0)
@@ -271,7 +281,7 @@ struct ChecklistRemindersTests {
             ],
             destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdPriorities == [.none, .none], "every create carries a priority, index-aligned with createdTitles")
@@ -291,7 +301,7 @@ struct ChecklistRemindersTests {
         let checklist = Checklist(items: [makeItem("one"), makeItem("two")],
                                   destinationListIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdTitles == ["one", "two"])
@@ -305,7 +315,7 @@ struct ChecklistRemindersTests {
                                   destinationListIdentifier: "list-a",
                                   prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdTitles == ["1: one", "2: two"])
@@ -320,7 +330,7 @@ struct ChecklistRemindersTests {
             destinationListIdentifier: "list-a",
             prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 2))
         #expect(spy.createdTitles == ["1: one", "2: two"])
@@ -335,7 +345,7 @@ struct ChecklistRemindersTests {
             destinationListIdentifier: "list-a",
             prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 10))
         #expect(spy.createdTitles.first == "01: item 1")
@@ -369,9 +379,87 @@ struct ChecklistRemindersTests {
                                   destinationListIdentifier: "list-deleted",
                                   prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .destinationMissing)
         #expect(spy.createdTitles.isEmpty)
+    }
+
+    /// The 20th run is the last free run; a successful 20th increments to the limit.
+    @Test
+    func twentiethRunIsAllowedAndCounted() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<19 { counter.increment() }
+        let gate = RunGate(counter: counter, isUnlocked: false)
+        let spy = SpyReminderDestination(); spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
+
+        #expect(outcome == .created(count: 1))
+        #expect(counter.count == 20)
+    }
+
+    @Test
+    func twentyFirstRunIsRefusedBeforeAnyEventKitWork() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<20 { counter.increment() }
+        let gate = RunGate(counter: counter, isUnlocked: false)
+        let spy = SpyReminderDestination(); spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
+
+        #expect(outcome == .purchaseRequired)
+        #expect(spy.createdTitles.isEmpty)
+        #expect(spy.requestAccessCount == 0, "the gate is checked before any EventKit call")
+        #expect(counter.count == 20, "a refused run does not advance the counter")
+    }
+
+    @Test
+    func failedRunDoesNotAdvanceTheCounter() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        let gate = RunGate(counter: counter, isUnlocked: false)
+        let spy = SpyReminderDestination(); spy.lists = snapshot()
+        spy.createError = TestError.boom
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
+
+        guard case .failed = outcome else {
+            Issue.record("expected .failed, got \(outcome)")
+            return
+        }
+        #expect(counter.count == 0, "a failed run does not advance the counter")
+    }
+
+    @Test
+    func partialRunDoesNotAdvanceTheCounter() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        let gate = RunGate(counter: counter, isUnlocked: false)
+        let spy = SpyReminderDestination(); spy.lists = snapshot()
+        spy.createFailureCount = 1
+        let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
+                                  destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
+
+        #expect(outcome == .partiallyCreated(
+            created: 1, total: 2, reason: TestError.boom.localizedDescription))
+        #expect(counter.count == 0, "a partial run does not advance the counter")
+    }
+
+    @Test
+    func unlockedUserRunsPastTheLimit() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<20 { counter.increment() }
+        let gate = RunGate(counter: counter, isUnlocked: true)
+        let spy = SpyReminderDestination(); spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
+
+        #expect(outcome == .created(count: 1))
+        #expect(counter.count == 21)
     }
 }

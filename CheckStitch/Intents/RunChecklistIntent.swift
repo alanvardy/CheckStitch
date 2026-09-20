@@ -22,13 +22,15 @@ struct RunChecklistIntent: AppIntent {
     // test seam; nil → fresh production collaborators
     private let injectedStore: ChecklistStore?
     private let injectedTargeting: (any ReminderDestinationTargeting)?
+    private let injectedGate: RunGate?
 
-    init() { self.injectedStore = nil; self.injectedTargeting = nil }
+    init() { self.injectedStore = nil; self.injectedTargeting = nil; self.injectedGate = nil }
 
     @MainActor
-    init(store: ChecklistStore, targeting: ReminderDestinationTargeting) {
+    init(store: ChecklistStore, targeting: ReminderDestinationTargeting, gate: RunGate) {
         self.injectedStore = store
         self.injectedTargeting = targeting
+        self.injectedGate = gate
     }
 
     static var parameterSummary: some ParameterSummary {
@@ -57,11 +59,20 @@ struct RunChecklistIntent: AppIntent {
             return .result(dialog: IntentDialog(RunChecklistDialogue.denied))
         }
 
+        let gate = await resolveGate()
         let outcome = await ChecklistReminders.create(
             from: stored,
-            targeting: targeting)
+            targeting: targeting,
+            gate: gate)
         return .result(dialog: IntentDialog(
             RunChecklistDialogue.message(for: outcome, checklistName: stored.name)))
+    }
+
+    /// The injected gate when present (tests), else the shared production gate.
+    @MainActor
+    private func resolveGate() async -> RunGate {
+        if let injectedGate { return injectedGate }
+        return await ChecklistReminders.productionGate()
     }
 }
 
@@ -91,6 +102,10 @@ enum RunChecklistDialogue {
                 table: "Localizable", bundle: .main)
         case .permissionDenied:
             return denied
+        case .purchaseRequired:
+            return LocalizedStringResource(
+                "You've reached the CheckStitch free limit. Open CheckStitch to buy a license.",
+                table: "Localizable", bundle: .main)
         case .partiallyCreated(let created, let total, let reason):
             return LocalizedStringResource(
                 "Created \(created) of \(total) reminders for \(checklistName); the rest were not created. \(reason)",

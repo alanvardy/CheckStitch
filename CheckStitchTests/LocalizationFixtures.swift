@@ -110,7 +110,12 @@ enum LocalizationFixtures {
             "CheckStitch has no analytics, no tracking, and no advertising.",
             "Reminders are created through Apple Reminders and appear in your Reminders inbox. They stay on your device or in your own iCloud account, and are never sent to the author or any third party. CheckStitch never reads, edits, completes, or deletes reminders after creating them.",
             "Your checklists are stored on your device in shared app storage and synced through your own iCloud account. They are never sent to the author or any third party.",
-            "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This is the app's only network traffic, and it never includes any reminder, checklist, or preference data."
+            "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This is the app's only network traffic, and it never includes any reminder, checklist, or preference data.",
+            "Buy",
+            "Not now",
+            "Unlock CheckStitch",
+            "You've reached the CheckStitch free limit. Open CheckStitch to buy a license.",
+            "You've run %lld checklists. Buy once to keep creating reminders."
         ]),
         ("Core", ["System", "Light", "Dark", "None", "Low", "Medium", "High", "Version %@ (%@)", "Version %@"]),
         ("Watch", [

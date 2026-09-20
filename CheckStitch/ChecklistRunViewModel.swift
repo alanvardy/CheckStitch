@@ -13,10 +13,14 @@ final class ChecklistRunViewModel {
     init(
         store: ChecklistStore,
         targeting: ReminderDestinationTargeting = EventKitReminderDestination.shared,
+        counter: RunCounter = RunCounter(defaults: AppGroup.defaults),
+        purchases: PurchaseService = PurchaseEnvironment.service,
         spinnerDuration: Duration = .seconds(1)
     ) {
         self.store = store
         self.targeting = targeting
+        self.counter = counter
+        self.purchases = purchases
         self.spinnerDuration = spinnerDuration
     }
 
@@ -26,6 +30,8 @@ final class ChecklistRunViewModel {
     private(set) var created: Set<UUID> = []
     /// Message for the run-failure alert; `nil` hides it.
     private(set) var runErrorMessage: String?
+    /// Present when a run was refused at the free limit.
+    private(set) var isShowingPaywall = false
 
     /// Guards against duplicate taps synchronously (before the first `await`),
     /// then runs one checklist.
@@ -35,7 +41,8 @@ final class ChecklistRunViewModel {
         // Hold the spinner for at least `spinnerDuration` so saving quickly
         // doesn't flash the progress feedback past the user.
         async let minimumSpinner: Void = Task.sleep(for: spinnerDuration)
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: targeting)
+        let gate = RunGate(counter: counter, isUnlocked: purchases.isUnlocked)
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: targeting, gate: gate)
         try? await minimumSpinner
         creating.remove(id)
         switch outcome {
@@ -43,6 +50,8 @@ final class ChecklistRunViewModel {
             created.insert(id)
             try? await Task.sleep(for: .seconds(1))
             created.remove(id)
+        case .purchaseRequired:
+            isShowingPaywall = true
         case .destinationMissing, .permissionDenied, .partiallyCreated, .failed:
             // Never flash success: nothing (or only part) was created.
             runErrorMessage = outcome.errorMessage
@@ -54,7 +63,13 @@ final class ChecklistRunViewModel {
         runErrorMessage = nil
     }
 
+    func dismissPaywall() {
+        isShowingPaywall = false
+    }
+
     private let store: ChecklistStore
     private let targeting: ReminderDestinationTargeting
+    private let counter: RunCounter
+    private let purchases: PurchaseService
     private let spinnerDuration: Duration
 }
