@@ -1,0 +1,10 @@
+# Done
+
+- **What was built**: Gave the "No checklists" empty state in `CheckStitch/ContentView.swift` the existing `CardPlate` card treatment (off-white/black `plateFill` rounded plate background + tint stroke border + 32pt horizontal padding) behind the `ContentUnavailableView`, so the label/description/actions sit on a visible card over the photo — mirroring the checklist rows' plate primitives. The `ScrollView` wrapper, `emptyStateCreateButton` id, and `.padding(.top, 80)` are preserved.
+- **Commit SHA(s)**: `f9c1618` ("ui: plate the empty-state card over the photo"), pushed to `origin/alanvardy-var-1054-no-checklists-visibility`. Only `CheckStitch/ContentView.swift` committed (+12); the pre-existing `DELETEME` deletion and `.pi/` artifacts were left untouched and uncommitted.
+- **Verification**:
+  - `make build` (simulator, warnings-as-errors) — **BUILD SUCCEEDED**.
+  - `make test-unit` — **TEST SUCCEEDED** (388 tests / 50 suites).
+  - **On-target render check**: built/installed/launched the app on this worktree's simulator (`5EBB650B...`, fresh boot, no checklists → empty state shown) and captured a screenshot. Pixel-map of the region behind the empty-state content shows a bounded centered card: plate-fill colour `(245,242,240)` = `CardPlate.plateFill` light-mode, spanning x `99..1106` (centered at 602 of 1206) and y `429..1089`, over the photo background on the left/right edges. The card renders behind the "No checklists" text.
+- **Reviewer findings**: **No blockers.** Two optional nits — (1) the empty-state card is not width-capped like the checklist card (`ChecklistWidth.maxContentWidth`), so it spans full width on wide screens (task marked width-capping optional); (2) the plate has no internal inset between the rounded-rectangle stroke and the `ContentUnavailableView` content (the checklist rows plate has internal padding), worth a glance on device though visually acceptable given `ContentUnavailableView`'s default centering.
+- **Remaining manual items**: None blocking. The two nits above (width cap / internal inset) are optional polish for a follow-up. Simulator was shut down after the render check.

@@ -483,6 +483,18 @@ struct ContentView: View {
                 Button("Create checklist") { createChecklist() }
                     .accessibilityIdentifier("emptyStateCreateButton")
             }
+            // Same off-white/black plate treatment as the checklist rows'
+            // card, so the label/description/action stay readable over the
+            // photo instead of sitting directly on the background.
+            .background {
+                RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                    .fill(CardPlate.plateFill(for: colorScheme))
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                    .stroke(.tint, lineWidth: 2)
+            )
+            .padding(.horizontal, 32)
             .padding(.top, 80)
         }
     }
