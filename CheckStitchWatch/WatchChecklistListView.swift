@@ -22,6 +22,7 @@ struct WatchChecklistListView: View {
             }
             .navigationTitle("Checklists")
         }
+        .tint(.blue)
         .task {
             viewModel.onAppear()
         }

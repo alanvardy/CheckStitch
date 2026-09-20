@@ -6,6 +6,12 @@ struct WatchChecklistDetailView: View {
     @Environment(WatchChecklistViewModel.self) private var viewModel
     @State private var runID: UUID?
 
+    /// Height of the pinned footer. `.safeAreaInset` places the footer over the
+    /// bottom of the screen but does not stop a `List` from scrolling under it
+    /// on watchOS, so the scroll content needs an explicit bottom margin
+    /// matching the footer's measured height (see `FooterHeightPreferenceKey`).
+    @State private var footerHeight: CGFloat = 0
+
     /// The live copy from the store once a `notFound` refresh lands; the value
     /// this screen was pushed with is only the seed. Without this the screen
     /// would keep showing stale items after the watch self-corrects the list.
@@ -53,6 +59,9 @@ struct WatchChecklistDetailView: View {
             }
         }
         .navigationTitle(current.name)
+        // Keep the item rows cutting off cleanly above the pinned footer
+        // instead of scrolling under the "Create reminders" button.
+        .contentMargins(.bottom, footerHeight, for: .scrollContent)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 4) {
                 Button {
@@ -60,6 +69,7 @@ struct WatchChecklistDetailView: View {
                 } label: {
                     Text(buttonTitle)
                 }
+                .tint(.blue)
                 .disabled(buttonDisabled)
                 if let detail = phase.detail {
                     Text(detail)
@@ -68,6 +78,22 @@ struct WatchChecklistDetailView: View {
                         .multilineTextAlignment(.center)
                 }
             }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear
+                        .preference(key: FooterHeightPreferenceKey.self, value: proxy.size.height)
+                }
+            )
         }
+        .onPreferenceChange(FooterHeightPreferenceKey.self) { footerHeight = $0 }
+    }
+}
+
+/// Carries the pinned footer's height up to the list so the scroll content can
+/// be margined to stop above it.
+private struct FooterHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
