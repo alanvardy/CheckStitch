@@ -26,6 +26,19 @@ struct PaywallView: View {
                 Text(offer.displayName).font(.headline)
                 Text(offer.displayPrice).font(.subheadline)
             }
+            Button("Restore Purchases") {
+                Task { await purchases.restore() }
+            }
+            .buttonStyle(.bordered)
+            .disabled(purchases.isPurchasing)
+            .accessibilityIdentifier("paywallRestoreButton")
+            if purchases.offer == nil, !purchases.isLoadingOffer {
+                Text("Couldn't load the store. Check your connection and try again.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button("Try Again") { Task { await purchases.loadOffer() } }
+                    .accessibilityIdentifier("paywallRetryButton")
+            }
             Button("Not now") { dismiss() }
                 .accessibilityIdentifier("paywallDismissButton")
             if let error = purchases.lastError {

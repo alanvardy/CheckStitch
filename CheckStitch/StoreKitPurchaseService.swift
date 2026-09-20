@@ -46,6 +46,11 @@ final class StoreKitPurchaseService: PurchaseProviding {
         }
     }
 
+    func restore() async throws -> Bool {
+        try await AppStore.sync()
+        return await currentEntitlement()
+    }
+
     func startObserving(_ onChange: @escaping @MainActor (Bool) -> Void) {
         guard updatesTask == nil else { return }
         updatesTask = Task {
