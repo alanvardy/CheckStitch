@@ -198,3 +198,26 @@ final class SpyChecklistRunner {
         return outcome
     }
 }
+
+/// Test double for `PurchaseProviding`: configurable offer/entitlement/purchase
+/// results and a manually-fired observer callback. `@MainActor` matches the seam.
+@MainActor
+final class SpyPurchaseProvider: PurchaseProviding {
+    var offer: PurchaseOffer? = PurchaseOffer(id: "license", displayName: "CheckStitch License",
+                                              displayPrice: "$4.99")
+    var entitlement = false
+    var purchaseResult = true
+    var purchaseError: Error?
+    private(set) var purchaseCount = 0
+    private var onChange: (@MainActor (Bool) -> Void)?
+
+    func offer() async -> PurchaseOffer? { offer }
+    func currentEntitlement() async -> Bool { entitlement }
+    func purchase() async throws -> Bool {
+        purchaseCount += 1
+        if let purchaseError { throw purchaseError }
+        return purchaseResult
+    }
+    func startObserving(_ onChange: @escaping @MainActor (Bool) -> Void) { self.onChange = onChange }
+    func fireChange(_ unlocked: Bool) { onChange?(unlocked) }
+}

@@ -13,13 +13,30 @@ struct PaywallView: View {
                 .font(.title2.bold())
             Text("You've run \(RunGate.freeRunLimit) checklists. Buy once to keep creating reminders.")
                 .multilineTextAlignment(.center)
-            Button("Buy") {}          // Phase 2 wires the purchase
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("paywallBuyButton")
+            Button {
+                Task { await purchases.purchase() }
+            } label: {
+                Text(purchases.isPurchasing ? "Purchasing…" : "Buy")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(purchases.isPurchasing)
+            .accessibilityIdentifier("paywallBuyButton")
+            if let offer = purchases.offer {
+                Text(offer.displayName).font(.headline)
+                Text(offer.displayPrice).font(.subheadline)
+            }
             Button("Not now") { dismiss() }
                 .accessibilityIdentifier("paywallDismissButton")
+            if let error = purchases.lastError {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
         }
         .padding()
         .accessibilityIdentifier("paywallView")
+        .task { await purchases.loadOffer() }
+        .onChange(of: purchases.isUnlocked) { _, unlocked in
+            if unlocked { dismiss() }
+        }
     }
 }

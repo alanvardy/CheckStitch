@@ -1,0 +1,33 @@
+{
+  "identifier" : "D72E0BBD-9A87-4058-8C35-1A70C0916E80",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "95561675-E46A-4FB5-AF66-B582AE7647BD",
+      "localizations" : [
+        {
+          "description" : "A one-time purchase that unlocks CheckStitch forever.",
+          "displayName" : "CheckStitch License",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "app.alanvardy.CheckStitch.license",
+      "referenceName" : "CheckStitch License",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
