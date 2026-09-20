@@ -209,6 +209,9 @@ final class SpyPurchaseProvider: PurchaseProviding {
     var purchaseResult = true
     var purchaseError: Error?
     private(set) var purchaseCount = 0
+    var restoreResult = true
+    var restoreError: Error?
+    private(set) var restoreCount = 0
     private var onChange: (@MainActor (Bool) -> Void)?
 
     func offer() async -> PurchaseOffer? { offer }
@@ -217,6 +220,11 @@ final class SpyPurchaseProvider: PurchaseProviding {
         purchaseCount += 1
         if let purchaseError { throw purchaseError }
         return purchaseResult
+    }
+    func restore() async throws -> Bool {
+        restoreCount += 1
+        if let restoreError { throw restoreError }
+        return restoreResult
     }
     func startObserving(_ onChange: @escaping @MainActor (Bool) -> Void) { self.onChange = onChange }
     func fireChange(_ unlocked: Bool) { onChange?(unlocked) }

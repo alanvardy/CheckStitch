@@ -8,7 +8,9 @@ struct PurchaseServiceTests {
     func purchaseFlipsLockedToUnlocked() async {
         let provider = SpyPurchaseProvider()
         provider.entitlement = false
-        let service = PurchaseService(provider: provider)
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
 
         await service.start()
         #expect(service.entitlement == .locked)
@@ -23,7 +25,9 @@ struct PurchaseServiceTests {
     @Test
     func providerThrowLeavesLockedAndRecordsError() async {
         let provider = SpyPurchaseProvider()
-        let service = PurchaseService(provider: provider)
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
 
         provider.purchaseError = TestError.boom
         await service.purchase()
@@ -35,7 +39,9 @@ struct PurchaseServiceTests {
     @Test
     func observerCallbackUpdatesEntitlement() async {
         let provider = SpyPurchaseProvider()
-        let service = PurchaseService(provider: provider)
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
 
         await service.start()
         provider.fireChange(true)
@@ -46,10 +52,69 @@ struct PurchaseServiceTests {
     @Test
     func offerLoadsFromTheProvider() async {
         let provider = SpyPurchaseProvider()
-        let service = PurchaseService(provider: provider)
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
 
         await service.loadOffer()
 
         #expect(service.offer?.displayPrice == "$4.99")
+    }
+
+    @Test
+    func restoreUnlocks() async {
+        let provider = SpyPurchaseProvider()
+        provider.entitlement = false
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+        await service.start()
+        #expect(service.entitlement == .locked)
+
+        provider.restoreResult = true
+        await service.restore()
+
+        #expect(service.entitlement == .unlocked)
+    }
+
+    @Test
+    func restoreFailureStaysLocked() async {
+        let provider = SpyPurchaseProvider()
+        provider.restoreError = TestError.boom
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+
+        await service.restore()
+
+        #expect(!service.isUnlocked, "a thrown restore never unlocks")
+        #expect(service.lastError != nil)
+        #expect(provider.restoreCount == 1)
+    }
+
+    @Test
+    func cachedVerifiedEntitlementStaysUnlockedOffline() async {
+        let cache = PurchaseEntitlementCache(defaults: makeIsolatedDefaults())
+        cache.setVerified(true)
+        let provider = SpyPurchaseProvider()
+        provider.entitlement = false
+        let service = PurchaseService(provider: provider, cache: cache)
+
+        await service.start()
+
+        #expect(service.entitlement == .unlocked)
+    }
+
+    @Test
+    func unknownAtLimitReportsLocked() async {
+        let provider = SpyPurchaseProvider()
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+
+        // No start(): the fresh cache is unverified and entitlement is unknown,
+        // so `isUnlocked` is false — the gate shows the paywall, never a silent unlock.
+        #expect(service.entitlement == .unknown)
+        #expect(!service.isUnlocked)
     }
 }

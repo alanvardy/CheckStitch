@@ -24,6 +24,8 @@ public protocol PurchaseProviding: Sendable {
     func currentEntitlement() async -> Bool
     /// Runs the purchase flow. `true` means a verified entitlement is now held.
     func purchase() async throws -> Bool
+    /// `AppStore.sync()` then re-read entitlement. `true` means unlocked now.
+    func restore() async throws -> Bool
     /// Fires on `Transaction.updates`; the argument is the new verified state.
     func startObserving(_ onChange: @escaping @MainActor (Bool) -> Void)
 }
