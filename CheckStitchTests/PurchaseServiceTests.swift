@@ -117,4 +117,35 @@ struct PurchaseServiceTests {
         #expect(service.entitlement == .unknown)
         #expect(!service.isUnlocked)
     }
+
+    @Test
+    func concurrentPurchaseIsIgnored() async {
+        let provider = SpyPurchaseProvider()
+        provider.suspendNextPurchase = true
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+
+        let first = Task { await service.purchase() }
+        await Task.yield()                       // let the first purchase reach its suspension
+        await service.purchase()                 // isPurchasing is true → ignored
+        provider.resumePurchase()
+        await first.value
+
+        #expect(provider.purchaseCount == 1, "a second purchase while one is in flight must not fire")
+    }
+
+    @Test
+    func offerStaysNilOnFailure() async {
+        let provider = SpyPurchaseProvider()
+        provider.offer = nil
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+
+        await service.loadOffer()
+
+        #expect(service.offer == nil)
+        #expect(!service.isLoadingOffer)
+    }
 }

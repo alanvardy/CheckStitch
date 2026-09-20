@@ -212,14 +212,26 @@ final class SpyPurchaseProvider: PurchaseProviding {
     var restoreResult = true
     var restoreError: Error?
     private(set) var restoreCount = 0
+    /// When set, the next `purchase()` suspends until `resumePurchase()` — lets a
+    /// suite hold a purchase in flight to exercise the `isPurchasing` guard.
+    var suspendNextPurchase = false
+    private var purchaseContinuation: CheckedContinuation<Void, Never>?
     private var onChange: (@MainActor (Bool) -> Void)?
 
     func offer() async -> PurchaseOffer? { offer }
     func currentEntitlement() async -> Bool { entitlement }
     func purchase() async throws -> Bool {
         purchaseCount += 1
+        if suspendNextPurchase {
+            suspendNextPurchase = false
+            await withCheckedContinuation { purchaseContinuation = $0 }
+        }
         if let purchaseError { throw purchaseError }
         return purchaseResult
+    }
+    func resumePurchase() {
+        purchaseContinuation?.resume()
+        purchaseContinuation = nil
     }
     func restore() async throws -> Bool {
         restoreCount += 1

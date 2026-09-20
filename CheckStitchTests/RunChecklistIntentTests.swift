@@ -197,9 +197,31 @@ struct RunChecklistIntentTests {
     }
 
     @Test
-    func purchaseRequiredSpeaksTheLimitDialogue() {
+    func purchaseRequiredSpeaksTheLimitDialogue() async throws {
         #expect(RunChecklistDialogue.message(for: .purchaseRequired, checklistName: "Groceries")
             .resolved()
             == "You've reached the CheckStitch free limit. Open CheckStitch to buy a license.")
+
+        // A refused run (limit reached, still locked) speaks the exact limit
+        // dialogue and creates nothing — the gate is checked before any EventKit work.
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        store.create(name: "Groceries")
+        store.addItem(to: store.checklists[0].id, title: "Milk")
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<RunGate.freeRunLimit { counter.increment() }
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Reminders")],
+            defaultIdentifier: "list-1")
+        let intent = RunChecklistIntent(
+            store: store,
+            targeting: spy,
+            gate: RunGate(counter: counter, isUnlocked: false))
+        intent.checklist = ChecklistEntity(id: store.checklists[0].id.uuidString, name: "Groceries")
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles.isEmpty)
+        #expect(spy.requestAccessCount == 0, "a refused run performs no EventKit work")
     }
 }
