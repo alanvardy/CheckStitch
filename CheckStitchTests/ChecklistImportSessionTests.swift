@@ -217,6 +217,33 @@ struct ChecklistImportSessionTests {
                 "replace keeps the payload destination")
     }
 
+    /// A source-device destination id is usually absent on the target. Import
+    /// must keep it (a re-created list could match later) and the run-path net
+    /// must fail closed before creating anything.
+    @Test
+    func staleImportedDestinationFailsClosedAtFirstRun() async throws {
+        let (session, store) = makeSession()
+        let incoming = Checklist(name: "Groceries",
+                                 items: [ChecklistItem(title: "Milk")],
+                                 destinationListIdentifier: "list-deleted")
+        _ = try session.stage(data: payload([incoming]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        let imported = try #require(store.checklists.first)
+        #expect(imported.destinationListIdentifier == "list-deleted",
+                "the id is preserved, not silently reset")
+
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-a", title: "Reminders")],
+            defaultIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: imported, targeting: spy)
+
+        #expect(outcome == .destinationMissing)
+        #expect(spy.createdTitles.isEmpty, "no reminders created for a stale destination")
+    }
+
     @Test
     func replaceTombstonesAndSwaps() throws {
         let (session, store) = makeSession()
