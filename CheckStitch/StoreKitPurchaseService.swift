@@ -5,7 +5,7 @@ import StoreKit
 /// `CheckStitchCore` (also compiled for watchOS) stays StoreKit-free.
 @MainActor
 final class StoreKitPurchaseService: PurchaseProviding {
-    static let productID = "app.alanvardy.CheckStitch.license"
+    static let productID = "app.alanvardy.CheckStitch.unlimited"
 
     private var updatesTask: Task<Void, Never>?
 
