@@ -1767,6 +1767,26 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklist(id: replaced)?.destinationListIdentifier, "list-a")
     }
 
+    /// Happy path: a duplicate keeps the source's chosen Reminders list.
+    func testDestinationSurvivesDuplicate() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.setDestination("list-a", for: source.id)
+
+        guard let copy = store.duplicate(id: source.id, name: "Groceries copy") else {
+            XCTFail("expected the duplicate to land")
+            return
+        }
+        XCTAssertEqual(store.checklist(id: copy.id)?.destinationListIdentifier, "list-a")
+
+        // Sad path: a source with no chosen destination yields a system-default copy.
+        let plain = store.create(name: "Trip")
+        XCTAssertNil(store.duplicate(id: plain.id, name: "Trip copy")?.destinationListIdentifier)
+    }
+
     /// Default/sad path: an import with no chosen destination stays system-default.
     func testImportWithoutDestinationStaysNil() {
         let suite = makeDefaults()
