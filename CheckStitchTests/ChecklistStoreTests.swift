@@ -1745,6 +1745,39 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklist(id: replaced)?.prefixesReminderNumbers, true)
     }
 
+    /// Happy path: the exported destination survives both import primitives and
+    /// is persisted, not just held in memory.
+    func testDestinationSurvivesImportInsertAndReplace() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let incoming = makeImportedChecklist(destination: "list-a")
+
+        let inserted = store.importInsert(incoming)
+        XCTAssertEqual(store.checklist(id: inserted)?.destinationListIdentifier, "list-a")
+        XCTAssertEqual(makeStore(defaults: suite.defaults).checklist(id: inserted)?.destinationListIdentifier,
+                       "list-a", "the destination is persisted")
+
+        let local = store.create(name: "Trip")
+        guard let replaced = store.importReplace(id: local.id, with: incoming) else {
+            XCTFail("expected the replace to land")
+            return
+        }
+        XCTAssertEqual(store.checklist(id: replaced)?.destinationListIdentifier, "list-a")
+    }
+
+    /// Default/sad path: an import with no chosen destination stays system-default.
+    func testImportWithoutDestinationStaysNil() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let inserted = store.importInsert(makeImportedChecklist())
+
+        XCTAssertNil(store.checklist(id: inserted)?.destinationListIdentifier)
+    }
+
     func testSetDestinationUpdatesRevisionAndPersists() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
@@ -1834,9 +1867,11 @@ final class ChecklistStoreTests: XCTestCase {
 
     /// An "imported" checklist with non-default identity, so freshness is provable.
     private func makeImportedChecklist(name: String = "Groceries",
-                                       items: [String] = ["Milk", "Eggs"]) -> Checklist {
+                                       items: [String] = ["Milk", "Eggs"],
+                                       destination: String? = nil) -> Checklist {
         Checklist(name: name,
                   items: items.map { ChecklistItem(title: $0, description: "\($0) notes", relativeDate: 1) },
+                  destinationListIdentifier: destination,
                   modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
     }
 
