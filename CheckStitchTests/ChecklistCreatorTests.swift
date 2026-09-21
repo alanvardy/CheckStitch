@@ -142,8 +142,19 @@ struct ChecklistCreatorTests {
         let items = (1...10).map { makeItem("item \($0)") }
         let outcome = await creator.create(from: items)
         #expect(outcome == .created(count: 10))
-        #expect(spy.createdTitles.first == "1: item 1")
+        #expect(spy.createdTitles.first == "01: item 1")
         #expect(spy.createdTitles.last == "10: item 10")
+    }
+
+    @Test
+    func numberingStaysUnpaddedUpToNine() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
+        let items = (1...9).map { makeItem("item \($0)") }
+        let outcome = await creator.create(from: items)
+        #expect(outcome == .created(count: 9))
+        #expect(spy.createdTitles.first == "1: item 1")
+        #expect(spy.createdTitles.last == "9: item 9")
     }
 
     /// Sad path: numbering must not bypass the permission gate.
