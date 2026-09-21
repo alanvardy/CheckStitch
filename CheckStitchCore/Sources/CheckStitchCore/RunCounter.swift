@@ -19,6 +19,17 @@ public final class RunCounter {
     }
 
     public func increment() { defaults.set(count + 1, forKey: key) }
+
+    /// Undoes one `increment()`, never below zero.
+    public func decrement() {
+        let next = count - 1
+        if next <= 0 {
+            defaults.removeObject(forKey: key)
+        } else {
+            defaults.set(next, forKey: key)
+        }
+    }
+
     public func reset() { defaults.removeObject(forKey: key) }
 
     private let defaults: UserDefaults
@@ -26,8 +37,11 @@ public final class RunCounter {
 }
 
 /// The "may I run this checklist?" policy. Permits every run while unlocked;
-/// otherwise permits while `count < limit`. Callers must call `recordSuccess()`
-/// exactly once per `.created` outcome — nothing else advances the counter.
+/// otherwise permits while `count < limit`. `reserveRun()` consumes a free slot
+/// atomically (check and increment are one synchronous step, so concurrent runs
+/// cannot both pass at the limit); `releaseRun()` returns the slot when the run
+/// created nothing. While unlocked the counter is capped at `limit` so it cannot
+/// grow without bound.
 @MainActor
 public struct RunGate: Sendable {
     public static let freeRunLimit = 20
@@ -40,9 +54,30 @@ public struct RunGate: Sendable {
 
     public var permitsRun: Bool { isUnlocked || counter.count < limit }
 
-    public func recordSuccess() { counter.increment() }
+    /// Reserves a slot, incrementing the durable counter at most once. Returns
+    /// `false` when the free limit is reached and no license is held. Callers
+    /// must `releaseRun()` if the run creates nothing.
+    public mutating func reserveRun() -> Bool {
+        guard permitsRun else { return false }
+        didReserve = true
+        if counter.count < limit {
+            counter.increment()
+            didIncrement = true
+        }
+        return true
+    }
+
+    /// Returns a slot reserved by `reserveRun()` when the run created nothing.
+    public mutating func releaseRun() {
+        guard didReserve else { return }
+        if didIncrement { counter.decrement() }
+        didReserve = false
+        didIncrement = false
+    }
 
     private let counter: RunCounter
     private let isUnlocked: Bool
     private let limit: Int
+    private var didReserve = false
+    private var didIncrement = false
 }

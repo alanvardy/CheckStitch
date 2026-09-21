@@ -24,16 +24,23 @@ enum ChecklistReminders {
     static func create(from checklist: Checklist,
                        targeting: ReminderDestinationTargeting,
                        gate: RunGate) async -> ReminderRunOutcome {
-        // Gate first: a refused run performs no EventKit work and writes nothing.
-        guard gate.permitsRun else { return .purchaseRequired }
+        // Gate first: reserve the slot (atomically) before any EventKit work, so
+        // a refused run writes nothing and concurrent runs cannot both pass at
+        // the limit. The slot is released again unless the run creates a reminder.
+        var gate = gate
+        guard gate.reserveRun() else { return .purchaseRequired }
 
         let prefixNumbers = checklist.prefixesReminderNumbers
         var created = 0
         do {
-            guard try await targeting.requestAccess() else { return .permissionDenied }
+            guard try await targeting.requestAccess() else {
+                gate.releaseRun()
+                return .permissionDenied
+            }
             let snapshot = try await targeting.reminderLists()
             guard let destination = snapshot.resolve(checklist.destinationListIdentifier) else {
                 // All-or-nothing: validate existence before the first create.
+                gate.releaseRun()
                 return .destinationMissing
             }
             let itemCount = checklist.items.filter { !$0.isBlank }.count
@@ -55,11 +62,13 @@ enum ChecklistReminders {
                     dueDateComponents: dueDateComponents)
                 created += 1
             }
-            // Exactly once, and only for a fully successful run.
-            gate.recordSuccess()
+            // Only a run that actually created a reminder keeps its slot; an
+            // all-blank checklist creates nothing and must not consume a free run.
+            if created == 0 { gate.releaseRun() }
             return .created(count: created)
         } catch {
             logger.error("Failed to create checklist reminders: \(error.localizedDescription, privacy: .public)")
+            gate.releaseRun()
             let total = checklist.items.filter { !$0.isBlank }.count
             if created > 0 {
                 // Mid-loop throw: earlier items are already committed. Report the

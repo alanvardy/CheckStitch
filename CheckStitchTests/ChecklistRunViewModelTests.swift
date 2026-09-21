@@ -25,11 +25,32 @@ struct ChecklistRunViewModelTests {
         return spy
     }
 
+    /// A purchase service backed by the spy seam, so `createReminders` never
+    /// touches real StoreKit. `unlocked` seeds a cached verification.
+    private func makePurchases(unlocked: Bool = false) -> PurchaseService {
+        let cache = PurchaseEntitlementCache(defaults: makeIsolatedDefaults())
+        let provider = SpyPurchaseProvider()
+        provider.entitlement = unlocked
+        if unlocked { cache.setVerified(true) }
+        return PurchaseService(provider: provider, cache: cache)
+    }
+
+    private func makeViewModel(store: ChecklistStore,
+                               targeting: SpyReminderDestination,
+                               counter: RunCounter = RunCounter(defaults: makeIsolatedDefaults()),
+                               purchases: PurchaseService? = nil) -> ChecklistRunViewModel {
+        ChecklistRunViewModel(store: store,
+                              targeting: targeting,
+                              counter: counter,
+                              purchases: purchases ?? makePurchases(),
+                              spinnerDuration: .zero)
+    }
+
     @Test
     func createdSetsThenClearsTheSuccessCheck() async {
         let (store, id) = makeStore(items: ["one"])
         let spy = resolvableDestination()
-        let viewModel = ChecklistRunViewModel(store: store, targeting: spy, counter: RunCounter(defaults: makeIsolatedDefaults()), spinnerDuration: .zero)
+        let viewModel = makeViewModel(store: store, targeting: spy)
 
         await viewModel.createReminders(for: id)
 
@@ -66,7 +87,7 @@ struct ChecklistRunViewModelTests {
         case .created: break
         case .purchaseRequired: break  // paywall path covered by refusalAtTheLimitPresentsThePaywall
         }
-        let viewModel = ChecklistRunViewModel(store: store, targeting: spy, counter: RunCounter(defaults: makeIsolatedDefaults()), spinnerDuration: .zero)
+        let viewModel = makeViewModel(store: store, targeting: spy)
 
         await viewModel.createReminders(for: id)
 
@@ -80,7 +101,7 @@ struct ChecklistRunViewModelTests {
         let spy = resolvableDestination()
         let gate = FetchGate()
         spy.onRequestAccess = { await gate.wait() }
-        let viewModel = ChecklistRunViewModel(store: store, targeting: spy, counter: RunCounter(defaults: makeIsolatedDefaults()), spinnerDuration: .zero)
+        let viewModel = makeViewModel(store: store, targeting: spy)
 
         let first = Task { await viewModel.createReminders(for: id) }
         await gate.waitUntilHit()
@@ -97,7 +118,7 @@ struct ChecklistRunViewModelTests {
     func unknownChecklistIDIsANoOp() async {
         let store = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
         let spy = resolvableDestination()
-        let viewModel = ChecklistRunViewModel(store: store, targeting: spy, counter: RunCounter(defaults: makeIsolatedDefaults()), spinnerDuration: .zero)
+        let viewModel = makeViewModel(store: store, targeting: spy)
 
         await viewModel.createReminders(for: UUID())
 
@@ -111,8 +132,7 @@ struct ChecklistRunViewModelTests {
         let counter = RunCounter(defaults: makeIsolatedDefaults())
         for _ in 0..<20 { counter.increment() }
         let spy = resolvableDestination()
-        let viewModel = ChecklistRunViewModel(store: store, targeting: spy,
-                                              counter: counter, spinnerDuration: .zero)
+        let viewModel = makeViewModel(store: store, targeting: spy, counter: counter)
 
         await viewModel.createReminders(for: id)
 
@@ -121,5 +141,20 @@ struct ChecklistRunViewModelTests {
         #expect(spy.createdTitles.isEmpty)
         viewModel.dismissPaywall()
         #expect(!viewModel.isShowingPaywall)
+    }
+
+    @Test
+    func unlockedPurchaseRunsPastTheLimit() async {
+        let (store, id) = makeStore(items: ["one"])
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<20 { counter.increment() }
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy, counter: counter,
+                                      purchases: makePurchases(unlocked: true))
+
+        await viewModel.createReminders(for: id)
+
+        #expect(!viewModel.isShowingPaywall)
+        #expect(spy.createdTitles == ["one"])
     }
 }

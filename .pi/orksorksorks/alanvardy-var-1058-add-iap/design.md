@@ -97,9 +97,11 @@ Patterns **not** to follow:
    small preference-style type with injectable defaults/key. Local to the App Group,
    isolated in tests via `makeIsolatedDefaults`, and free of the unresolved
    KVS/watchOS-reachability questions from research.
-3. **Threshold semantics**: runs 1–20 succeed; the 21st is refused. The counter increments
-   exactly once per `.created` outcome — `.failed`, `.partial`, `.permissionDenied` and
-   `.destinationMissing` do not advance it.
+3. **Threshold semantics**: runs 1–20 succeed; the 21st is refused. A run reserves its slot
+   atomically before any EventKit work and keeps it only when it created at least one
+   reminder — `.failed`, `.partial`, `.permissionDenied`, `.destinationMissing` and an
+   all-blank `.created(count: 0)` release it. Atomic reservation means concurrent runs
+   cannot both pass the limit; the counter is capped at the limit for unlocked users.
 4. **Gate location**: a core policy seam consulted by `ChecklistReminders.create` (thus by
    all three entry points), producing a **new outcome case** (e.g. `.purchaseRequired`)
    that maps to the paywall. `ChecklistRunViewModel` and the coordinator map that outcome
@@ -114,9 +116,11 @@ Patterns **not** to follow:
 7. **Paywall UX**: a blocking paywall presented when the threshold is crossed and whenever
    a run is refused while locked, with **Buy** and **Restore Purchases**. Entitlement is
    refreshed at launch, after purchase, on restore, and on `Transaction.updates`.
-8. **Offline/failure policy**: fail-open on a previously verified entitlement — if StoreKit
-   is unreachable, a user who already purchased stays unlocked. If entitlement is unknown
-   and the counter is at the limit, show the paywall with a retry rather than unlocking.
+8. **Offline/failure policy**: the verified-entitlement cache only bridges the instant
+   between cold launch and StoreKit's async resolution (so the paywall never flashes for a
+   paid user); a definitive `false` — no entitlement, revocation or refund — clears the
+   cache and locks. If entitlement is unknown and the counter is at the limit, show the
+   paywall with a retry rather than unlocking.
 9. **Platform scope**: gate iOS and macOS (shared `MyApp`/`ContentView`). watchOS is out of
    scope for the purchase surface — separate `@main`, no coordinator, read-only EventKit.
 10. **Verification hook**: the counter and entitlement are checked before any per-item
