@@ -15,8 +15,14 @@ public enum ChecklistCreationOutcome: Equatable, Sendable {
 /// `ChecklistReminders` apply it. Numbering is unbounded past 9.
 public enum ChecklistTitleNumbering {
     /// `"<position>: <title>"` when `numbered`, otherwise `title` unchanged.
-    public static func title(_ title: String, position: Int, numbered: Bool) -> String {
-        numbered ? "\(position): \(title)" : title
+    /// Single-digit positions are zero-padded to two digits (`01:`…`09:`) only
+    /// when there are more than 9 non-blank items, so titles sort numerically
+    /// under Reminders' lexical ordering instead of putting `10:` ahead of `2:`.
+    /// `itemCount` is the caller's effective non-blank item count.
+    public static func title(_ title: String, position: Int, numbered: Bool, itemCount: Int) -> String {
+        if !numbered { return title }
+        let padded = itemCount > 9 && position < 10 ? "0\(position)" : "\(position)"
+        return "\(padded): \(title)"
     }
 }
 
@@ -42,6 +48,7 @@ public struct ChecklistCreator: Sendable {
     public func create(from items: [ChecklistItem]) async -> ChecklistCreationOutcome {
         do {
             guard try await reminders.requestAccess() else { return .permissionDenied }
+            let itemCount = items.filter { !$0.isBlank }.count
             var created = 0
             var position = 0
             let today = now()
@@ -51,7 +58,7 @@ public struct ChecklistCreator: Sendable {
                 position += 1
                 try await reminders.create(
                     title: ChecklistTitleNumbering.title(
-                        item.title, position: position, numbered: prefixNumbers),
+                        item.title, position: position, numbered: prefixNumbers, itemCount: itemCount),
                     dueDateComponents: item.dueDateComponents(today: today, calendar: calendar))
                 created += 1
             }

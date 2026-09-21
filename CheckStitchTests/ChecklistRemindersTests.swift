@@ -338,8 +338,24 @@ struct ChecklistRemindersTests {
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
 
         #expect(outcome == .created(count: 10))
-        #expect(spy.createdTitles.first == "1: item 1")
+        #expect(spy.createdTitles.first == "01: item 1")
         #expect(spy.createdTitles.last == "10: item 10")
+    }
+
+    @Test
+    func numberingStaysUnpaddedUpToNine() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: (1...9).map { makeItem("item \($0)") },
+            destinationListIdentifier: "list-a",
+            prefixesReminderNumbers: true)
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 9))
+        #expect(spy.createdTitles.first == "1: item 1")
+        #expect(spy.createdTitles.last == "9: item 9")
     }
 
     /// Sad path: an unresolvable destination must create ZERO reminders even

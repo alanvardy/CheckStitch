@@ -25,6 +25,7 @@ enum ChecklistReminders {
                 // All-or-nothing: validate existence before the first create.
                 return .destinationMissing
             }
+            let itemCount = checklist.items.filter { !$0.isBlank }.count
             var position = 0
             for item in checklist.items where !item.isBlank {
                 // Numbering is assigned after blank items are dropped, so an emptied
@@ -36,7 +37,7 @@ enum ChecklistReminders {
                 let dueDateComponents = item.dueDateComponents(today: Date())
                 try await targeting.create(
                     title: ChecklistTitleNumbering.title(
-                        item.title, position: position, numbered: prefixNumbers),
+                        item.title, position: position, numbered: prefixNumbers, itemCount: itemCount),
                     notes: item.hasDescription ? item.description : nil,
                     priority: item.priority,
                     in: destination,
