@@ -1,0 +1,12 @@
+# Done
+
+- **Branch / head SHA**: `alanvardy-var-1059-export-and-import-should-preserve-destination-list` @ `a6657f699d2aa6bd1b425fe4c3118af4b862404a`
+- **Mechanical checks**: `bash scripts/test.sh` → `gate: ok` (simulator build → `make test` → `make build-mac` → `make watch-build` → shell tests 25/25 → shellcheck). Compiling legs ran with `WARNINGS_AS_ERRORS`. No rebase conflicts (branch was already linear on `main`); `DELETEME` placeholder removed and step artifacts committed, pushed with `--force-with-lease`.
+- **Review outcome**: One bounded `reviewer` pass over the code diff. **Zero blockers, zero fixes worth doing now.** Production change is a single line: `ChecklistStore.freshCopy(of:)` now carries `destinationListIdentifier`; both `importInsert` and `importReplace` rebuild exclusively via `freshCopy`, so insert, replace, the session commit/decide path, and the view-model `commitImport` path are all fixed. Stale-destination deferral verified fail-closed: `ChecklistReminders.create` resolves before the create loop and returns `.destinationMissing` with zero reminders; the new integration test proves it via `SpyReminderDestination`.
+  - Optional improvements noted, not applied: `duplicate()` (`CheckStitch/ChecklistStore.swift:162`) still drops the field, so duplicate and import now differ. Explicitly out of scope per `plan.md` (VAR-989 territory, separate ticket); flagged for a follow-up.
+  - Reviewer nits accepted as-is: `testExportPreservesDestination` and `testImportWithoutDestinationStaysNil` are boundary/contrast pins rather than load-bearing fix evidence. Noted, not changed.
+- **Remaining manual items** (from `plan.md`/`implement.md`, require a device/simulator and human eyes — cannot close on static evidence):
+  - [ ] Phase 1: Confirm `freshCopy` is the only rebuild used by `importInsert`/`importReplace` and `duplicate()` is unchanged (verified statically in review: yes).
+  - [ ] Phase 2: Export a checklist with a chosen list, import it via the export/import sheet, confirm the imported checklist's detail screen shows that list selected when it exists locally.
+  - [ ] Phase 3: Import a checklist whose destination is unavailable on the device, run it, confirm "That list no longer exists; no reminders were created." appears with no reminders added.
+  - [ ] Final gate: `bash scripts/test.sh` printed `gate: ok` (done); no codec/version/migration file changed and `duplicate()` untouched (confirmed).
