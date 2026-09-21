@@ -147,8 +147,9 @@ final class ChecklistStore {
 
     /// Duplicates a checklist: every item is copied into a fresh `ChecklistItem`
     /// (new `UUID`, revision 1), under a name disambiguated by the same
-    /// machinery `create` uses, so a duplicate always succeeds. Returns `nil`
-    /// when the source no longer exists, mirroring `delete(id:)`'s silent
+    /// machinery `create` uses, so a duplicate always succeeds. The copy keeps
+    /// the source's `destinationListIdentifier`, mirroring `freshCopy`. Returns
+    /// `nil` when the source no longer exists, mirroring `delete(id:)`'s silent
     /// no-op. A blank (whitespace- or newline-only) name falls back to the
     /// offered default.
     @discardableResult
@@ -160,6 +161,7 @@ final class ChecklistStore {
         let copy = Checklist(
             name: Self.uniqueName(basedOn: requested, taken: checklists.map(\.name)),
             items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate, priority: $0.priority) },
+            destinationListIdentifier: source.destinationListIdentifier,
             prefixesReminderNumbers: source.prefixesReminderNumbers,
             modifiedAt: now(),
             revision: 1
