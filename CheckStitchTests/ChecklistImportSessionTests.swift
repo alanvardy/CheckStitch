@@ -196,6 +196,27 @@ struct ChecklistImportSessionTests {
         #expect(replaceStore.checklists.first?.items.first?.priorityRevision == replaceStore.checklists.first?.items.first?.revision)
     }
 
+    /// The imported destination survives the whole stage/commit path through the
+    /// plain insert and through a Replace decision. Both rebuild via `freshCopy`.
+    @Test
+    func destinationPreserved() throws {
+        let incoming = Checklist(name: "Groceries", destinationListIdentifier: "list-a")
+
+        let (session, store) = makeSession()
+        _ = try session.stage(data: payload([incoming]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(store.checklists.first?.destinationListIdentifier == "list-a",
+                "insert keeps the payload destination")
+
+        let (replacing, replaceStore) = makeSession()
+        replaceStore.create(name: "Groceries")
+        _ = try replacing.stage(data: payload([incoming]))
+        replacing.commit(selectedIDs: allIDs(replacing.candidates))
+        replacing.decide(.replace, for: replacing.pending.first?.id ?? UUID())
+        #expect(replaceStore.checklists.first?.destinationListIdentifier == "list-a",
+                "replace keeps the payload destination")
+    }
+
     @Test
     func replaceTombstonesAndSwaps() throws {
         let (session, store) = makeSession()

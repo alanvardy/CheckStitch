@@ -61,6 +61,19 @@ final class ChecklistExportTests: XCTestCase {
         XCTAssertEqual(item.priorityRevision, item.revision)
     }
 
+    /// Export → classify → decode keeps the chosen destination (codec v4 already
+    /// encodes it; this pins the boundary).
+    func testExportPreservesDestination() throws {
+        let checklist = Checklist(name: "Groceries", destinationListIdentifier: "list-a")
+        let data = try ChecklistExport.data(checklists: [checklist])
+
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(env.checklists.first?.destinationListIdentifier, "list-a")
+    }
+
     func testExportEmptySelectionClassifiesLoadedWithNoChecklists() throws {
         let data = try ChecklistExport.data(checklists: [])
 

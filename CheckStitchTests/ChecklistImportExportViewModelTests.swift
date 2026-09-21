@@ -108,6 +108,20 @@ struct ChecklistImportExportViewModelTests {
     }
 
     @Test
+    func importPreservesTheExportedDestination() throws {
+        let store = makeStore(names: [])
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        let exported = try ChecklistExport.data(checklists: [
+            Checklist(name: "Groceries", destinationListIdentifier: "list-a"),
+        ])
+
+        viewModel.importFile(at: try writeTempFile(exported))
+        viewModel.commitImport()
+
+        #expect(store.checklists.first?.destinationListIdentifier == "list-a")
+    }
+
+    @Test
     func cancelImportDiscardsStagedFile() throws {
         let store = makeStore(names: [])
         let viewModel = ChecklistImportExportViewModel(store: store)
