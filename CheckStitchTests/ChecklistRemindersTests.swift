@@ -362,7 +362,7 @@ struct ChecklistRemindersTests {
             destinationListIdentifier: "list-a",
             prefixesReminderNumbers: true)
 
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy)
+        let outcome = await create(checklist, targeting: spy)
 
         #expect(outcome == .created(count: 9))
         #expect(spy.createdTitles.first == "1: item 1")
