@@ -40,6 +40,17 @@ struct RunCounterTests {
     }
 
     @Test
+    func decrementNeverGoesBelowZero() {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        counter.decrement()
+        #expect(counter.count == 0)
+
+        counter.increment()
+        counter.decrement()
+        #expect(counter.count == 0)
+    }
+
+    @Test
     func resetReturnsToZero() {
         let defaults = makeIsolatedDefaults()
         let counter = RunCounter(defaults: defaults)

@@ -460,6 +460,38 @@ struct ChecklistRemindersTests {
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
         #expect(outcome == .created(count: 1))
-        #expect(counter.count == 21)
+        #expect(counter.count == RunGate.freeRunLimit, "an unlocked counter is capped, not unbounded")
+    }
+
+    /// An all-blank run creates nothing and must not consume a free slot.
+    @Test
+    func emptyRunDoesNotAdvanceTheCounter() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<19 { counter.increment() }
+        let gate = RunGate(counter: counter, isUnlocked: false)
+        let spy = SpyReminderDestination(); spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("   "), makeItem("")],
+                                  destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
+
+        #expect(outcome == .created(count: 0))
+        #expect(counter.count == 19, "a run that created nothing does not consume a free run")
+    }
+
+    /// Reservation is atomic: two gates sharing a counter at `limit - 1` cannot
+    /// both claim the last slot.
+    @Test
+    func concurrentReservationsCannotBothPassTheLimit() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<19 { counter.increment() }
+        var first = RunGate(counter: counter, isUnlocked: false)
+        var second = RunGate(counter: counter, isUnlocked: false)
+
+        let firstReserved = first.reserveRun()
+        let secondReserved = second.reserveRun()
+        #expect(firstReserved)
+        #expect(!secondReserved, "the second reservation sees the first's increment")
+        #expect(counter.count == 20)
     }
 }

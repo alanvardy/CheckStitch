@@ -41,6 +41,9 @@ final class ChecklistRunViewModel {
         // Hold the spinner for at least `spinnerDuration` so saving quickly
         // doesn't flash the progress feedback past the user.
         async let minimumSpinner: Void = Task.sleep(for: spinnerDuration)
+        // Resolve entitlement before reading it, so a cold launch cannot evaluate
+        // the gate against a stale `.unknown` (the intent path does the same).
+        await purchases.start()
         let gate = RunGate(counter: counter, isUnlocked: purchases.isUnlocked)
         let outcome = await ChecklistReminders.create(from: checklist, targeting: targeting, gate: gate)
         try? await minimumSpinner

@@ -93,7 +93,19 @@ struct PurchaseServiceTests {
     }
 
     @Test
-    func cachedVerifiedEntitlementStaysUnlockedOffline() async {
+    func cachedVerifiedEntitlementIsUnlockedBeforeResolution() async {
+        let cache = PurchaseEntitlementCache(defaults: makeIsolatedDefaults())
+        cache.setVerified(true)
+        let provider = SpyPurchaseProvider()
+        let service = PurchaseService(provider: provider, cache: cache)
+
+        // Before start() resolves, the cache bridges the cold launch so the
+        // paywall never flashes for a paid user.
+        #expect(service.entitlement == .unlocked)
+    }
+
+    @Test
+    func verifiedRevocationClearsTheCacheAndLocks() async {
         let cache = PurchaseEntitlementCache(defaults: makeIsolatedDefaults())
         cache.setVerified(true)
         let provider = SpyPurchaseProvider()
@@ -102,7 +114,8 @@ struct PurchaseServiceTests {
 
         await service.start()
 
-        #expect(service.entitlement == .unlocked)
+        #expect(service.entitlement == .locked, "a definitive false must not fail open")
+        #expect(!cache.isVerified, "the stale verified flag is cleared")
     }
 
     @Test

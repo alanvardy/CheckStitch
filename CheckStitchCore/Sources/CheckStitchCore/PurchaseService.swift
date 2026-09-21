@@ -1,9 +1,11 @@
 import Foundation
 import Observation
 
-/// Durable cache of a *verified* entitlement, so a paid user stays unlocked on a
-/// cold launch while StoreKit is unreachable. Only ever written after a verified
-/// transaction; never downgraded (fail-open).
+/// Durable cache of a *verified* entitlement, so a paid user is unlocked the
+/// instant the app launches (before StoreKit's async resolution finishes) and so
+/// a cold launch does not flash the paywall. StoreKit remains the source of
+/// truth: a definitive `false` (including a revoked/refunded transaction)
+/// clears the cache.
 public struct PurchaseEntitlementCache {
     public init(defaults: UserDefaults, key: String = defaultsKey) {
         self.defaults = defaults
@@ -82,18 +84,12 @@ public final class PurchaseService {
         }
     }
 
-    /// Apply a just-resolved entitlement, never downgrading an already-verified
-    /// unlock (fail-open).
+    /// Apply a just-resolved entitlement. A verified unlock is cached; a
+    /// definitive `false` (no entitlement, revocation or refund) clears the
+    /// cache and locks, so store state always wins over a stale local flag.
     private func apply(_ verifiedUnlocked: Bool) {
-        if verifiedUnlocked {
-            cache.setVerified(true)
-            entitlement = .unlocked
-        } else if cache.isVerified {
-            // Fail-open: never downgrade an already-verified unlock.
-            entitlement = .unlocked
-        } else {
-            entitlement = .locked
-        }
+        cache.setVerified(verifiedUnlocked)
+        entitlement = verifiedUnlocked ? .unlocked : .locked
     }
 
     private let provider: any PurchaseProviding
