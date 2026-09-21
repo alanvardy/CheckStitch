@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Numbered checklist reminder titles now zero-pad single-digit positions to two digits (`01:`…`09:`) when a checklist has more than 9 non-blank items, so they sort numerically under Reminders' lexical ordering; at ≤9 items positions stay unpadded (`1:`…), and `numbered == false` leaves titles unchanged. The padding lives solely in the `ChecklistTitleNumbering.title(position:numbered:itemCount:)` seam; both call sites (`ChecklistCreator.create`, app-side `ChecklistReminders.create`) compute the effective post-blank item count and thread it in.
+- **Commit SHA(s)**: `3c2db7a` (implementation), `c3fb293` (reviewer nit: mid-range `"05: item 5"` assertion in both suites).
+- **Verification**: `make test-unit` → ** TEST SUCCEEDED **, 390 tests in 50 suites passed (both `ChecklistCreatorTests` and `ChecklistRemindersTests` numbering cases, plus all existing happy/sad paths).
+- **Reviewer findings**: No blockers. One optional nit (add a mid-range zero-padded assertion to make the boundary intent explicit) — fixed, re-verified, and committed. Numbered-off and ≤9 boundaries already covered by existing `numberingIsOffByDefault`/`numberingPrefixesTitlesWithTheirPosition` plus the new `numberingStaysUnpaddedUpToNine`.
+- **Remaining manual items**: Full gate `./scripts/test.sh` was not run (out of SMALL scope; targeted `make test-unit` was). `DELETEME` place holder left untouched for the merge. Push succeeded; PR (if any) not merged.
