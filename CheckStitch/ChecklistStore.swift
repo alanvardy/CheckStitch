@@ -170,9 +170,10 @@ final class ChecklistStore {
     }
 
     /// Fresh local identity for imported content: new checklist AND item UUIDs,
-    /// `revision: 1`, stamped now. Mirrors `duplicate`'s semantics and deliberately
-    /// drops the imported `destinationListIdentifier` — a Reminders list id from the
-    /// source device need not exist here.
+    /// `revision: 1`, stamped now. Mirrors `duplicate`'s semantics. The imported
+    /// `destinationListIdentifier` is carried over so the user's chosen Reminders
+    /// list survives; if that list is missing on this device the run path's
+    /// existing `.destinationMissing` net reports it before creating anything.
     private func freshCopy(of checklist: Checklist) -> Checklist {
         Checklist(
             name: checklist.name,
@@ -181,6 +182,7 @@ final class ChecklistStore {
                               modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate,
                               priority: $0.priority)
             },
+            destinationListIdentifier: checklist.destinationListIdentifier,
             prefixesReminderNumbers: checklist.prefixesReminderNumbers,
             modifiedAt: now(),
             revision: 1
