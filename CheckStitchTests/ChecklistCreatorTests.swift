@@ -143,6 +143,7 @@ struct ChecklistCreatorTests {
         let outcome = await creator.create(from: items)
         #expect(outcome == .created(count: 10))
         #expect(spy.createdTitles.first == "01: item 1")
+        #expect(spy.createdTitles[4] == "05: item 5")
         #expect(spy.createdTitles.last == "10: item 10")
     }
 
