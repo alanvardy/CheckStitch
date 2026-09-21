@@ -71,7 +71,7 @@ entitlement live for purchases completing elsewhere.
 **Key changes**:
 - `PurchaseProviding: Sendable` — `func currentEntitlement() async -> Bool`; `func purchase() async throws -> Bool`; `func startObserving(_ onChange: @escaping @MainActor (Bool) -> Void)`.
 - `PurchaseService.start() async`, `purchase() async`, `private(set) var entitlement: EntitlementState { .unknown | .locked | .unlocked }` — no longer stubbed.
-- `StoreKitPurchaseService` — `Product.products(for:)`, `product.purchase()`, `Transaction.currentEntitlements`, `Transaction.updates`; product ID `app.alanvardy.CheckStitch.license`.
+- `StoreKitPurchaseService` — `Product.products(for:)`, `product.purchase()`, `Transaction.currentEntitlements`, `Transaction.updates`; product ID `app.alanvardy.CheckStitch.unlimited`.
 - `PaywallView` — real Buy button (price from `Product`), in-flight/error states.
 - `MyApp` — `@State` service, `.environment(...)`, `.task { await purchaseService.start() }`.
 
