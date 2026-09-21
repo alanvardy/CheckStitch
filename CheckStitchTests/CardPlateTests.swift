@@ -58,4 +58,18 @@ struct CardPlateTests {
     func iconForegroundIsBlueInDarkMode() {
         #expect(CardPlate.iconForeground(for: .dark) == Color.blue)
     }
+
+    /// The card/chrome borders are black in light mode so they read with the
+    /// black glyphs and labels instead of clashing with the blue tint.
+    @Test
+    func borderIsBlackInLightMode() {
+        #expect(CardPlate.border(for: .light) == Color.black)
+    }
+
+    /// Dark mode keeps the blue border so the ring stays crisp over the black
+    /// plate, matching the blue glyph/chrome treatment.
+    @Test
+    func borderIsBlueInDarkMode() {
+        #expect(CardPlate.border(for: .dark) == Color.blue)
+    }
 }

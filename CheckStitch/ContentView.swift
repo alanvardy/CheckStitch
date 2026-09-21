@@ -290,7 +290,7 @@ struct ContentView: View {
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                            .stroke(.tint, lineWidth: 2)
+                            .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
                     )
                     .contentShape(Rectangle())
             }
@@ -326,7 +326,7 @@ struct ContentView: View {
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                            .stroke(.tint, lineWidth: 2)
+                            .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
                     )
                     .contentShape(Rectangle())
             }
@@ -375,7 +375,7 @@ struct ContentView: View {
                                 }
                                 .overlay(
                                     RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                                        .stroke(.tint, lineWidth: 2)
+                                        .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
                                 )
                         }
                         .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
@@ -399,7 +399,7 @@ struct ContentView: View {
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                            .stroke(.tint, lineWidth: 2)
+                            .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
                     )
                     .padding(.horizontal, 32)
                 }
@@ -492,7 +492,7 @@ struct ContentView: View {
             }
             .overlay(
                 RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
-                    .stroke(.tint, lineWidth: 2)
+                    .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
             )
             .padding(.horizontal, 32)
             .padding(.top, 80)

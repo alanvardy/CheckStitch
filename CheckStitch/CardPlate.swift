@@ -42,4 +42,12 @@ enum CardPlate {
     nonisolated static func iconForeground(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color.blue : Color.black
     }
+
+    /// Border/stroke color around the checklist card and chrome plates. Black
+    /// in light mode so the borders read alongside the black glyphs and
+    /// labels instead of clashing with the blue tint; blue in dark mode to
+    /// keep the ring crisp over the dark plate (matches `iconForeground`).
+    nonisolated static func border(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.blue : Color.black
+    }
 }
