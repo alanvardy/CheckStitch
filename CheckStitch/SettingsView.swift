@@ -11,6 +11,9 @@ struct SettingsView: View {
     @Binding var appLanguage: AppLanguage
     @Bindable var bindings: SettingsBindings
     var backgroundImage: BackgroundImageStore
+    /// The shared purchase service. Defaulted to the app's one instance so
+    /// previews and render suites can build the view without wiring it.
+    var purchases: PurchaseService = PurchaseEnvironment.service
     /// Both defer to `ContentView`, which owns the file panels. Defaulted so
     /// previews and render suites can build the view without wiring them.
     var onExport: () -> Void = {}
@@ -65,6 +68,24 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settingsImportRow")
                 } header: {
                     Text("Import and Export")
+                }
+
+                Section {
+                    if purchases.isUnlocked {
+                        NavigationLink {
+                            PurchaseSettingsView(purchases: purchases)
+                        } label: {
+                            Label("Manage Purchase", systemImage: "checkmark.seal")
+                        }
+                        .accessibilityIdentifier("settingsPurchaseRow")
+                    } else {
+                        NavigationLink {
+                            PurchaseSettingsView(purchases: purchases)
+                        } label: {
+                            Label("Unlock CheckStitch", systemImage: "lock.open")
+                        }
+                        .accessibilityIdentifier("settingsPurchaseRow")
+                    }
                 }
 
                 Section {
