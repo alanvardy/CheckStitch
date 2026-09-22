@@ -59,6 +59,22 @@ struct ViewRenderTests {
     }
 
     @Test
+    func settingsViewExposesPurchaseRow() {
+        let service = PurchaseService(
+            provider: SpyPurchaseProvider(),
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+        let view = SettingsView(
+            appearanceMode: .constant(.system),
+            appLanguage: .constant(.system),
+            bindings: SettingsBindings(),
+            backgroundImage: BackgroundImageStore(),
+            purchases: service)
+        let bodyDescription = String(describing: view.body)
+        #expect(bodyDescription.contains("Unlock CheckStitch"),
+                "a locked user can reach the purchase screen from Settings")
+    }
+
+    @Test
     func settingsViewRendersWithImportAndExportRows() {
         let view = SettingsView(
             appearanceMode: .constant(.system),
