@@ -112,14 +112,14 @@ CheckStitch/AppGroup.entitlements`) — the KVS entitlement is what lets
   functions (never `test`-prefixed), `@Test(arguments:)` for cases, `@MainActor` on any
   suite touching EventKit or the view model. Fakes live in `CheckStitchTests/TestFixtures.swift`.
 - Verify with `make test-unit` (fast) before `bash scripts/test.sh` (full gate).
+- User-facing strings live in `Localizable.xcstrings` (`.lproj` holds only
+  `InfoPlist.strings`); a new key needs all 6 languages + a `LocalizationFixtures.requiredKeys` entry — see the `localization` skill, and run `scripts/l10n-check.sh` first.
 - SwiftUI API verification: the compiler is the oracle — edit, then `make build`
-  / `make test-unit`; read `ContentView.swift`/`CardPlate.swift` precedent before
-  SDK probing (see the `swiftui-sdk` skill).
+  / `make test-unit` (see the `swiftui-sdk` skill; read `ContentView.swift` precedent).
 - Sync/icon/render tickets cannot close on static evidence — verify the installed
   bundle on the target and state what the user should see (see `devicectl`).
-- `scripts/*.sh` are `#!/bin/bash` with `set -euo pipefail`, committed mode
-  `100755` (`chmod +x` before committing). Keep the plural `run-devices.sh`
-  name: the `r` fish alias runs `./scripts/run-devices.sh`.
+- `scripts/*.sh` are `#!/bin/bash` with `set -euo pipefail`, mode `100755`;
+  keep the plural `run-devices.sh` name (the `r` alias runs it).
 - Reference implementation for Reminders/EventKit work:
   `/Users/vardy/dev/SingleThread` (an `EKReminder` +
   `defaultCalendarForNewReminders()` + `save(commit: true)` pattern, and
