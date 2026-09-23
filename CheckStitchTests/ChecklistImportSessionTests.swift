@@ -238,7 +238,9 @@ struct ChecklistImportSessionTests {
             options: [ReminderListOption(id: "list-a", title: "Reminders")],
             defaultIdentifier: "list-a")
 
-        let outcome = await ChecklistReminders.create(from: imported, targeting: spy)
+        let gate = RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()),
+                           isUnlocked: true)
+        let outcome = await ChecklistReminders.create(from: imported, targeting: spy, gate: gate)
 
         #expect(outcome == .destinationMissing)
         #expect(spy.createdTitles.isEmpty, "no reminders created for a stale destination")
