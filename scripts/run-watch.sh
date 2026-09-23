@@ -25,7 +25,8 @@ DERIVED_DATA="${DERIVED_DATA:-DerivedData}"
 DEFAULT_WATCH_NAME="Alan's Apple Watch"
 WATCH_NAME="${WATCH_NAME:-$DEFAULT_WATCH_NAME}"
 DEVICES_JSON="${TMPDIR:-/tmp}/run-watch-$$.json"
-trap 'rm -f "$DEVICES_JSON"' EXIT
+RESOLVER_SCRIPT="${TMPDIR:-/tmp}/run-watch-resolver-$$.py"
+trap 'rm -f "$DEVICES_JSON" "$RESOLVER_SCRIPT"' EXIT
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -39,8 +40,11 @@ if ! xcrun devicectl list devices -j "$DEVICES_JSON" >/dev/null 2>&1; then
     exit 1
 fi
 
-WATCH_ID="$(
-    python3 - "$DEVICES_JSON" "$WATCH_NAME" <<'PY'
+# The Python resolver is written to its own file rather than fed to
+# `python3 -` through a here-document: macOS's /bin/bash 3.2 cannot parse a
+# here-document inside `$(…)` (it reports a spurious unmatched double quote),
+# and the gate syntax-checks every script with `bash -n` under the system bash.
+cat >"$RESOLVER_SCRIPT" <<'PY'
 import json
 import re
 import sys
@@ -73,7 +77,8 @@ for device in payload["result"]["devices"]:
 else:
     sys.exit(3)
 PY
-)" || {
+
+WATCH_ID="$(python3 "$RESOLVER_SCRIPT" "$DEVICES_JSON" "$WATCH_NAME")" || {
     echo "❌ Could not resolve '${WATCH_NAME}' (unpaired, unreachable, or Developer Mode off)." >&2
     echo "   Unlock the watch, keep it on this Mac's Wi-Fi, then retry. devicectl error 4016 means the same." >&2
     exit 1

@@ -445,5 +445,21 @@ documentTypeRegistrationWiresInfoPlist() {
 
 run_case documentTypeRegistrationWiresInfoPlist documentTypeRegistrationWiresInfoPlist
 
+# --- system-bash parseability ----------------------------------------------
+
+# Every script must parse under the system bash at /bin/bash — macOS ships bash
+# 3.2 there, which rejects some constructs a Homebrew 5.x parser accepts (a
+# here-document inside `$(…)`, for one). shellcheck alone does not catch that,
+# so this pins what the gate's `bash -n` fallback would otherwise only assert
+# on a machine without shellcheck.
+scripts_parse_under_system_bash() {
+    local f
+    for f in scripts/*.sh scripts/tests/*.sh; do
+        /bin/bash -n "$f" || return 1
+    done
+}
+
+run_case scripts_parse_under_system_bash scripts_parse_under_system_bash
+
 echo "tests: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
