@@ -1,0 +1,7 @@
+# Done
+
+- **What was built**: Added a marketing/product `README.md` to the CheckStitch repo root (there was none), modeled on the `/Users/vardy/dev/vardy/templates/checkstitch.html` page content and mirroring the sibling `SingleThread` README's structure/tone — title, tagline, platform line (`**iPhone · iPad · Mac · Apple Watch**`), intro, `## Why you'll love it`, `## Everything you need, nothing you don't`, `## Thoughtful by design`, closing tagline. No App Store badge (CheckStitch has no App Store listing). All copy is honest to AGENTS.md / the marketing page, including the create-only constraint and wallpaper-only network traffic.
+- **Commit SHA(s)**: `d0985f95b69272a9adcdcc8f445b74ad64aa13a2` (`docs: add marketing README`), pushed to `alanvardy-var-1068-add-readme`.
+- **Verification**: docs-only — no tests required. Read-through of the finished README against the cited facts confirmed accuracy (no badge/link, correct platform line, create-only constraint, Wallpaper-only traffic). The gate (`./scripts/test.sh`) is unaffected by this docs-only change and not run.
+- **Reviewer findings**: None. Reviewer returned no blockers and no nits; merge verdict OK.
+- **Remaining manual items**: None. Note: the worktree also carries an unrelated pre-existing staged deletion (`DELETEME`) and an untracked `.pi/` artifact dir; neither was included in the README commit and neither is part of this task.
