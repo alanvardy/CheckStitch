@@ -36,8 +36,8 @@ struct PaywallView: View {
             .buttonStyle(.bordered)
             .disabled(purchases.isPurchasing)
             .accessibilityIdentifier("paywallRestoreButton")
-            if purchases.offer == nil, !purchases.isLoadingOffer {
-                Text("Couldn't load the store. Check your connection and try again.")
+            if let failure = purchases.offerFailure, !purchases.isLoadingOffer {
+                Text(failure.advice)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Button("Try Again") { Task { await purchases.loadOffer() } }

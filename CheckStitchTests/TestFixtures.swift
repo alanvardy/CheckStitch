@@ -205,6 +205,9 @@ final class SpyChecklistRunner {
 final class SpyPurchaseProvider: PurchaseProviding {
     var offer: PurchaseOffer? = PurchaseOffer(id: "license", displayName: "CheckStitch License",
                                               displayPrice: "$4.99")
+    /// When set, overrides `offer` — lets a suite drive the unreachable-store
+    /// (`storeUnreachable`) case as well as the missing-product one.
+    var offerOutcome: OfferLoadOutcome?
     var entitlement = false
     var purchaseResult = true
     var purchaseError: Error?
@@ -218,7 +221,11 @@ final class SpyPurchaseProvider: PurchaseProviding {
     private var purchaseContinuation: CheckedContinuation<Void, Never>?
     private var onChange: (@MainActor (Bool) -> Void)?
 
-    func offer() async -> PurchaseOffer? { offer }
+    func offer() async -> OfferLoadOutcome {
+        if let offerOutcome { return offerOutcome }
+        guard let current = offer else { return .productNotListed }
+        return .offer(current)
+    }
     func currentEntitlement() async -> Bool { entitlement }
     func purchase() async throws -> Bool {
         purchaseCount += 1

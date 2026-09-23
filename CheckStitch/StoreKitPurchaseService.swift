@@ -1,4 +1,5 @@
 import CheckStitchCore
+import os
 import StoreKit
 
 /// The only StoreKit-importing type. Kept in the app target so
@@ -7,15 +8,33 @@ import StoreKit
 final class StoreKitPurchaseService: PurchaseProviding {
     static let productID = "app.alanvardy.CheckStitch.unlimited"
 
+    private let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "purchases")
+
     private var updatesTask: Task<Void, Never>?
 
-    func offer() async -> PurchaseOffer? {
-        guard let product = try? await Product.products(for: [Self.productID]).first else {
-            return nil
+    func offer() async -> OfferLoadOutcome {
+        do {
+            let products = try await Product.products(for: [Self.productID])
+            guard let product = products.first else {
+                logger.error("""
+                StoreKit listed no product for '\(Self.productID, privacy: .public)'. \
+                Check that the In-App Purchase exists in App Store Connect, is \
+                'Cleared for Sale' with a price and review screenshot, and that the \
+                Paid Applications Agreement is Active.
+                """)
+                return .productNotListed
+            }
+            logger.info("StoreKit offer loaded: \(product.id, privacy: .public) \(product.displayPrice, privacy: .public)")
+            return .offer(PurchaseOffer(id: product.id,
+                                        displayName: product.displayName,
+                                        displayPrice: product.displayPrice))
+        } catch {
+            logger.error("""
+            StoreKit product lookup failed for '\(Self.productID, privacy: .public)': \
+            \(error.localizedDescription, privacy: .public)
+            """)
+            return .storeUnreachable
         }
-        return PurchaseOffer(id: product.id,
-                             displayName: product.displayName,
-                             displayPrice: product.displayPrice)
     }
 
     func currentEntitlement() async -> Bool {

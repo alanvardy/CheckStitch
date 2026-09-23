@@ -125,6 +125,7 @@ enum LocalizationFixtures {
             "Purchasing…",
             "Restore Purchases",
             "Couldn't load the store. Check your connection and try again.",
+            "This purchase isn't available right now. Please try again later.",
             "Try Again"
         ]),
         ("Core", ["System", "Light", "Dark", "None", "Low", "Medium", "High", "Version %@ (%@)", "Version %@"]),

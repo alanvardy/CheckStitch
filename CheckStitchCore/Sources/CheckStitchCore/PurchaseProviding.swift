@@ -14,12 +14,25 @@ public struct PurchaseOffer: Equatable, Sendable {
     public let displayPrice: String
 }
 
+/// Outcome of loading the storefront offer. Distinguishes a store that could not
+/// be reached (StoreKit threw) from one that answered but does not list the
+/// product for the requested id. The two need different advice: the former is a
+/// connectivity problem, the latter an App Store Connect configuration problem
+/// that retrying the network will never fix.
+public enum OfferLoadOutcome: Equatable, Sendable {
+    case offer(PurchaseOffer)
+    /// StoreKit threw — network, Storefront, or authentication failure.
+    case storeUnreachable
+    /// The store answered but returned no product for the requested id.
+    case productNotListed
+}
+
 /// Seam over StoreKit 2. Mirrors `ReminderDestinationTargeting`: a `@MainActor`
 /// protocol so the service and its tests share one isolation domain.
 @MainActor
 public protocol PurchaseProviding: Sendable {
-    /// Loads the license offer; `nil` when the store is unreachable.
-    func offer() async -> PurchaseOffer?
+    /// Loads the license offer and reports *why* it failed when it does.
+    func offer() async -> OfferLoadOutcome
     /// Verified entitlement for the license, `false` when none is held.
     func currentEntitlement() async -> Bool
     /// Runs the purchase flow. `true` means a verified entitlement is now held.

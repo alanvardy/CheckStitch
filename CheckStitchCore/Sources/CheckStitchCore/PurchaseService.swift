@@ -28,6 +28,12 @@ public struct PurchaseEntitlementCache {
 public final class PurchaseService {
     public enum EntitlementState: Equatable, Sendable { case unknown, locked, unlocked }
 
+    /// Why a store offer could not be loaded. The UI gives different advice for
+    /// each: an unreachable store is a connectivity problem, while a store that
+    /// answered without the product is a configuration problem the user cannot
+    /// fix by retrying their network.
+    public enum OfferFailure: Equatable, Sendable { case storeUnreachable, productNotListed }
+
     public init(provider: any PurchaseProviding,
                 cache: PurchaseEntitlementCache = PurchaseEntitlementCache(defaults: .standard)) {
         self.provider = provider
@@ -36,12 +42,26 @@ public final class PurchaseService {
     }
 
     public private(set) var entitlement: EntitlementState = .unknown
-    public private(set) var offer: PurchaseOffer?
+    public private(set) var offerOutcome: OfferLoadOutcome?
     public private(set) var isLoadingOffer = false
     public private(set) var isPurchasing = false
     public private(set) var lastError: String?
 
     public var isUnlocked: Bool { entitlement == .unlocked }
+
+    /// The loaded license offer, if any.
+    public var offer: PurchaseOffer? {
+        if case .offer(let offer) = offerOutcome { offer } else { nil }
+    }
+
+    /// Why the offer could not be loaded — `nil` while loading or once loaded.
+    public var offerFailure: OfferFailure? {
+        switch offerOutcome {
+        case .storeUnreachable: .storeUnreachable
+        case .productNotListed: .productNotListed
+        case .offer, nil: nil
+        }
+    }
 
     /// Resolve entitlement and subscribe to `Transaction.updates`. Idempotent.
     public func start() async {
@@ -57,7 +77,7 @@ public final class PurchaseService {
         guard offer == nil, !isLoadingOffer else { return }
         isLoadingOffer = true
         defer { isLoadingOffer = false }
-        offer = await provider.offer()
+        offerOutcome = await provider.offer()
     }
 
     public func purchase() async {

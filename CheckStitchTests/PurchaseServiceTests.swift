@@ -161,4 +161,52 @@ struct PurchaseServiceTests {
         #expect(service.offer == nil)
         #expect(!service.isLoadingOffer)
     }
+
+    @Test
+    func missingProductIsReportedAsNotListed() async {
+        let provider = SpyPurchaseProvider()
+        provider.offer = nil
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+
+        await service.loadOffer()
+
+        #expect(service.offerFailure == .productNotListed,
+                "an empty product list is a store configuration problem, not connectivity")
+    }
+
+    @Test
+    func thrownLookupIsReportedAsStoreUnreachable() async {
+        let provider = SpyPurchaseProvider()
+        provider.offerOutcome = .storeUnreachable
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+
+        await service.loadOffer()
+
+        #expect(service.offerFailure == .storeUnreachable,
+                "a StoreKit throw must not be blamed on the product configuration")
+        #expect(service.offer == nil)
+    }
+
+    @Test
+    func offerFailureClearsWhenTheOfferLoads() async {
+        let provider = SpyPurchaseProvider()
+        provider.offerOutcome = .storeUnreachable
+        let service = PurchaseService(
+            provider: provider,
+            cache: PurchaseEntitlementCache(defaults: makeIsolatedDefaults()))
+        await service.loadOffer()
+        #expect(service.offerFailure == .storeUnreachable)
+
+        provider.offerOutcome = .offer(PurchaseOffer(id: "license",
+                                                     displayName: "CheckStitch License",
+                                                     displayPrice: "$4.99"))
+        await service.loadOffer()
+
+        #expect(service.offerFailure == nil)
+        #expect(service.offer?.displayPrice == "$4.99")
+    }
 }

@@ -27,8 +27,8 @@ struct PurchaseSettingsView: View {
             } footer: {
                 if purchases.isUnlocked {
                     Text("Thank you for your support! You can run as many checklists as you like.")
-                } else if loadFailed {
-                    Text("Couldn't load the store. Check your connection and try again.")
+                } else if let failure = loadFailure {
+                    Text(failure.advice)
                         .foregroundStyle(.red)
                 } else {
                     Text("A one-time purchase unlocks unlimited checklist runs forever.")
@@ -67,8 +67,9 @@ struct PurchaseSettingsView: View {
     /// both, but only the latter should show the error footer and retry.
     @State private var hasAttemptedLoad = false
 
-    private var loadFailed: Bool {
-        hasAttemptedLoad && purchases.offer == nil && !purchases.isLoadingOffer
+    private var loadFailure: PurchaseService.OfferFailure? {
+        guard hasAttemptedLoad, !purchases.isLoadingOffer else { return nil }
+        return purchases.offerFailure
     }
 
     @ViewBuilder private var purchaseContent: some View {
