@@ -42,7 +42,7 @@ struct ChecklistSyncDiagnosticsTests {
 
     @Test
     func shouldResetFileResetsAtAndAboveLimit() {
-        let limit: UInt64 = 64 * 1024
+        let limit = ChecklistSyncDiagnostics.diskSizeLimit
         #expect(ChecklistSyncDiagnostics.shouldResetFile(currentSize: limit))
         #expect(ChecklistSyncDiagnostics.shouldResetFile(currentSize: limit + 1))
     }
@@ -50,6 +50,6 @@ struct ChecklistSyncDiagnosticsTests {
     @Test
     func shouldResetFileKeepsFileBelowLimit() {
         #expect(!ChecklistSyncDiagnostics.shouldResetFile(currentSize: 0))
-        #expect(!ChecklistSyncDiagnostics.shouldResetFile(currentSize: 64 * 1024 - 1))
+        #expect(!ChecklistSyncDiagnostics.shouldResetFile(currentSize: ChecklistSyncDiagnostics.diskSizeLimit - 1))
     }
 }

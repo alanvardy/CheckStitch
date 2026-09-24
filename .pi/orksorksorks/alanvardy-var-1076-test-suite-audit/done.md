@@ -1,15 +1,15 @@
 # Done
 
-- **Branch / head SHA**: `alanvardy-var-1076-test-suite-audit` @ `de84312`
-  (pushed). Review-step commits on top: none (this `done.md` is the final
-  commit); prior step-artifact commit `de84312` added the untracked workflow
-  artifacts.
+- **Branch / head SHA**: `alanvardy-var-1076-test-suite-audit` @ `147cc0c`
+  (pushed). Review-step commits: `de84312` (workflow artifacts), `147cc0c`
+  (`done.md`), plus the optional-fixes commit that carries this note.
 - **Rebase**: no rebase in progress at session start (`rebase-merge` /
   `rebase-apply` dirs did not exist); nothing to resolve.
-- **Mechanical checks**: `bash ./scripts/test.sh` → **`gate: ok`**
-  (simulator build + `make test`, macOS compile leg, watchOS build,
-  `scripts/tests/run.sh` 26/26, shellcheck). Warnings-as-errors flag is
-  enforced on every compiling leg. No blockers.
+- **Mechanical checks**: `bash ./scripts/test.sh` → **`gate: ok`** run twice
+  (once pre-fixes, once after the optional fixes): simulator build +
+  `make test`, macOS compile leg, watchOS build, `scripts/tests/run.sh`
+  26/26, shellcheck. `make test-unit` → **449 tests / 60 suites passed**.
+  Warnings-as-errors flag is enforced on every compiling leg. No blockers.
 
 ## Review outcome
 
@@ -28,23 +28,23 @@ One fresh-context `reviewer` pass over `git diff main...HEAD` (source + tests
     `ChecklistStore.moved` boundary (`nil` out of range).
   - Good sad-path coverage: `readReturnsNilWhenEmpty`, double-`cancel`
     idempotence, take-twice→`nil`.
-- **Optional improvements noted, not applied** (no autofix requested; no
-  user request yet):
-  - Seven new suites lack a trailing newline (`AppEnvironmentTests`,
-    `AppGroupTests`, `ChecklistExportDocumentTests`,
-    `ChecklistSyncDiagnosticsTests`, `ChecklistSyncingContractTests`,
-    `ColorCrossPlatformTests`, `ContentViewSettingsActionTests`). Hygiene
-    only — `git diff --check` is clean and the gate passes.
-  - `ChecklistSyncDiagnosticsTests` hardcodes `64 * 1024`, duplicating the
-    private `diskSizeLimit`; a production limit change would desync the
-    boundary pins silently.
-  - `ColorCrossPlatformTests` asserts the macOS branch against
-    `NSColor.windowBackgroundColor` — a contract pin, not an independent
-    check of the mapped colour. Matches `findings.md` #9.
-  - `AppGroupTests` probes write into the real `AppGroup.defaults`
-    (`.standard` on the unsigned macOS host); contained by UUID keys +
-    `defer` removal, and the fallback branch is genuinely unforceable
-    (`findings.md` #2).
+- **Optional improvements — applied on request (item [2])**:
+  - Trailing newlines added to the seven new suites
+    (`AppEnvironmentTests`, `AppGroupTests`,
+    `ChecklistExportDocumentTests`, `ChecklistSyncDiagnosticsTests`,
+    `ChecklistSyncingContractTests`, `ColorCrossPlatformTests`,
+    `ContentViewSettingsActionTests`).
+  - `diskSizeLimit` de-duplicated: now `internal static` on
+    `ChecklistSyncDiagnostics` and referenced by both rotation-boundary
+    tests instead of the hardcoded `64 * 1024`; the doc comment records why
+    it is internal.
+  - `ColorCrossPlatformTests` gained a comment stating it is a mapping
+    contract pin only (both sides resolve `windowBackgroundColor`, so it
+    cannot detect a wrong system colour).
+  - `AppGroupTests` `.standard`-probe concern deliberately **not** changed:
+    the probes are UUID-keyed and `defer`-removed, and the fallback branch
+    is genuinely unforceable (`findings.md` #2) — the reviewer itself rated
+    it acceptable.
 - **Reviewer suggestion rejected**: the claimed "unused `import
   CheckStitchCore`" in `ContentViewSettingsActionTests.swift:2` is
   **load-bearing** — `Checklist` is declared in
