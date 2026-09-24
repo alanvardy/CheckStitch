@@ -38,3 +38,9 @@ CheckStitch does one job properly. Write a checklist, decide where it goes, and 
 ---
 
 One checklist in. A list of reminders out.
+
+## Also from Alan
+
+- **[Exzeitable](https://github.com/alanvardy/exzeitable)** — Dynamically updating, searchable, sortable data tables for Phoenix LiveView, from one database query and one module.
+- **[SingleThread](https://github.com/alanvardy/SingleThread)** — Shows one Apple Reminder at a time for calm, focused momentum. iPhone, iPad, Mac, and Apple Watch.
+- **[orksorksorks](https://github.com/alanvardy/orksorksorks)** — A small Rust CLI that drives step-based coding-agent workflows from a single TOML config.
