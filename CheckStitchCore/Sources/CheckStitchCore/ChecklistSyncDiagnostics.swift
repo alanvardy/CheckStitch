@@ -37,8 +37,9 @@ public enum ChecklistSyncDiagnostics {
     /// `WCSessionDelegate` contexts alike.
     private static let diskLock = NSLock()
     /// Cap for `checklist-sync.log`; the file is reset past this so a long
-    /// session cannot grow the app container unboundedly.
-    private static let diskSizeLimit: UInt64 = 64 * 1024
+    /// session cannot grow the app container unboundedly. Internal so the
+    /// rotation-boundary tests reference the real limit instead of copying it.
+    static let diskSizeLimit: UInt64 = 64 * 1024
     private static let diskFileName = "checklist-sync.log"
 
     public static func log(_ gate: SyncGate, _ fields: [String: String] = [:]) {

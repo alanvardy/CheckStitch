@@ -15,8 +15,10 @@ struct ColorCrossPlatformTests {
     #if os(macOS)
         @Test
         func systemBackgroundMatchesPlatformSystemColor() {
-            // Resolve both sides through `NSColor` so the assert is on the rendered
-            // colour, not on `Color`'s opaque provider identity.
+            // Contract pin for the macOS branch only: both sides resolve
+            // `windowBackgroundColor`, so this catches a changed mapping, not a
+            // wrong system colour. Resolved through `NSColor` so the assert is
+            // on the rendered colour, not `Color`'s opaque provider identity.
             let actual = NSColor(Color.systemBackground).usingColorSpace(.sRGB)
             let expected = NSColor(Color(nsColor: .windowBackgroundColor)).usingColorSpace(.sRGB)
             #expect(actual == expected)
