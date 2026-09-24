@@ -42,12 +42,27 @@ public enum ChecklistSyncDiagnostics {
     private static let diskFileName = "checklist-sync.log"
 
     public static func log(_ gate: SyncGate, _ fields: [String: String] = [:]) {
+        let line = record(gate, fields)
+        logger.notice("\(line, privacy: .public)")
+        appendToDisk(line)
+    }
+
+    /// Single-line record shared by the logger and the disk copy: keys sort
+    /// alphabetically so a field's position is stable across records, and a
+    /// fieldless record has no trailing space. Internal so tests can pin the
+    /// on-device wire shape.
+    static func record(_ gate: SyncGate, _ fields: [String: String] = [:]) -> String {
         let detail = fields
             .sorted { $0.key < $1.key }
             .map { "\($0.key)=\($0.value)" }
             .joined(separator: " ")
-        logger.notice("[\(gate.rawValue, privacy: .public)] \(detail, privacy: .public)")
-        appendToDisk("[\(gate.rawValue)] \(detail)")
+        return detail.isEmpty ? "[\(gate.rawValue)]" : "[\(gate.rawValue)] \(detail)"
+    }
+
+    /// Whether `checklist-sync.log` has reached the size that resets it. Pure so
+    /// the rotation boundary is testable without touching the file system.
+    static func shouldResetFile(currentSize: UInt64) -> Bool {
+        currentSize >= diskSizeLimit
     }
 
     private static func appendToDisk(_ line: String) {
@@ -63,7 +78,7 @@ public enum ChecklistSyncDiagnostics {
         let data = Data((line + "\n").utf8)
 
         let size = ((try? fm.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.uint64Value ?? 0
-        if size >= diskSizeLimit {
+        if shouldResetFile(currentSize: size) {
             try? fm.removeItem(at: url)
         }
 
