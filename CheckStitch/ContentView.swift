@@ -592,7 +592,7 @@ extension ContentView {
     /// Opens the panel the Settings menu staged, once the settings sheet has
     /// dismissed.
     private func perform(_ action: SettingsDataAction) {
-        switch action {
+        switch SettingsDataActionRoute(action) {
         case .export: importExportVM.beginExport()
         case .importChecklists: importExportVM.beginImport()
         }

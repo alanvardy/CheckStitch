@@ -32,6 +32,21 @@ enum SettingsDataAction: Equatable {
     case importChecklists
 }
 
+/// The panel a staged `SettingsDataAction` opens. Kept beside the action so the
+/// root dispatcher's switch is exhaustive by construction (a new action case
+/// fails to compile until it is routed).
+enum SettingsDataActionRoute: Equatable {
+    case export
+    case importChecklists
+
+    init(_ action: SettingsDataAction) {
+        switch action {
+        case .export: self = .export
+        case .importChecklists: self = .importChecklists
+        }
+    }
+}
+
 /// Stages a Settings-menu import/export request until the settings sheet has
 /// dismissed and the root-owned file panel can present.
 struct SettingsDataActionQueue {
