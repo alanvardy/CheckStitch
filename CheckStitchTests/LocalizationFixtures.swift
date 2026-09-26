@@ -5,7 +5,7 @@ enum LocalizationFixtures {
     /// Catalogs guarded by the non-English-differs canary. Watch is included:
     /// all five of its current translations differ from English, so it needs no
     /// exclusion entries, and the canary then catches an English regression there.
-    static let guardedCatalogs: Set<String> = ["App", "Core", "Watch"]
+    static let guardedCatalogs: Set<String> = ["App", "Core", "Watch", "Widget"]
 
     /// Every key each catalog must carry. Guards against a key being dropped
     /// from the catalog (the UI would then render the raw key at runtime).
@@ -143,6 +143,21 @@ enum LocalizationFixtures {
             "Checklists",
             "Sent",
             "Create reminders",
+        ]),
+        ("Widget", [
+            "CheckStitch Checklist",
+            "CheckStitch Checklists",
+            "Run a checklist without opening the app.",
+            "Run any of your checklists without opening the app.",
+            "Checklist",
+            "Checklists",
+            "Pick the checklist this widget runs.",
+            "Pick the checklists this widget runs.",
+            "Create reminders",
+            "Open CheckStitch to enable",
+            "Open CheckStitch to buy a license",
+            "No checklists",
+            "Edit this widget to pick a checklist",
         ]),
     ]
 

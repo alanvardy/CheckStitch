@@ -22,6 +22,7 @@ CATALOGS = {
     "App": Path("CheckStitch/Localizable.xcstrings"),
     "Core": Path("CheckStitchCore/Sources/CheckStitchCore/Resources/Localizable.xcstrings"),
     "Watch": Path("CheckStitchWatch/Localizable.xcstrings"),
+    "Widget": Path("CheckStitchWidget/Localizable.xcstrings"),
 }
 
 fixtures = Path("CheckStitchTests/LocalizationFixtures.swift").read_text()
