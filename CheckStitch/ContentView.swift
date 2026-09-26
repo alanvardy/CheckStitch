@@ -29,6 +29,8 @@ struct ContentView: View {
     @State private var isCreatingFolder = false
     /// Buffered folder name behind the create alert's text field.
     @State private var folderNameInput = ""
+    /// The folder being renamed, or `nil` when the rename alert is hidden.
+    @State private var folderBeingRenamed: Folder?
 
     var body: some View {
         ZStack {
@@ -277,6 +279,20 @@ struct ContentView: View {
             Button("Cancel", role: .cancel) {}
             Button("Done") { listVM.createFolder(name: folderNameInput) }
                 .accessibilityIdentifier("confirmFolderButton")
+        }
+        // Rename-folder alert, separate from the create alert so the two text
+        // fields never bind the same input simultaneously.
+        .alert("Rename Folder",
+               isPresented: Binding(get: { folderBeingRenamed != nil },
+                                    set: { if !$0 { folderBeingRenamed = nil } })) {
+            TextField("Folder Name", text: $folderNameInput)
+                .accessibilityIdentifier("folderNameField")
+            Button("Cancel", role: .cancel) { folderBeingRenamed = nil }
+            Button("Done") {
+                if let folder = folderBeingRenamed { listVM.renameFolder(id: folder.id, to: folderNameInput) }
+                folderBeingRenamed = nil
+            }
+            .accessibilityIdentifier("confirmFolderButton")
         }
         // Leave edit mode when the last checklist goes: the empty state has no
         // toggle, so a later create must not open into a stale edit state.
@@ -534,9 +550,41 @@ struct ContentView: View {
         HStack(spacing: 12) {
             Image(systemName: "folder")
             Text(folder.name).frame(maxWidth: .infinity, alignment: .leading)
+            if isEditing { folderEditControls(for: folder) }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    /// Trailing per-folder rename/reorder controls in edit mode, mirroring the
+    /// chevron shape of `checklistMoveControls`. The first folder cannot move up
+    /// and the last cannot move down, so those chevrons are disabled.
+    @ViewBuilder
+    private func folderEditControls(for folder: Folder) -> some View {
+        HStack(spacing: 4) {
+            Button { folderNameInput = folder.name; folderBeingRenamed = folder } label: {
+                Image(systemName: "pencil")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Rename Folder")
+            .accessibilityIdentifier("renameFolder-\(folder.id.uuidString)")
+
+            Button { withAnimation { listVM.moveFolder(id: folder.id, up: true) } } label: {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.plain)
+            .disabled(listVM.folders.first?.id == folder.id)
+            .accessibilityLabel("Move up")
+            .accessibilityIdentifier("moveFolderUp-\(folder.id.uuidString)")
+
+            Button { withAnimation { listVM.moveFolder(id: folder.id, up: false) } } label: {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.plain)
+            .disabled(listVM.folders.last?.id == folder.id)
+            .accessibilityLabel("Move down")
+            .accessibilityIdentifier("moveFolderDown-\(folder.id.uuidString)")
+        }
     }
 
     /// The heading over the loose group, shown only once a folder exists.
