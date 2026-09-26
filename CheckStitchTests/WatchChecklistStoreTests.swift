@@ -25,6 +25,22 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
+    func contextCarriesFoldersToTheWatch() throws {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        store.start()
+
+        let folder = Folder(name: "Errands")
+        let checklists = [Checklist(name: "Groceries", folderID: folder.id)]
+        transport.deliver(.context(try ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "",
+            checklists: checklists, folders: [folder]))))
+
+        #expect(store.folders == [folder])
+        #expect(store.checklists == checklists)
+    }
+
+    @Test
     func v2ContextStillPopulatesTheList() throws {
         let transport = FakeChecklistSyncTransport()
         let store = WatchChecklistStore(transport: transport)

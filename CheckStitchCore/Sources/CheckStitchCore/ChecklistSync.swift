@@ -261,6 +261,8 @@ public final class WatchChecklistStore {
     }
 
     public private(set) var checklists: [Checklist] = []
+    /// Mirror of the phone's folder set, delivered with each context push.
+    public private(set) var folders: [Folder] = []
     /// Every run awaiting a phone result, keyed by run id. Replaces the
     /// write-only `pendingRunID`: a run issued before the session is usable is
     /// retained and re-sent on activation, and cleared only by its result.
@@ -344,10 +346,12 @@ public final class WatchChecklistStore {
             switch ChecklistCodec.classify(data) {
             case .loaded(let envelope):
                 checklists = envelope.checklists
+                folders = envelope.folders
             case .migratable(let from, let envelope) where from >= 2:
                 // v2/v3 contexts carry sync state; accept rather than blanking
                 // the list. Display order comes from `items`, which is intact.
                 checklists = envelope.checklists
+                folders = envelope.folders
             default:
                 break
             }
