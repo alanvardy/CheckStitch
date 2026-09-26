@@ -778,11 +778,128 @@ struct ChecklistMergeTests {
 
         #expect(merged.checklists.first?.prefixesReminderNumbers == true, "an older revision must not leak its numbering in")
     }
+
+    @Test
+    func remoteOnlyFolderIsUnited() {
+        let folderID = UUID()
+        let localID = UUID()
+        let local = envelope(device: "device-a", checklists: [
+            checklist(id: localID, name: "local", revision: 1),
+        ])
+        let remote = envelope(device: "device-b", folders: [
+            folder(id: folderID, name: "Home", revision: 1),
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.folders.map(\.id) == [folderID], "the remote-only folder is united")
+        #expect(merged.folders.map(\.name) == ["Home"])
+        #expect(merged.checklists.map(\.id) == [localID], "local checklists are untouched")
+    }
+
+    @Test
+    func folderNameConflictResolvesByWins() {
+        let folderID = UUID()
+        let newer = folder(id: folderID, name: "A", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        let older = folder(id: folderID, name: "B", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+
+        let localFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-a", folders: [newer]),
+            remote: envelope(device: "device-b", folders: [older])
+        )
+        let remoteFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-a", folders: [older]),
+            remote: envelope(device: "device-b", folders: [newer])
+        )
+
+        #expect(localFirst.folders.first?.name == "A", "the higher-revision name wins")
+        #expect(remoteFirst.folders.first?.name == "A", "... in either argument order")
+    }
+
+    @Test
+    func folderTombstoneRemovesTheFolderAndKeepsItsMembers() {
+        let folderID = UUID()
+        let checklistID = UUID()
+        var member = checklist(id: checklistID, name: "member", revision: 1)
+        member.folderID = folderID
+        let local = envelope(device: "device-a",
+            checklists: [member],
+            folders: [folder(id: folderID, name: "Home", revision: 1)])
+        let remote = envelope(device: "device-b",
+            folderTombstones: [FolderTombstone(folderID: folderID, deletedAt: Date(timeIntervalSince1970: 2), revision: 2)])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.folders.isEmpty, "the folder is pruned")
+        #expect(merged.folderTombstones.map(\.folderID) == [folderID], "the tombstone is carried")
+        #expect(merged.checklists.map(\.id) == [checklistID], "members are never dropped")
+        #expect(merged.checklists.first?.folderID == folderID, "the member keeps its (dangling) folder id")
+    }
+
+    @Test
+    func mergingTheSameFolderEnvelopeTwiceIsANoOp() {
+        let folderID = UUID()
+        let local = envelope(device: "device-a", folders: [
+            folder(id: folderID, name: "Home", revision: 2),
+        ])
+        let remote = envelope(device: "device-b", folders: [
+            folder(id: folderID, name: "Home", revision: 1),
+        ])
+
+        let once = ChecklistMerge.merge(local: local, remote: remote)
+        let twice = ChecklistMerge.merge(local: once, remote: remote)
+
+        #expect(twice == once, "re-merging the same folder envelope is a no-op")
+    }
+
+    @Test
+    func checklistCarryingAnUnknownFolderIDSurvives() {
+        let id = UUID()
+        let unknownFolder = UUID()
+        var remoteChecklist = checklist(id: id, name: "member", revision: 1)
+        remoteChecklist.folderID = unknownFolder
+        let local = envelope(device: "device-a")
+        let remote = envelope(device: "device-b", checklists: [
+            remoteChecklist,
+        ])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.checklists.map(\.id) == [id], "the checklist survives")
+        #expect(merged.checklists.first?.folderID == unknownFolder, "the unknown folder id is intact")
+        #expect(merged.folders.isEmpty)
+    }
+
+    @Test
+    func folderTombstoneBeatsALowerRevisionLiveFolder() {
+        let folderID = UUID()
+        let local = envelope(device: "device-a", folders: [
+            folder(id: folderID, name: "Home", revision: 1),
+        ])
+        let remote = envelope(device: "device-b",
+            folderTombstones: [FolderTombstone(folderID: folderID, deletedAt: Date(timeIntervalSince1970: 2), revision: 2)])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.folders.isEmpty, "a higher-revision tombstone prunes the live folder")
+        #expect(merged.folderTombstones.map(\.folderID) == [folderID], "the tombstone is carried")
+    }
 }
 
 @MainActor
-func envelope(device: String, checklists: [Checklist] = [], tombstones: [ChecklistTombstone] = []) -> ChecklistEnvelope {
-    ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: device, checklists: checklists, tombstones: tombstones)
+func envelope(device: String,
+              checklists: [Checklist] = [],
+              tombstones: [ChecklistTombstone] = [],
+              folders: [Folder] = [],
+              folderTombstones: [FolderTombstone] = []) -> ChecklistEnvelope {
+    ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: device,
+                      checklists: checklists, tombstones: tombstones,
+                      folders: folders, folderTombstones: folderTombstones)
+}
+
+@MainActor
+func folder(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPast) -> Folder {
+    Folder(id: id, name: name, modifiedAt: modifiedAt, revision: revision)
 }
 
 @MainActor
