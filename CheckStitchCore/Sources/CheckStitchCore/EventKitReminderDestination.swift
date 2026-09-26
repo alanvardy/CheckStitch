@@ -1,4 +1,3 @@
-import CheckStitchCore
 import EventKit
 import Foundation
 
@@ -7,18 +6,18 @@ import Foundation
 /// it must outlive every reminder it creates (`EKReminder` holds a weak
 /// reference to its store).
 @MainActor
-final class EventKitReminderDestination: ReminderDestinationTargeting {
-    static let shared = EventKitReminderDestination()
+public final class EventKitReminderDestination: ReminderDestinationTargeting {
+    public static let shared = EventKitReminderDestination()
 
-    init(eventStore: EKEventStore = EKEventStore()) {
+    public init(eventStore: EKEventStore = EKEventStore()) {
         self.eventStore = eventStore
     }
 
-    func requestAccess() async throws -> Bool {
+    public func requestAccess() async throws -> Bool {
         try await eventStore.requestFullAccessToReminders()
     }
 
-    func accessStatus() -> ReminderAccessStatus {
+    public func accessStatus() -> ReminderAccessStatus {
         switch EKEventStore.authorizationStatus(for: .reminder) {
         case .fullAccess: return .fullAccess
         case .notDetermined: return .notDetermined
@@ -27,7 +26,7 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
         }
     }
 
-    func reminderLists() async throws -> ReminderListsSnapshot {
+    public func reminderLists() async throws -> ReminderListsSnapshot {
         ReminderListsSnapshot(
             options: eventStore.calendars(for: .reminder).compactMap { calendar in
                 let identifier = calendar.calendarIdentifier
@@ -37,8 +36,8 @@ final class EventKitReminderDestination: ReminderDestinationTargeting {
             defaultIdentifier: eventStore.defaultCalendarForNewReminders()?.calendarIdentifier)
     }
 
-    func create(title: String, notes: String?, priority: ChecklistItemPriority,
-                in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {
+    public func create(title: String, notes: String?, priority: ChecklistItemPriority,
+                       in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {
         // Re-resolve by identifier: a list deleted between pre-validation and
         // creation must throw rather than silently fall back to a nil calendar.
         guard let calendar = eventStore.calendars(for: .reminder)

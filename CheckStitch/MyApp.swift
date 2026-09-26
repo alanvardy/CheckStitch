@@ -32,6 +32,12 @@ import SwiftUI
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Inject the StoreKit-backed purchase service before any consumer
+        // (view models, gate) reads `PurchaseEnvironment.service`. Core holds a
+        // StoreKit-free default so out-of-app processes (widgets, Siri) link.
+        PurchaseEnvironment.service = PurchaseService(
+            provider: StoreKitPurchaseService(),
+            cache: PurchaseEntitlementCache(defaults: AppGroup.defaults))
         let store = ChecklistStore()
         let syncService = ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store)
         syncService.start()
@@ -130,13 +136,4 @@ import SwiftUI
             }
         #endif
     }
-}
-
-/// The one purchase service the UI, the intent and the sync coordinator share.
-/// Defined here (app target) because `StoreKitPurchaseService` is app-side while
-/// `PurchaseService` lives in Core.
-enum PurchaseEnvironment {
-    static let service = PurchaseService(
-        provider: StoreKitPurchaseService(),
-        cache: PurchaseEntitlementCache(defaults: AppGroup.defaults))
 }

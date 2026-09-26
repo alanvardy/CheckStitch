@@ -1,13 +1,12 @@
-import CheckStitchCore
 import Foundation
 import os
 
-@Observable
-final class ChecklistStore {
+@MainActor @Observable
+public final class ChecklistStore {
     /// Whether a `rename(id:to:)` call was applied, refused because another
     /// checklist already owns the requested name, or aimed at an id that no
     /// longer exists (deleted while its screen was visible).
-    enum RenameOutcome: Equatable {
+    public enum RenameOutcome: Equatable {
         case renamed
         case nameTaken
         case notFound
@@ -15,24 +14,24 @@ final class ChecklistStore {
 
     /// Whether a `setDestination(_:for:)` call was applied or aimed at an id that
     /// no longer exists (deleted while its edit screen was visible).
-    enum SetDestinationOutcome: Equatable {
+    public enum SetDestinationOutcome: Equatable {
         case updated
         case notFound
     }
 
-    private(set) var checklists: [Checklist]
+    public private(set) var checklists: [Checklist]
     /// Persisted deletion records, unioned by `ChecklistMerge`. There is no
     /// retention/GC yet, so this only grows; it is bounded in practice by human
     /// deletion volume, but a future ticket should compact tombstones once no
     /// device can still hold the pre-delete revision.
-    private(set) var tombstones: [ChecklistTombstone] = []
+    public private(set) var tombstones: [ChecklistTombstone] = []
     /// Persisted folder state, mirroring `checklists`/`tombstones`: unions under
     /// `ChecklistMerge`, loaded through the same envelope, and saved verbatim.
-    private(set) var folders: [Folder] = []
-    private(set) var folderTombstones: [FolderTombstone] = []
+    public private(set) var folders: [Folder] = []
+    public private(set) var folderTombstones: [FolderTombstone] = []
     /// Invoked after every persisted save, except saves that are applying remote
     /// state (the coordinator pushes those itself).
-    @ObservationIgnored var onChange: (() -> Void)?
+    @ObservationIgnored public var onChange: (() -> Void)?
     @ObservationIgnored private var isApplyingRemote = false
 
     private let defaults: UserDefaults
@@ -47,10 +46,10 @@ final class ChecklistStore {
     @ObservationIgnored private var pendingSave: Task<Void, Never>?
     /// Stable per-install identifier stamped into every encoded envelope, so a
     /// merge can tell two producers apart (see `ChecklistMerge`).
-    let deviceID: String
+    public let deviceID: String
     @ObservationIgnored private let now: () -> Date
 
-    init(
+    public init(
         defaults: UserDefaults = AppGroup.defaults,
         key: String = "checklists.v1",
         textEditDelay: Duration? = .milliseconds(300),
@@ -116,7 +115,7 @@ final class ChecklistStore {
 
     /// The current payload as a versioned envelope: the only thing the store
     /// ever encodes, keeping "store is the only encoder" literally true.
-    var envelope: ChecklistEnvelope {
+    public var envelope: ChecklistEnvelope {
         ChecklistEnvelope(version: ChecklistCodec.currentVersion,
                           deviceID: deviceID,
                           checklists: checklists,
@@ -127,18 +126,18 @@ final class ChecklistStore {
 
     /// Whether remote sync state may be folded into the local payload. False
     /// only when the stored payload came from a newer app version.
-    var canAcceptRemoteChanges: Bool { canOverwriteStoredPayload }
+    public var canAcceptRemoteChanges: Bool { canOverwriteStoredPayload }
 
     private static let deviceIDKey = "checklist.deviceID"
 
-    func checklist(id: UUID) -> Checklist? {
+    public func checklist(id: UUID) -> Checklist? {
         checklists.first { $0.id == id }
     }
 
     /// The first checklist whose name collides with `name` under the store's
     /// trimmed, case-insensitive comparison, or `nil` when the name is free. The
     /// import flow's conflict primitive — `sameName` stays private.
-    func conflictingChecklist(named name: String) -> Checklist? {
+    public func conflictingChecklist(named name: String) -> Checklist? {
         checklists.first { Self.sameName($0.name, name) }
     }
 
@@ -147,7 +146,7 @@ final class ChecklistStore {
     /// `"New checklist 3"`, … Creation therefore always succeeds and returns
     /// the checklist to open.
     @discardableResult
-    func create(name: String = "New checklist") -> Checklist {
+    public func create(name: String = "New checklist") -> Checklist {
         let checklist = Checklist(name: Self.uniqueName(basedOn: name, taken: checklists.map(\.name)), modifiedAt: now(), revision: 1)
         checklists.append(checklist)
         save()
@@ -157,7 +156,7 @@ final class ChecklistStore {
     /// The name a duplicate is offered by default: the source name plus a
     /// literal " copy", left for `uniqueName` to disambiguate on commit — a
     /// second copy of "Groceries" is therefore offered as "Groceries copy 2".
-    static func duplicateName(basedOn sourceName: String) -> String {
+    public static func duplicateName(basedOn sourceName: String) -> String {
         "\(sourceName) copy"
     }
 
@@ -169,7 +168,7 @@ final class ChecklistStore {
     /// no-op. A blank (whitespace- or newline-only) name falls back to the
     /// offered default.
     @discardableResult
-    func duplicate(id: UUID, name: String) -> Checklist? {
+    public func duplicate(id: UUID, name: String) -> Checklist? {
         guard let source = checklists.first(where: { $0.id == id }) else { return nil }
         let requested = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? Self.duplicateName(basedOn: source.name)
@@ -212,7 +211,7 @@ final class ChecklistStore {
     /// non-destructive "Keep Both" path; pass `name` to force one. Never re-enters
     /// the LWW merge. Returns the new id.
     @discardableResult
-    func importInsert(_ checklist: Checklist, as name: String? = nil) -> UUID {
+    public func importInsert(_ checklist: Checklist, as name: String? = nil) -> UUID {
         var copy = freshCopy(of: checklist)
         copy.name = name ?? Self.uniqueName(basedOn: copy.name, taken: checklists.map(\.name))
         checklists.append(copy)
@@ -226,7 +225,7 @@ final class ChecklistStore {
     /// replace is one push. Returns the new id, or `nil` when the local checklist
     /// no longer exists (silent no-op, mirroring `delete`).
     @discardableResult
-    func importReplace(id: UUID, with checklist: Checklist) -> UUID? {
+    public func importReplace(id: UUID, with checklist: Checklist) -> UUID? {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return nil }
         let removed = checklists.remove(at: index)
         tombstones.append(ChecklistTombstone(
@@ -243,7 +242,7 @@ final class ChecklistStore {
     /// always allowed. Callers commit this on Done rather than per keystroke,
     /// so the conflict is surfaced once the user confirms the name.
     @discardableResult
-    func rename(id: UUID, to name: String) -> RenameOutcome {
+    public func rename(id: UUID, to name: String) -> RenameOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
         guard checklists.first(where: { $0.id != id && Self.sameName($0.name, name) }) == nil else {
             return .nameTaken
@@ -259,7 +258,7 @@ final class ChecklistStore {
     /// whether it applied. Follows `rename`: bump revision + `modifiedAt`, then
     /// persist through the coalescing path.
     @discardableResult
-    func setDestination(_ identifier: String?, for id: UUID) -> SetDestinationOutcome {
+    public func setDestination(_ identifier: String?, for id: UUID) -> SetDestinationOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
         checklists[index].destinationListIdentifier = identifier
         checklists[index].revision += 1
@@ -274,7 +273,7 @@ final class ChecklistStore {
     /// last-write-wins rule as the name and destination. An unchanged value is a
     /// no-op, so re-rendering the toggle never manufactures a spurious LWW win.
     @discardableResult
-    func setPrefixesReminderNumbers(_ enabled: Bool, for id: UUID) -> SetDestinationOutcome {
+    public func setPrefixesReminderNumbers(_ enabled: Bool, for id: UUID) -> SetDestinationOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
         guard checklists[index].prefixesReminderNumbers != enabled else { return .updated }
         checklists[index].prefixesReminderNumbers = enabled
@@ -310,7 +309,7 @@ final class ChecklistStore {
     /// once with that name: a single `revision: 1` create, so the title clock
     /// records add-time. Existing callers without a name to offer keep the
     /// generic default through the `addItem(to:)` overload.
-    func addItem(to id: UUID, title: String) {
+    public func addItem(to id: UUID, title: String) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
         let item = ChecklistItem(title: title, modifiedAt: now(), revision: 1)
         checklists[index].items.append(item)
@@ -318,11 +317,11 @@ final class ChecklistStore {
         save()
     }
 
-    func addItem(to id: UUID) {
+    public func addItem(to id: UUID) {
         addItem(to: id, title: "New item")
     }
 
-    func updateItem(checklistID: UUID, itemID: UUID, title: String) {
+    public func updateItem(checklistID: UUID, itemID: UUID, title: String) {
         guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
@@ -338,7 +337,7 @@ final class ChecklistStore {
     /// Edits only the item's description, stamping the item's sync identity and
     /// debouncing like `updateItem`. Item ops never touch the checklist's own
     /// `revision`/`modifiedAt` (see `Checklist` doc).
-    func updateItemDescription(checklistID: UUID, itemID: UUID, description: String) {
+    public func updateItemDescription(checklistID: UUID, itemID: UUID, description: String) {
         guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
@@ -355,7 +354,7 @@ final class ChecklistStore {
     /// beside `updateItem(checklistID:itemID:title:)` without ambiguity. An
     /// unchanged value is a no-op — this is what stops a text field re-committing
     /// the same parse from bumping `revision` and winning a spurious LWW round.
-    func updateItem(checklistID: UUID, itemID: UUID, relativeDate: Int?) {
+    public func updateItem(checklistID: UUID, itemID: UUID, relativeDate: Int?) {
         guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
@@ -372,7 +371,7 @@ final class ChecklistStore {
     /// Sets an item's priority. A discrete pick, so like `relativeDate` an
     /// unchanged value is a no-op (never a spurious LWW win), and the save
     /// debounces like the other field edits.
-    func updateItem(checklistID: UUID, itemID: UUID, priority: ChecklistItemPriority) {
+    public func updateItem(checklistID: UUID, itemID: UUID, priority: ChecklistItemPriority) {
         guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
               let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
         else { return }
@@ -386,7 +385,7 @@ final class ChecklistStore {
         scheduleSave()
     }
 
-    func removeItems(from id: UUID, at offsets: IndexSet) {
+    public func removeItems(from id: UUID, at offsets: IndexSet) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
         for offset in offsets.sorted(by: >) {
             guard checklists[index].items.indices.contains(offset) else { continue }
@@ -403,7 +402,7 @@ final class ChecklistStore {
     /// persisted once, so a multi-row removal is one save and one sync push.
     /// Out-of-range offsets are skipped; an all-out-of-range or empty set is a
     /// silent no-op (no tombstone, no save).
-    func removeChecklists(at offsets: IndexSet) {
+    public func removeChecklists(at offsets: IndexSet) {
         let removed = offsets.compactMap { checklists.indices.contains($0) ? checklists[$0] : nil }
         guard !removed.isEmpty else { return }
         for index in offsets.sorted(by: >) where checklists.indices.contains(index) {
@@ -438,7 +437,7 @@ final class ChecklistStore {
     /// `revision` are untouched, so a pure reorder is never mistaken for an item
     /// edit. Unknown checklist ids and out-of-range offsets/destinations are
     /// silent no-ops.
-    func moveItems(checklistID: UUID, from offsets: IndexSet, to destination: Int) {
+    public func moveItems(checklistID: UUID, from offsets: IndexSet, to destination: Int) {
         guard let index = checklists.firstIndex(where: { $0.id == checklistID }) else { return }
         guard let items = Self.moved(checklists[index].items, from: offsets, to: destination) else { return }
         checklists[index].items = items
@@ -454,7 +453,7 @@ final class ChecklistStore {
     /// `ChecklistMerge` keeps local order (remote-only checklists append), so a
     /// reorder is local-first by design and needs no revision bump.
     /// Out-of-range offsets/destinations are silent no-ops.
-    func moveChecklists(from offsets: IndexSet, to destination: Int) {
+    public func moveChecklists(from offsets: IndexSet, to destination: Int) {
         guard let reordered = Self.moved(checklists, from: offsets, to: destination) else { return }
         checklists = reordered
         save()
@@ -465,7 +464,7 @@ final class ChecklistStore {
     /// nil or whitespace-only request falls back to "New Folder", so the create
     /// alert can never leave a folder with a blank header.
     @discardableResult
-    func createFolder(name: String? = nil) -> Folder {
+    public func createFolder(name: String? = nil) -> Folder {
         let requested = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let folder = Folder(name: Self.uniqueName(basedOn: requested.isEmpty ? "New Folder" : requested, taken: folders.map(\.name)),
                             modifiedAt: now(), revision: 1)
@@ -480,7 +479,7 @@ final class ChecklistStore {
     /// Returns false for an unknown checklist or unknown folder; an unchanged
     /// membership is a no-op (never a spurious LWW win).
     @discardableResult
-    func moveChecklist(id: UUID, toFolder folderID: UUID?) -> Bool {
+    public func moveChecklist(id: UUID, toFolder folderID: UUID?) -> Bool {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return false }
         if let folderID, !folders.contains(where: { $0.id == folderID }) { return false }
         guard checklists[index].folderID != folderID else { return true }
@@ -495,7 +494,7 @@ final class ChecklistStore {
     /// folders (so re-confirming a folder's own name is a no-op, never " 2") and
     /// keeping the exact `rename` shape: bump revision + `modifiedAt`, then one save.
     @discardableResult
-    func renameFolder(id: UUID, to name: String) -> Folder? {
+    public func renameFolder(id: UUID, to name: String) -> Folder? {
         guard let index = folders.firstIndex(where: { $0.id == id }) else { return nil }
         // A blank request is a no-op: never blank a folder's header.
         let requested = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -515,7 +514,7 @@ final class ChecklistStore {
     /// flag is a no-op, never a spurious LWW win. Returns false for an unknown
     /// folder.
     @discardableResult
-    func setFolderCollapsed(id: UUID, _ isCollapsed: Bool) -> Bool {
+    public func setFolderCollapsed(id: UUID, _ isCollapsed: Bool) -> Bool {
         guard let index = folders.firstIndex(where: { $0.id == id }) else { return false }
         guard folders[index].isCollapsed != isCollapsed else { return true }
         folders[index].isCollapsed = isCollapsed
@@ -528,7 +527,7 @@ final class ChecklistStore {
     /// Reorders folders. Folder order *is* the persisted array order and merge
     /// keeps local order (remote-only appends), so — exactly like
     /// `moveChecklists` — this is local-first and stamps no revision.
-    func moveFolders(from offsets: IndexSet, to destination: Int) {
+    public func moveFolders(from offsets: IndexSet, to destination: Int) {
         guard let reordered = Self.moved(folders, from: offsets, to: destination) else { return }
         folders = reordered
         save()
@@ -538,7 +537,7 @@ final class ChecklistStore {
     /// (each member's coarse clock bumps so the orphan wins the LWW round), and
     /// one grow-only `FolderTombstone` blocks resurrection. Never writes
     /// checklist tombstones — the checklists survive.
-    func deleteFolder(id: UUID) {
+    public func deleteFolder(id: UUID) {
         guard let index = folders.firstIndex(where: { $0.id == id }) else { return }
         let removed = folders.remove(at: index)
         let deletedAt = now()
@@ -552,7 +551,7 @@ final class ChecklistStore {
     }
 
     /// Local-only: reminders already created in Reminders are never touched.
-    func delete(id: UUID) {
+    public func delete(id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
         let removed = checklists.remove(at: index)
         tombstones.append(ChecklistTombstone(
@@ -564,7 +563,7 @@ final class ChecklistStore {
     /// when the stored payload came from a newer app version, preserving the
     /// never-overwrite-newer guard. Returns whether visible state changed.
     @discardableResult
-    func apply(remote: ChecklistEnvelope) -> Bool {
+    public func apply(remote: ChecklistEnvelope) -> Bool {
         guard canOverwriteStoredPayload else { return false }
         // Defensive: the service already rejects non-current versions via
         // `classify`, but a future caller must never merge a foreign shape.
@@ -588,7 +587,7 @@ final class ChecklistStore {
     /// Persists any coalesced text edit immediately. Called when the screen is
     /// dismissed and when the app leaves the foreground, so the debounce window
     /// can never outlive the user's session.
-    func flushPendingSave() {
+    public func flushPendingSave() {
         guard let pending = pendingSave else { return }
         pendingSave = nil
         pending.cancel()
