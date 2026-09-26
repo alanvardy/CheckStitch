@@ -27,7 +27,7 @@ enum ChecklistWidgetLoader {
     }
 }
 
-struct SingleChecklistProvider: TimelineProvider {
+struct SingleChecklistProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> ChecklistEntry {
         ChecklistEntry(
             date: .now,
@@ -37,18 +37,19 @@ struct SingleChecklistProvider: TimelineProvider {
                 access: .ready))
     }
 
-    func getSnapshot(in context: Context, completion: @escaping @Sendable (ChecklistEntry) -> Void) {
-        Task { @MainActor in
-            completion(ChecklistEntry(date: .now, model: ChecklistWidgetLoader.load(configuration: [])))
+    func snapshot(for configuration: ChecklistConfigurationIntent, in context: Context) async -> ChecklistEntry {
+        let model = await MainActor.run {
+            ChecklistWidgetLoader.load(configuration: configuration.checklist.map { [$0] } ?? [])
         }
+        return ChecklistEntry(date: .now, model: model)
     }
 
-    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<ChecklistEntry>) -> Void) {
-        Task { @MainActor in
-            let entry = ChecklistEntry(date: .now, model: ChecklistWidgetLoader.load(configuration: []))
-            completion(Timeline(entries: [entry],
-                                policy: .after(.now.addingTimeInterval(15 * 60))))
+    func timeline(for configuration: ChecklistConfigurationIntent, in context: Context) async -> Timeline<ChecklistEntry> {
+        let model = await MainActor.run {
+            ChecklistWidgetLoader.load(configuration: configuration.checklist.map { [$0] } ?? [])
         }
+        return Timeline(entries: [ChecklistEntry(date: .now, model: model)],
+                        policy: .after(.now.addingTimeInterval(15 * 60)))
     }
 }
 
@@ -56,7 +57,7 @@ struct SingleChecklistWidget: Widget {
     static let kind = "SingleChecklistWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: SingleChecklistProvider()) { entry in
+        AppIntentConfiguration(kind: Self.kind, intent: ChecklistConfigurationIntent.self, provider: SingleChecklistProvider()) { entry in
             SingleChecklistWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
