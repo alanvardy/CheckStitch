@@ -128,4 +128,30 @@ struct ChecklistListViewModelTests {
         #expect(listVM.checklists(in: nil).map(\.id) == [id])
         #expect(listVM.folders.isEmpty)
     }
+
+    @Test
+    func moveFolderUpReordersFolders() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createFolder(name: "Work")
+        let second = viewModel.createFolder(name: "Personal")
+        viewModel.moveFolder(id: second, up: true)
+        #expect(viewModel.folders.map(\.id) == [second, first])
+    }
+
+    @Test
+    func moveFolderDownReordersFolders() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createFolder(name: "Work")
+        let second = viewModel.createFolder(name: "Personal")
+        viewModel.moveFolder(id: first, up: false)
+        #expect(viewModel.folders.map(\.id) == [second, first])
+    }
+
+    @Test
+    func renameFolderReflects() {
+        let viewModel = makeViewModel()
+        let folder = viewModel.createFolder(name: "Work")
+        viewModel.renameFolder(id: folder, to: "Chores")
+        #expect(viewModel.folders.first?.name == "Chores")
+    }
 }

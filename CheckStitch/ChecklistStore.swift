@@ -488,6 +488,30 @@ final class ChecklistStore {
         return true
     }
 
+    /// Renames a folder, disambiguating the requested name against the *other*
+    /// folders (so re-confirming a folder's own name is a no-op, never " 2") and
+    /// keeping the exact `rename` shape: bump revision + `modifiedAt`, then one save.
+    @discardableResult
+    func renameFolder(id: UUID, to name: String) -> Folder? {
+        guard let index = folders.firstIndex(where: { $0.id == id }) else { return nil }
+        let disambiguated = Self.uniqueName(basedOn: name, taken: folders.filter { $0.id != id }.map(\.name))
+        guard !Self.sameName(folders[index].name, disambiguated) else { return folders[index] }
+        folders[index].name = disambiguated
+        folders[index].revision += 1
+        folders[index].modifiedAt = now()
+        save()
+        return folders[index]
+    }
+
+    /// Reorders folders. Folder order *is* the persisted array order and merge
+    /// keeps local order (remote-only appends), so — exactly like
+    /// `moveChecklists` — this is local-first and stamps no revision.
+    func moveFolders(from offsets: IndexSet, to destination: Int) {
+        guard let reordered = Self.moved(folders, from: offsets, to: destination) else { return }
+        folders = reordered
+        save()
+    }
+
     /// Local-only: reminders already created in Reminders are never touched.
     func delete(id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }

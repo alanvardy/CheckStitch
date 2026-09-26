@@ -2062,6 +2062,74 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklist(id: checklist.id)?.revision, before)
     }
 
+    func testRenameFolderPersistsAndDisambiguates() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.createFolder(name: "Work")
+        let second = store.createFolder(name: "Personal")
+        let before = second.revision
+
+        let renamed = store.renameFolder(id: second.id, to: "Work")!
+        XCTAssertEqual(renamed.name, "Work 2")
+        XCTAssertEqual(renamed.revision, before + 1)
+        XCTAssertEqual(store.folders.map(\.name), ["Work", "Work 2"])
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.folders.map(\.name), ["Work", "Work 2"])
+        XCTAssertEqual(reloaded.folders.first { $0.id == second.id }?.revision ?? 0, before + 1)
+    }
+
+    func testRenameFolderToItsOwnNameIsANoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+        let before = folder.revision
+
+        let same = store.renameFolder(id: folder.id, to: "Work")!
+        let trimmed = store.renameFolder(id: folder.id, to: "  Work  ")!
+
+        XCTAssertEqual(same.revision, before)
+        XCTAssertEqual(trimmed.revision, before)
+        XCTAssertEqual(store.folders.map(\.name), ["Work"])
+    }
+
+    func testMoveFoldersReordersAndPersists() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let work = store.createFolder(name: "Work")
+        let personal = store.createFolder(name: "Personal")
+
+        store.moveFolders(from: IndexSet(integer: 1), to: 0)
+
+        XCTAssertEqual(store.folders.map(\.name), ["Personal", "Work"])
+        // A pure reorder stamps no revision on either folder.
+        XCTAssertEqual(store.folders.first { $0.id == work.id }?.revision ?? 0, 1)
+        XCTAssertEqual(store.folders.first { $0.id == personal.id }?.revision ?? 0, 1)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.folders.map(\.name), ["Personal", "Work"])
+    }
+
+    func testMoveFoldersOutOfRangeIsANoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.createFolder(name: "Work")
+        store.createFolder(name: "Personal")
+
+        store.moveFolders(from: IndexSet(integer: 5), to: 0)
+        store.moveFolders(from: IndexSet(integer: 0), to: 99)
+
+        XCTAssertEqual(store.folders.map(\.name), ["Work", "Personal"])
+    }
+
     func testV4PayloadLoadsWithNoFolders() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

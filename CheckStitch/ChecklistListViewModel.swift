@@ -42,6 +42,15 @@ final class ChecklistListViewModel {
         store.moveChecklist(id: id, toFolder: folderID)
     }
 
+    func renameFolder(id: UUID, to name: String) {
+        store.renameFolder(id: id, to: name)
+    }
+
+    func moveFolder(id: UUID, up: Bool) {
+        guard let index = store.folders.firstIndex(where: { $0.id == id }) else { return }
+        store.moveFolders(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
+    }
+
     /// Creates a checklist and returns the new id. `store.create()` disambiguates
     /// a duplicate name ("New checklist 2") rather than failing, so there is
     /// always a checklist to open.
