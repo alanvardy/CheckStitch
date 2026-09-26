@@ -72,10 +72,11 @@ enum Catalogs {
         .deletingLastPathComponent() // CheckStitchTests/
         .deletingLastPathComponent() // repo root
 
-    /// The three catalogs under test.
+    /// The four catalogs under test.
     static let all: [(name: String, url: URL)] = [
         ("App", repoRoot.appendingPathComponent("CheckStitch/Localizable.xcstrings")),
         ("Watch", repoRoot.appendingPathComponent("CheckStitchWatch/Localizable.xcstrings")),
+        ("Widget", repoRoot.appendingPathComponent("CheckStitchWidget/Localizable.xcstrings")),
         ("Core", repoRoot.appendingPathComponent(
             "CheckStitchCore/Sources/CheckStitchCore/Resources/Localizable.xcstrings")),
     ]

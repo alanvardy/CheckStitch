@@ -106,3 +106,16 @@ struct SingleChecklistWidgetView: View {
         return intent
     }
 }
+
+// MARK: - Previews
+
+#Preview("Checklist", as: .systemSmall) {
+    SingleChecklistWidget()
+} timeline: {
+    ChecklistEntry(
+        date: Date(),
+        model: ChecklistWidgetDisplayModel(
+            checklists: [Checklist(name: "Groceries")],
+            configuration: [ChecklistEntity(id: UUID().uuidString, name: "Groceries")],
+            access: .ready))
+}

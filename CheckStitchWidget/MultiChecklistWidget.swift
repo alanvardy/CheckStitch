@@ -50,25 +50,30 @@ struct MultiChecklistWidgetView: View {
     let entry: ChecklistEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(entry.model.rows) { row in
-                HStack {
-                    Text(row.name).font(.body).lineLimit(1)
-                    Spacer()
-                    if row.isRunnable {
-                        Button(intent: runIntent(for: row)) {
-                            Image(systemName: "play.circle.fill")
+        if entry.model.rows.isEmpty {
+            Text("Edit this widget to pick a checklist").font(.caption)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(entry.model.rows) { row in
+                    HStack {
+                        Text(row.name).font(.body).lineLimit(1)
+                        Spacer()
+                        if row.isRunnable {
+                            Button(intent: runIntent(for: row)) {
+                                Image(systemName: "play.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Label("Open CheckStitch to enable", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
                         }
-                        .buttonStyle(.plain)
-                    } else {
-                        Label("Open CheckStitch to enable", systemImage: "exclamationmark.triangle")
-                            .font(.caption)
                     }
+                    .widgetURL(row.needsAccess ? URL(string: "checkstitch://") : nil)
                 }
-                .widgetURL(row.needsAccess ? URL(string: "checkstitch://") : nil)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     @MainActor
@@ -77,4 +82,18 @@ struct MultiChecklistWidgetView: View {
         intent.checklist = ChecklistEntity(id: row.entityID, name: row.name)
         return intent
     }
+}
+
+// MARK: - Previews
+
+#Preview("Checklists", as: .systemLarge) {
+    MultiChecklistWidget()
+} timeline: {
+    ChecklistEntry(
+        date: Date(),
+        model: ChecklistWidgetDisplayModel(
+            checklists: [Checklist(name: "Groceries"), Checklist(name: "Packing")],
+            configuration: [ChecklistEntity(id: UUID().uuidString, name: "Groceries"),
+                            ChecklistEntity(id: UUID().uuidString, name: "Packing")],
+            access: .ready))
 }
