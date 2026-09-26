@@ -48,4 +48,18 @@ struct ChecklistGroupingTests {
         #expect(sections.first?.folder?.id == folder.id)
         #expect(sections.first?.checklists == [])
     }
+
+    @Test
+    func emptyFolderWithLooseMembersRendersLooseLast() {
+        let folder = Folder(name: "Empty")
+        let loose = Checklist(name: "Loose")
+
+        let sections = ChecklistGrouping.sections(folders: [folder], checklists: [loose])
+
+        #expect(sections.count == 2)
+        #expect(sections[0].folder?.id == folder.id)
+        #expect(sections[0].checklists == [])
+        #expect(sections[1].folder == nil)
+        #expect(sections.last?.checklists == [loose])
+    }
 }
