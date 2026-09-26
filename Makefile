@@ -6,6 +6,8 @@ SIM ?= $(if $(SIM_FROM_WORKTREE),$(SIM_FROM_WORKTREE),platform=iOS Simulator,nam
 MAC_SIM := platform=macOS
 WATCH_SIM := generic/platform=watchOS Simulator
 WATCH_SCHEME := CheckStitchWatch
+WIDGET_SIM := generic/platform=iOS Simulator
+WIDGET_SCHEME := CheckStitchWidget
 SCHEME := CheckStitch
 CONFIGURATION := Debug
 DERIVED_DATA := DerivedData
@@ -18,7 +20,7 @@ WARNINGS_AS_ERRORS := SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_E
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
 MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
 
-.PHONY: build build-mac build-mac-signed run clean test test-unit test-ui watch-build
+.PHONY: build build-mac build-mac-signed run clean test test-unit test-ui watch-build widget-build
 
 build:
 	xcodebuild -scheme '$(SCHEME)' \
@@ -58,6 +60,16 @@ build-mac-signed:
 watch-build:
 	xcodebuild -scheme '$(WATCH_SCHEME)' \
 	  -destination '$(WATCH_SIM)' \
+	  -configuration '$(CONFIGURATION)' \
+	  -derivedDataPath '$(DERIVED_DATA)' \
+	  $(WARNINGS_AS_ERRORS) \
+	  build
+
+# The widget extension is a second iOS-only product; compile it here so a broken
+# pbxproj/widget scheme edit fails the gate.
+widget-build:
+	xcodebuild -scheme '$(WIDGET_SCHEME)' \
+	  -destination '$(WIDGET_SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
 	  $(WARNINGS_AS_ERRORS) \

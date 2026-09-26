@@ -114,6 +114,10 @@ make build-mac
 # pbxproj/watch-scheme edit that the iOS and macOS slices would miss.
 make watch-build
 
+# The widget extension is a second iOS-only product; compile it here so a broken
+# pbxproj/widget scheme edit fails the gate.
+make widget-build
+
 if [[ "${GATE_TESTS_SKIP:-}" != "1" ]]; then
   bash scripts/tests/run.sh
 fi
