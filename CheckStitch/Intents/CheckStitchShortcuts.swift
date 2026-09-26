@@ -1,4 +1,5 @@
 import AppIntents
+import CheckStitchCore
 
 struct CheckStitchShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {

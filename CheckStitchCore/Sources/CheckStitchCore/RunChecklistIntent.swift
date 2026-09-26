@@ -1,5 +1,4 @@
 import AppIntents
-import CheckStitchCore
 
 /// Thrown when the entity id no longer resolves (checklist deleted between the
 /// user's pick and `perform()`).
@@ -12,33 +11,33 @@ enum RunChecklistIntentError: LocalizedError {
     }
 }
 
-struct RunChecklistIntent: AppIntent {
-    static let title: LocalizedStringResource = "Run Checklist"
-    static let openAppWhenRun: Bool = false
+public struct RunChecklistIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Run Checklist"
+    public static let openAppWhenRun: Bool = false
 
     @Parameter(title: "Checklist")
-    var checklist: ChecklistEntity
+    public var checklist: ChecklistEntity
 
     // test seam; nil → fresh production collaborators
     private let injectedStore: ChecklistStore?
     private let injectedTargeting: (any ReminderDestinationTargeting)?
     private let injectedGate: RunGate?
 
-    init() { self.injectedStore = nil; self.injectedTargeting = nil; self.injectedGate = nil }
+    public init() { self.injectedStore = nil; self.injectedTargeting = nil; self.injectedGate = nil }
 
     @MainActor
-    init(store: ChecklistStore, targeting: ReminderDestinationTargeting, gate: RunGate) {
+    public init(store: ChecklistStore, targeting: ReminderDestinationTargeting, gate: RunGate) {
         self.injectedStore = store
         self.injectedTargeting = targeting
         self.injectedGate = gate
     }
 
-    static var parameterSummary: some ParameterSummary {
+    public static var parameterSummary: some ParameterSummary {
         Summary("Run \(\.$checklist)")
     }
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    public func perform() async throws -> some IntentResult & ProvidesDialog {
         let store = injectedStore ?? ChecklistStore(defaults: AppGroup.defaults)
         let targeting = injectedTargeting ?? EventKitReminderDestination.shared
 

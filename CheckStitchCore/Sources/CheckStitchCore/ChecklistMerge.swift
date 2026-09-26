@@ -1,4 +1,3 @@
-import CheckStitchCore
 import Foundation
 
 /// Pure, deterministic merge of two checklist envelopes. The winner rule —
@@ -11,8 +10,8 @@ import Foundation
 /// way — a folder delete is permanent (recreating a folder mints a new UUID),
 /// so a concurrent higher-revision rename loses to it. No store, no seam, no
 /// I/O: fully unit-testable in isolation.
-enum ChecklistMerge {
-    static func merge(local: ChecklistEnvelope, remote: ChecklistEnvelope) -> ChecklistEnvelope {
+public enum ChecklistMerge {
+    public static func merge(local: ChecklistEnvelope, remote: ChecklistEnvelope) -> ChecklistEnvelope {
         let tombstones = mergedTombstones(local.tombstones, remote.tombstones)
         let deadChecklists = Set(tombstones.filter { $0.itemID == nil }.map(\.checklistID))
         let itemTombstones = tombstones.filter { $0.itemID != nil }

@@ -1,12 +1,11 @@
-import CheckStitchCore
 import Foundation
 import os
 
-enum ChecklistReminders {
+@MainActor public enum ChecklistReminders {
     private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "ChecklistReminders")
 
     /// Production entry point: resolves entitlement, builds the gate, then delegates.
-    static func create(from checklist: Checklist) async -> ReminderRunOutcome {
+    public static func create(from checklist: Checklist) async -> ReminderRunOutcome {
         await create(from: checklist,
                      targeting: EventKitReminderDestination.shared,
                      gate: await productionGate())
@@ -14,16 +13,16 @@ enum ChecklistReminders {
 
     /// The gate every entry point shares: the one injected purchase service plus
     /// the durable App-Group counter.
-    static func productionGate() async -> RunGate {
+    public static func productionGate() async -> RunGate {
         let purchases = PurchaseEnvironment.service
         await purchases.start()
         return RunGate(counter: RunCounter(defaults: AppGroup.defaults),
                        isUnlocked: purchases.isUnlocked)
     }
 
-    static func create(from checklist: Checklist,
-                       targeting: ReminderDestinationTargeting,
-                       gate: RunGate) async -> ReminderRunOutcome {
+    public static func create(from checklist: Checklist,
+                              targeting: ReminderDestinationTargeting,
+                              gate: RunGate) async -> ReminderRunOutcome {
         // Gate first: reserve the slot (atomically) before any EventKit work, so
         // a refused run writes nothing and concurrent runs cannot both pass at
         // the limit. The slot is released again unless the run creates a reminder.

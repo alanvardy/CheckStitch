@@ -1,17 +1,17 @@
 import AppIntents
 
-struct ListChecklistsIntent: AppIntent {
-    static let title: LocalizedStringResource = "List My Checklists"
-    static let openAppWhenRun: Bool = false
+public struct ListChecklistsIntent: AppIntent {
+    public static let title: LocalizedStringResource = "List My Checklists"
+    public static let openAppWhenRun: Bool = false
 
     private let query: ChecklistEntityQuery
 
-    init() { self.query = ChecklistEntityQuery() }
+    public init() { self.query = ChecklistEntityQuery() }
     @MainActor
-    init(store: ChecklistStore) { self.query = ChecklistEntityQuery(store: store) }
+    public init(store: ChecklistStore) { self.query = ChecklistEntityQuery(store: store) }
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    public func perform() async throws -> some IntentResult & ProvidesDialog {
         let names = try await query.suggestedEntities().map(\.name)
         return .result(dialog: IntentDialog(ListChecklistsDialogue.message(for: names)))
     }

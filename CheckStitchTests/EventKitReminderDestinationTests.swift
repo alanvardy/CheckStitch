@@ -1,3 +1,4 @@
+import CheckStitchCore
 import EventKit
 @testable import CheckStitch
 import Testing
