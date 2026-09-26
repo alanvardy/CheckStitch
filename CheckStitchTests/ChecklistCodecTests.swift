@@ -96,7 +96,7 @@ final class ChecklistCodecTests: XCTestCase {
     }
 
     func testFutureVersionIsUnsupported() {
-        let data = Data(#"{"version":5,"checklists":[]}"#.utf8)
+        let data = Data(#"{"version":6,"checklists":[]}"#.utf8)
         XCTAssertEqual(ChecklistCodec.classify(data), .unsupportedVersion)
     }
 
@@ -161,12 +161,12 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).first?.destinationListIdentifier, "list-a")
     }
 
-    /// A v4 payload written before the per-checklist numbering field existed:
-    /// the absent key decodes to `false` (the additive-optional guarantee), so
-    /// every stored checklist keeps working without a version bump.
-    func testDecodesV4PayloadWithoutPrefixesReminderNumbersAsFalse() throws {
+    /// A current-version (v5) payload written without the per-checklist
+    /// numbering field: the absent key decodes to `false` (the additive-optional
+    /// guarantee), so every stored checklist keeps working without a version bump.
+    func testDecodesV5PayloadWithoutPrefixesReminderNumbersAsFalse() throws {
         let id = UUID().uuidString
-        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
 
         guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
@@ -186,13 +186,13 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).first?.prefixesReminderNumbers, true)
     }
 
-    /// A current-version (v4) envelope whose item carries no `description` key:
+    /// A current-version (v5) envelope whose item carries no `description` key:
     /// must stay `.loaded` with an empty description (the additive-field
     /// guarantee). v3 payloads predate `relativeDate`, so they classify as
     /// `.migratable` instead — see `testV3PayloadIsClassifiedMigratable`.
     func testItemWithoutDescriptionClassifiesLoadedAsEmpty() throws {
         let itemID = UUID().uuidString
-        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
 
         guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
@@ -220,12 +220,12 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.classify(data), .unreadable)
     }
 
-    /// A current-version (v4) envelope whose item carries no `priority` key:
+    /// A current-version (v5) envelope whose item carries no `priority` key:
     /// must stay `.loaded` with `.none` priority (the additive-field
     /// guarantee), mirroring `testItemWithoutDescriptionClassifiesLoadedAsEmpty`.
     func testPriorityKeyAbsentStaysLoaded() throws {
         let itemID = UUID().uuidString
-        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
 
         guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
@@ -282,11 +282,11 @@ final class ChecklistCodecTests: XCTestCase {
         }
     }
 
-    /// A v4 payload whose item carries `revision`/`modifiedAt` but none of the
+    /// A v5 payload whose item carries `revision`/`modifiedAt` but none of the
     /// per-field clock keys: it must stay `.loaded` and seed every field
     /// clock from the item's coarse clock, matching pre-upgrade semantics.
     func testItemWithoutFieldClocksSeedsFromCoarseClock() throws {
-        let data = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","revision":3,"modifiedAt":100}]}]}"#.utf8)
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","revision":3,"modifiedAt":100}]}]}"#.utf8)
 
         guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
@@ -327,5 +327,57 @@ final class ChecklistCodecTests: XCTestCase {
             return
         }
         XCTAssertEqual(v3From, 3)
+    }
+
+    /// A true v4 payload predates folders: it must classify as migratable and
+    /// decode verbatim (never restamped) with empty folder state.
+    func testV4PayloadIsClassifiedMigratable() {
+        let payload = Data(#"{"version":4,"deviceID":"d","tombstones":[],"checklists":[]}"#.utf8)
+        XCTAssertEqual(ChecklistCodec.classify(payload), .migratable(from: 4, envelope: ChecklistEnvelope(version: 4, deviceID: "d", checklists: [])))
+    }
+
+    /// A v4 payload lacks the folder keys: they must decode to the empty
+    /// defaults and every checklist's `folderID` to nil, never a trap.
+    func testV4PayloadWithoutFolderKeysDecodesWithDefaults() {
+        let id = UUID().uuidString
+        let payload = Data(#"{"version":4,"deviceID":"d","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
+        guard case .migratable(_, let envelope) = ChecklistCodec.classify(payload) else {
+            XCTFail("expected migratable, got \(ChecklistCodec.classify(payload))")
+            return
+        }
+        XCTAssertEqual(envelope.folders, [])
+        XCTAssertNil(envelope.checklists.first?.folderID)
+    }
+
+    func testFoldersSurviveEnvelopeRoundTrip() throws {
+        let folder = Folder(name: "Work")
+        let checklist = Checklist(name: "Groceries", folderID: folder.id)
+        let envelope = ChecklistEnvelope(deviceID: "d", checklists: [checklist], folders: [folder])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.folderID, folder.id)
+        XCTAssertTrue(String(data: data, encoding: .utf8)?.contains(#""folders""#) ?? false)
+    }
+
+    /// The v5 build's `classify` switch only knows versions 1...5, so a v6
+    /// payload would fall to its `default` → `.unsupportedVersion`. This pins
+    /// the pre-folder v5 decoder: it must refuse a v5 payload written by the
+    /// live encoder, so a future bump cannot silently make v5 readable to old installs.
+    func testV5PayloadIsUnsupportedByAPinnedV4Decoder() throws {
+        let payload = try ChecklistCodec.encode(ChecklistEnvelope(deviceID: "d", checklists: []))
+        XCTAssertEqual(PinnedV4Codec.classify(payload), .unsupportedVersion)
+    }
+
+    private enum PinnedV4Codec {
+        private struct Probe: Decodable { let version: Int }
+        static func classify(_ data: Data) -> ChecklistCodec.Outcome {
+            guard let probe = try? JSONDecoder().decode(Probe.self, from: data) else { return .unreadable }
+            switch probe.version {
+            case 1...4: return .loaded(try! JSONDecoder().decode(ChecklistEnvelope.self, from: data))
+            default: return .unsupportedVersion
+            }
+        }
     }
 }

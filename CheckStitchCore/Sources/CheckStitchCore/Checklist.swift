@@ -147,6 +147,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         id: UUID = UUID(), name: String = "New checklist", items: [ChecklistItem] = [],
         destinationListIdentifier: String? = nil,
         prefixesReminderNumbers: Bool = false,
+        folderID: UUID? = nil,
         modifiedAt: Date = .distantPast, revision: Int = 0,
         itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast
     ) {
@@ -155,6 +156,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self.items = items
         self.destinationListIdentifier = destinationListIdentifier
         self.prefixesReminderNumbers = prefixesReminderNumbers
+        self.folderID = folderID
         self.modifiedAt = modifiedAt
         self.revision = revision
         // Canonical order defaults to the array's own order; an explicit value is
@@ -177,6 +179,11 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     /// key: absent in v4-and-earlier payloads decodes to `false` with no version
     /// bump (the `relativeDate` precedent).
     public var prefixesReminderNumbers: Bool
+    /// The id of the folder this checklist is filed under, or `nil` for loose.
+    /// A one-field relationship sharing the checklist's coarse clock with the
+    /// name/destination, so a membership move is decided by the same
+    /// last-write-wins rule. `nil` is encoded, never dropped.
+    public var folderID: UUID?
     public var modifiedAt: Date
     public var revision: Int
     /// Canonical item ordering as a list of item ids. Kept in lockstep with
@@ -187,7 +194,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, destinationListIdentifier, prefixesReminderNumbers
+        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, folderID
         case modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
@@ -200,6 +207,9 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // Additive optional field: absent key decodes to false, matching the
         // `description`/`relativeDate` precedent — no version bump.
         let prefixesReminderNumbers = try container.decodeIfPresent(Bool.self, forKey: .prefixesReminderNumbers) ?? false
+        // Additive optional field: absent in v4-and-earlier payloads decodes to
+        // nil, matching the `destinationListIdentifier` precedent — no restamp.
+        let folderID = try container.decodeIfPresent(UUID.self, forKey: .folderID)
         let modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? .distantPast
         let revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
         let itemOrder = try container.decodeIfPresent([UUID].self, forKey: .itemOrder) ?? items.map(\.id)
@@ -211,6 +221,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self = Checklist(id: id, name: name, items: items,
                          destinationListIdentifier: destinationListIdentifier,
                          prefixesReminderNumbers: prefixesReminderNumbers,
+                         folderID: folderID,
                          modifiedAt: modifiedAt, revision: revision,
                          itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
             .normalizedOrder()
@@ -223,6 +234,13 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         try container.encode(items, forKey: .items)
         try container.encode(destinationListIdentifier, forKey: .destinationListIdentifier)
         try container.encode(prefixesReminderNumbers, forKey: .prefixesReminderNumbers)
+        // Write the key unconditionally, matching the "encoder writes every key"
+        // invariant (the `relativeDate` shape).
+        if let folderID {
+            try container.encode(folderID, forKey: .folderID)
+        } else {
+            try container.encodeNil(forKey: .folderID)
+        }
         try container.encode(modifiedAt, forKey: .modifiedAt)
         try container.encode(revision, forKey: .revision)
         try container.encode(itemOrder, forKey: .itemOrder)
@@ -318,6 +336,38 @@ public struct ChecklistTombstone: Codable, Hashable, Sendable {
     public var revision: Int
 }
 
+/// A named group that checklists can be filed under. `revision`/`modifiedAt`
+/// carry the same last-write-wins identity `Checklist` uses, so folder renames
+/// and deletes converge through `ChecklistMerge`.
+public struct Folder: Identifiable, Codable, Hashable, Sendable {
+    public init(id: UUID = UUID(), name: String = "New Folder",
+                modifiedAt: Date = .distantPast, revision: Int = 0) {
+        self.id = id
+        self.name = name
+        self.modifiedAt = modifiedAt
+        self.revision = revision
+    }
+
+    public let id: UUID
+    public var name: String
+    public var modifiedAt: Date
+    public var revision: Int
+}
+
+/// A persisted folder-deletion record. Mirrors `ChecklistTombstone`: it only
+/// grows, and suppresses its live folder under `ChecklistMerge`.
+public struct FolderTombstone: Codable, Hashable, Sendable {
+    public init(folderID: UUID, deletedAt: Date, revision: Int) {
+        self.folderID = folderID
+        self.deletedAt = deletedAt
+        self.revision = revision
+    }
+
+    public let folderID: UUID
+    public var deletedAt: Date
+    public var revision: Int
+}
+
 /// Versioned wire format for the App Group payload. The version field exists so
 /// VAR-963 can evolve decoding instead of silently mis-reading old data.
 public struct ChecklistEnvelope: Codable, Sendable, Equatable {
@@ -325,18 +375,24 @@ public struct ChecklistEnvelope: Codable, Sendable, Equatable {
     public var deviceID: String
     public var checklists: [Checklist]
     public var tombstones: [ChecklistTombstone]
+    public var folders: [Folder]
+    public var folderTombstones: [FolderTombstone]
 
     public init(version: Int = ChecklistCodec.currentVersion,
          deviceID: String,
          checklists: [Checklist],
-         tombstones: [ChecklistTombstone] = []) {
+         tombstones: [ChecklistTombstone] = [],
+         folders: [Folder] = [],
+         folderTombstones: [FolderTombstone] = []) {
         self.version = version
         self.deviceID = deviceID
         self.checklists = checklists
         self.tombstones = tombstones
+        self.folders = folders
+        self.folderTombstones = folderTombstones
     }
 
-    private enum CodingKeys: String, CodingKey { case version, deviceID, checklists, tombstones }
+    private enum CodingKeys: String, CodingKey { case version, deviceID, checklists, tombstones, folders, folderTombstones }
 
     // v1 payloads have neither deviceID nor tombstones.
     public init(from decoder: Decoder) throws {
@@ -345,6 +401,10 @@ public struct ChecklistEnvelope: Codable, Sendable, Equatable {
         deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? ""
         checklists = try container.decodeIfPresent([Checklist].self, forKey: .checklists) ?? []
         tombstones = try container.decodeIfPresent([ChecklistTombstone].self, forKey: .tombstones) ?? []
+        // v4-and-earlier payloads have no folder keys: decode to empty the way
+        // `tombstones` does, so a folderless legacy payload loads verbatim.
+        folders = try container.decodeIfPresent([Folder].self, forKey: .folders) ?? []
+        folderTombstones = try container.decodeIfPresent([FolderTombstone].self, forKey: .folderTombstones) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -353,6 +413,8 @@ public struct ChecklistEnvelope: Codable, Sendable, Equatable {
         try container.encode(deviceID, forKey: .deviceID)
         try container.encode(checklists, forKey: .checklists)
         try container.encode(tombstones, forKey: .tombstones)
+        try container.encode(folders, forKey: .folders)
+        try container.encode(folderTombstones, forKey: .folderTombstones)
     }
 }
 
@@ -361,11 +423,12 @@ extension ChecklistEnvelope {
     /// whether a reconciled result must be pushed back to the cloud.
     public func contentEquals(_ other: ChecklistEnvelope) -> Bool {
         version == other.version && checklists == other.checklists && tombstones == other.tombstones
+            && folders == other.folders && folderTombstones == other.folderTombstones
     }
 }
 
 public enum ChecklistCodec {
-    public static let currentVersion = 4
+    public static let currentVersion = 5
 
     private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "ChecklistCodec")
 
@@ -398,6 +461,11 @@ public enum ChecklistCodec {
             switch probe.version {
             case currentVersion:
                 return .loaded(try JSONDecoder().decode(ChecklistEnvelope.self, from: data))
+            case 4:
+                // v4 carries full sync and ordering state, but predates folders. Load
+                // verbatim, never restamp; absent folder keys decode to []/nil.
+                let previous = try JSONDecoder().decode(ChecklistEnvelope.self, from: data)
+                return .migratable(from: 4, envelope: previous)
             case 3:
                 // v3 carries full sync and ordering state: load it verbatim,
                 // never restamp. It predates `relativeDate`, which decodes nil.

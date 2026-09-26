@@ -26,6 +26,10 @@ final class ChecklistStore {
     /// deletion volume, but a future ticket should compact tombstones once no
     /// device can still hold the pre-delete revision.
     private(set) var tombstones: [ChecklistTombstone] = []
+    /// Persisted folder state, mirroring `checklists`/`tombstones`: unions under
+    /// `ChecklistMerge`, loaded through the same envelope, and saved verbatim.
+    private(set) var folders: [Folder] = []
+    private(set) var folderTombstones: [FolderTombstone] = []
     /// Invoked after every persisted save, except saves that are applying remote
     /// state (the coordinator pushes those itself).
     @ObservationIgnored var onChange: (() -> Void)?
@@ -70,6 +74,8 @@ final class ChecklistStore {
             case .loaded(let stored):
                 self.checklists = stored.checklists
                 self.tombstones = stored.tombstones
+                self.folders = stored.folders
+                self.folderTombstones = stored.folderTombstones
                 self.canOverwriteStoredPayload = true
             case .migratable(let from, let legacy):
                 switch from {
@@ -86,16 +92,24 @@ final class ChecklistStore {
                     self.checklists = legacy.checklists
                 }
                 self.tombstones = legacy.tombstones
+                self.folders = legacy.folders
+                self.folderTombstones = legacy.folderTombstones
                 self.canOverwriteStoredPayload = true   // never stall migration
             case .unsupportedVersion:
                 self.checklists = []
+                self.folders = []
+                self.folderTombstones = []
                 self.canOverwriteStoredPayload = false
             case .unreadable:
                 self.checklists = []
+                self.folders = []
+                self.folderTombstones = []
                 self.canOverwriteStoredPayload = true
             }
         } else {
             self.checklists = []
+            self.folders = []
+            self.folderTombstones = []
             self.canOverwriteStoredPayload = true
         }
     }
@@ -106,7 +120,9 @@ final class ChecklistStore {
         ChecklistEnvelope(version: ChecklistCodec.currentVersion,
                           deviceID: deviceID,
                           checklists: checklists,
-                          tombstones: tombstones)
+                          tombstones: tombstones,
+                          folders: folders,
+                          folderTombstones: folderTombstones)
     }
 
     /// Whether remote sync state may be folded into the local payload. False
@@ -444,6 +460,34 @@ final class ChecklistStore {
         save()
     }
 
+    /// Creates a folder, disambiguating the name like `create` ("New Folder 2").
+    /// Always succeeds; returns the folder so a caller could open/rename it.
+    @discardableResult
+    func createFolder(name: String? = nil) -> Folder {
+        let folder = Folder(name: Self.uniqueName(basedOn: name ?? "New Folder", taken: folders.map(\.name)),
+                            modifiedAt: now(), revision: 1)
+        folders.append(folder)
+        save()
+        return folder
+    }
+
+    /// Files a checklist into `folderID` (`nil` = loose). Bumps the checklist's
+    /// coarse revision/`modifiedAt` so the membership wins the LWW round and
+    /// transfers through `ChecklistMerge` (no separate clock; mirrors `rename`).
+    /// Returns false for an unknown checklist or unknown folder; an unchanged
+    /// membership is a no-op (never a spurious LWW win).
+    @discardableResult
+    func moveChecklist(id: UUID, toFolder folderID: UUID?) -> Bool {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return false }
+        if let folderID, !folders.contains(where: { $0.id == folderID }) { return false }
+        guard checklists[index].folderID != folderID else { return true }
+        checklists[index].folderID = folderID
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
+        save()
+        return true
+    }
+
     /// Local-only: reminders already created in Reminders are never touched.
     func delete(id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
@@ -471,6 +515,8 @@ final class ChecklistStore {
         isApplyingRemote = true
         checklists = merged.checklists
         tombstones = merged.tombstones
+        folders = merged.folders
+        folderTombstones = merged.folderTombstones
         save()
         isApplyingRemote = false
         return visibleChanged

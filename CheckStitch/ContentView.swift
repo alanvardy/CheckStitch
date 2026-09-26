@@ -25,6 +25,10 @@ struct ContentView: View {
     /// Present when the main-screen rows are in edit mode (remove/move
     /// controls instead of navigation and the run button).
     @State private var isEditing = false
+    /// Whether the "New Folder" create alert is open.
+    @State private var isCreatingFolder = false
+    /// Buffered folder name behind the create alert's text field.
+    @State private var folderNameInput = ""
 
     var body: some View {
         ZStack {
@@ -58,6 +62,14 @@ struct ContentView: View {
                         if !listVM.checklists.isEmpty {
                             ToolbarItem(placement: .primaryAction) {
                                 editToggleButton
+                            }
+                        }
+                        // Folder creation is an edit-mode affordance, matching
+                        // the iOS in-content header button.
+                        if !listVM.checklists.isEmpty && isEditing {
+                            ToolbarItem(placement: .primaryAction) {
+                                Button("New Folder") { folderNameInput = ""; isCreatingFolder = true }
+                                    .accessibilityIdentifier("newFolderButton")
                             }
                         }
                     }
@@ -258,6 +270,14 @@ struct ContentView: View {
         } message: { _ in
             Text("This removes the checklist and all its items.")
         }
+        // Create-folder alert: buffer the typed name, confirm on Done.
+        .alert("New Folder", isPresented: $isCreatingFolder) {
+            TextField("Folder Name", text: $folderNameInput)
+                .accessibilityIdentifier("folderNameField")
+            Button("Cancel", role: .cancel) {}
+            Button("Done") { listVM.createFolder(name: folderNameInput) }
+                .accessibilityIdentifier("confirmFolderButton")
+        }
         // Leave edit mode when the last checklist goes: the empty state has no
         // toggle, so a later create must not open into a stale edit state.
         .onChange(of: listVM.checklists.isEmpty) { _, isEmpty in
@@ -369,6 +389,10 @@ struct ContentView: View {
                         // like the chrome buttons so it stays legible over the
                         // photo.
                         HStack {
+                            if isEditing {
+                                Button("New Folder") { folderNameInput = ""; isCreatingFolder = true }
+                                    .accessibilityIdentifier("newFolderButton")
+                            }
                             Spacer()
                             editToggleButton
                                 .padding(.horizontal, 14)
@@ -387,9 +411,16 @@ struct ContentView: View {
                         .padding(.bottom, 8)
                     #endif
                     LazyVStack(spacing: 0) {
-                        ForEach(listVM.checklists) { checklist in
+                        ForEach(listVM.folders) { folder in
+                            folderSection(for: folder)
+                            Divider()
+                        }
+                        if !listVM.folders.isEmpty {
+                            looseHeader
+                        }
+                        ForEach(listVM.checklists(in: nil)) { checklist in
                             checklistRow(for: checklist)
-                            if checklist.id != listVM.checklists.last?.id {
+                            if checklist.id != listVM.checklists(in: nil).last?.id {
                                 Divider()
                             }
                         }
@@ -441,6 +472,17 @@ struct ContentView: View {
             if isEditing {
                 Text(checklist.name)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                // Files the checklist into a folder (or loose) while editing.
+                Menu {
+                    Button("Loose") { listVM.moveChecklist(id: checklist.id, toFolder: nil) }
+                    ForEach(listVM.folders) { folder in
+                        Button(folder.name) { listVM.moveChecklist(id: checklist.id, toFolder: folder.id) }
+                    }
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .accessibilityLabel("Move to Folder")
+                .accessibilityIdentifier("moveChecklistToFolder-\(checklist.id.uuidString)")
                 checklistMoveControls(for: checklist)
             } else {
                 NavigationLink(checklist.name, value: checklist.id)
@@ -473,6 +515,38 @@ struct ContentView: View {
             .accessibilityLabel("Move down")
             .accessibilityIdentifier("moveChecklistDown-\(checklist.id.uuidString)")
         }
+    }
+
+    /// One folder's header plus its members, rendered above the loose group.
+    @ViewBuilder
+    private func folderSection(for folder: Folder) -> some View {
+        VStack(spacing: 0) {
+            folderHeader(for: folder)
+            ForEach(listVM.checklists(in: folder)) { checklist in
+                checklistRow(for: checklist)
+                if checklist.id != listVM.checklists(in: folder).last?.id { Divider() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func folderHeader(for folder: Folder) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "folder")
+            Text(folder.name).frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    /// The heading over the loose group, shown only once a folder exists.
+    private var looseHeader: some View {
+        HStack {
+            Text("Loose").font(.subheadline).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 
     private var emptyState: some View {

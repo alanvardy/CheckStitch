@@ -406,7 +406,7 @@ final class ChecklistStoreTests: XCTestCase {
             XCTFail("expected the stored payload to classify as loaded")
             return
         }
-        XCTAssertEqual(stored.version, 4)
+        XCTAssertEqual(stored.version, 5)
     }
 
     /// A stored v2 payload has real sync state but no ordering state. It must
@@ -1992,6 +1992,88 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.conflictingChecklist(named: " groceries ")?.id, local.id)
         XCTAssertEqual(store.conflictingChecklist(named: "GROCERIES")?.id, local.id)
         XCTAssertNil(store.conflictingChecklist(named: "Milk"))
+    }
+
+    // MARK: - Folders
+
+    func testCreateFolderPersistsAcrossReload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder()
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.folders.map(\.name), ["New Folder"])
+        XCTAssertEqual(reloaded.folders.first?.id, folder.id)
+        XCTAssertEqual(reloaded.folders.first?.revision, folder.revision)
+    }
+
+    func testCreateFolderDisambiguatesName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.createFolder(name: "Work")
+        store.createFolder(name: "Work")
+
+        XCTAssertEqual(store.folders.map(\.name), ["Work", "Work 2"])
+    }
+
+    func testMoveChecklistIntoFolderPersistsAndReloads() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+        let checklist = store.create(name: "Groceries")
+
+        XCTAssertTrue(store.moveChecklist(id: checklist.id, toFolder: folder.id))
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: checklist.id)?.folderID, folder.id)
+        XCTAssertEqual(reloaded.checklist(id: checklist.id)?.revision, checklist.revision + 1)
+    }
+
+    func testMoveChecklistBackToLoosePersists() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+        let checklist = store.create(name: "Groceries")
+        store.moveChecklist(id: checklist.id, toFolder: folder.id)
+        store.moveChecklist(id: checklist.id, toFolder: nil)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertNil(reloaded.checklist(id: checklist.id)?.folderID)
+    }
+
+    func testMoveToUnknownFolderIsRejected() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let checklist = store.create(name: "Groceries")
+        let before = store.checklist(id: checklist.id)?.revision
+
+        XCTAssertFalse(store.moveChecklist(id: checklist.id, toFolder: UUID()))
+        XCTAssertNil(store.checklist(id: checklist.id)?.folderID)
+        XCTAssertEqual(store.checklist(id: checklist.id)?.revision, before)
+    }
+
+    func testV4PayloadLoadsWithNoFolders() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let raw = Data(#"{"version":4,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[]}]}"#.utf8)
+        suite.defaults.set(raw, forKey: key)
+
+        let store = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(store.folders, [])
+        XCTAssertEqual(store.folderTombstones, [])
+        XCTAssertTrue(store.canAcceptRemoteChanges, "a migrated v4 payload stays writable")
+        XCTAssertEqual(store.checklists.count, 1)
+        XCTAssertNil(store.checklists.first?.folderID)
     }
 }
 
