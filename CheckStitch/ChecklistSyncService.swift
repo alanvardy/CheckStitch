@@ -140,11 +140,14 @@ final class ChecklistSyncService {
                     tombstones: legacy.tombstones)
             default:
                 // v3+ already carries full sync and ordering state; keep its
-                // deviceID and tombstones and do not restamp.
+                // deviceID and tombstones and do not restamp. Carries folders so
+                // a migrated payload keeps the complete current-v5 shape.
                 remote = ChecklistEnvelope(
                     deviceID: legacy.deviceID,
                     checklists: legacy.checklists,
-                    tombstones: legacy.tombstones)
+                    tombstones: legacy.tombstones,
+                    folders: legacy.folders,
+                    folderTombstones: legacy.folderTombstones)
             }
         case .unsupportedVersion, .unreadable:
             // Never discard local state because the remote bytes were foreign.

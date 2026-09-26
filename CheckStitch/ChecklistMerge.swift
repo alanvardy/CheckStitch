@@ -27,11 +27,19 @@ enum ChecklistMerge {
             checklists[index].itemOrder.removeAll { deadItems.contains($0) }
         }
 
+        let folderTombstones = mergedFolderTombstones(local.folderTombstones, remote.folderTombstones)
+        let deadFolders = Set(folderTombstones.map(\.folderID))
+        var folders = mergedFolders(local.folders, remote.folders,
+                                    localDevice: local.deviceID, remoteDevice: remote.deviceID)
+        folders.removeAll { deadFolders.contains($0.id) }
+
         return ChecklistEnvelope(
             version: ChecklistCodec.currentVersion,
             deviceID: local.deviceID,
             checklists: checklists,
-            tombstones: tombstones
+            tombstones: tombstones,
+            folders: folders,
+            folderTombstones: folderTombstones
         )
     }
 
@@ -62,6 +70,51 @@ enum ChecklistMerge {
         }
     }
 
+    private static func mergedFolders(
+        _ local: [Folder], _ remote: [Folder],
+        localDevice: String, remoteDevice: String
+    ) -> [Folder] {
+        var result = local
+        var indexByID = Dictionary(uniqueKeysWithValues: result.enumerated().map { ($1.id, $0) })
+        for remoteFolder in remote {
+            guard let index = indexByID[remoteFolder.id] else {
+                indexByID[remoteFolder.id] = result.count
+                result.append(remoteFolder)          // local-first, remote-only appends
+                continue
+            }
+            let localFolder = result[index]
+            var merged = localFolder
+            if wins(revision: remoteFolder.revision, date: remoteFolder.modifiedAt,
+                    device: remoteDevice,
+                    overRevision: localFolder.revision, overDate: localFolder.modifiedAt,
+                    overDevice: localDevice) {
+                merged.name = remoteFolder.name
+                merged.revision = remoteFolder.revision
+                merged.modifiedAt = remoteFolder.modifiedAt
+            }
+            result[index] = merged
+        }
+        return result
+    }
+
+    private static func mergedFolderTombstones(
+        _ local: [FolderTombstone], _ remote: [FolderTombstone]
+    ) -> [FolderTombstone] {
+        var byID: [UUID: FolderTombstone] = [:]
+        for tombstone in local + remote {
+            if let existing = byID[tombstone.folderID] {
+                if wins(revision: tombstone.revision, date: tombstone.deletedAt,
+                        overRevision: existing.revision, overDate: existing.deletedAt) {
+                    byID[tombstone.folderID] = tombstone
+                }
+            } else {
+                byID[tombstone.folderID] = tombstone
+            }
+        }
+        // Deterministic order so re-merging is a no-op.
+        return byID.values.sorted { $0.folderID.uuidString < $1.folderID.uuidString }
+    }
+
     private static func mergedChecklists(
         _ local: [Checklist], _ remote: [Checklist],
         localDevice: String, remoteDevice: String
@@ -83,6 +136,7 @@ enum ChecklistMerge {
                 merged.name = remoteChecklist.name
                 merged.destinationListIdentifier = remoteChecklist.destinationListIdentifier
                 merged.prefixesReminderNumbers = remoteChecklist.prefixesReminderNumbers
+                merged.folderID = remoteChecklist.folderID
                 merged.revision = remoteChecklist.revision
                 merged.modifiedAt = remoteChecklist.modifiedAt
             }
