@@ -2130,6 +2130,66 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.folders.map(\.name), ["Work", "Personal"])
     }
 
+    func testDeleteFolderOrphansMembersAndPersistsTombstone() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+        let first = store.create(name: "One")
+        let second = store.create(name: "Two")
+        store.moveChecklist(id: first.id, toFolder: folder.id)
+        store.moveChecklist(id: second.id, toFolder: folder.id)
+        XCTAssertEqual(store.folderTombstones.count, 0)
+
+        store.deleteFolder(id: folder.id)
+
+        XCTAssertEqual(store.folders, [])
+        XCTAssertNil(store.checklist(id: first.id)?.folderID)
+        XCTAssertNil(store.checklist(id: second.id)?.folderID)
+        XCTAssertEqual(store.checklist(id: first.id)?.revision, first.revision + 2)
+        XCTAssertEqual(store.checklist(id: second.id)?.revision, second.revision + 2)
+        XCTAssertEqual(store.folderTombstones.count, 1)
+        XCTAssertEqual(store.folderTombstones.first?.folderID, folder.id)
+        XCTAssertEqual(store.folderTombstones.first?.revision, folder.revision + 1)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.folders, [])
+        XCTAssertNil(reloaded.checklist(id: first.id)?.folderID)
+        XCTAssertNil(reloaded.checklist(id: second.id)?.folderID)
+        XCTAssertEqual(reloaded.folderTombstones.map(\.folderID), [folder.id])
+        XCTAssertEqual(reloaded.folderTombstones.first?.revision, folder.revision + 1)
+    }
+
+    func testDeleteEmptyFolderWritesOnlyTheTombstone() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Empty")
+        _ = store.create(name: "Keeper")
+
+        store.deleteFolder(id: folder.id)
+
+        XCTAssertEqual(store.folders, [])
+        XCTAssertEqual(store.folderTombstones.map(\.folderID), [folder.id])
+        XCTAssertEqual(store.folderTombstones.first?.revision, folder.revision + 1)
+        XCTAssertEqual(store.checklists.map(\.name), ["Keeper"], "member checklists are untouched")
+    }
+
+    func testDeleteUnknownFolderIsANoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.createFolder(name: "Work")
+
+        store.deleteFolder(id: UUID())
+
+        XCTAssertEqual(store.folders.map(\.name), ["Work"])
+        XCTAssertEqual(store.folderTombstones, [])
+    }
+
     func testV4PayloadLoadsWithNoFolders() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

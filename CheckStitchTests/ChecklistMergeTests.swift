@@ -837,6 +837,32 @@ struct ChecklistMergeTests {
     }
 
     @Test
+    func folderTombstoneRemovesTheFolderButKeepsItsChecklists() {
+        let folderID = UUID()
+        let checklistID = UUID()
+        // Local device deleted the folder: it orphans its member (folderID nil,
+        // coarse clock bumped) and wrote a grow-only FolderTombstone. The remote
+        // device still holds the live folder and the member still referencing it.
+        let orphaned = checklist(id: checklistID, name: "member", revision: 2)
+        let local = envelope(device: "device-a",
+            checklists: [orphaned],
+            folderTombstones: [FolderTombstone(folderID: folderID,
+                                               deletedAt: Date(timeIntervalSince1970: 2), revision: 2)])
+        var remoteMember = checklist(id: checklistID, name: "member", revision: 1)
+        remoteMember.folderID = folderID
+        let remote = envelope(device: "device-b",
+            checklists: [remoteMember],
+            folders: [folder(id: folderID, name: "Home", revision: 1)])
+
+        let merged = ChecklistMerge.merge(local: local, remote: remote)
+
+        #expect(merged.folders.isEmpty, "the deleted folder is pruned")
+        #expect(merged.checklists.map(\.id) == [checklistID], "the member checklist survives")
+        #expect(merged.tombstones.isEmpty, "orphaning never writes a checklist tombstone")
+        #expect(merged.checklists.first?.folderID == nil, "the orphaned member renders loose")
+    }
+
+    @Test
     func mergingTheSameFolderEnvelopeTwiceIsANoOp() {
         let folderID = UUID()
         let local = envelope(device: "device-a", folders: [
