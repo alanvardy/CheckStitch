@@ -272,6 +272,27 @@ struct ContentView: View {
         } message: { _ in
             Text("This removes the checklist and all its items.")
         }
+        // Two-step folder deletion gate, mirroring the checklist removal dialog:
+        // the minus only raises this dialog, and its destructive button performs
+        // the removal, orphaning the folder's checklists.
+        .confirmationDialog(
+            "Delete Folder",
+            isPresented: Binding(get: { listVM.folderPendingRemoval != nil },
+                                 set: { if !$0 { listVM.folderPendingRemoval = nil } }),
+            presenting: listVM.folderPendingRemoval
+        ) { id in
+            Button("Delete", role: .destructive) {
+                // Clear the pending id explicitly rather than relying on the
+                // dialog's dismissal to fire the `isPresented` setter.
+                listVM.folderPendingRemoval = nil
+                withAnimation { listVM.removeFolder(id: id) }
+            }
+            .accessibilityIdentifier("confirmRemoveFolderButton")
+            Button("Cancel", role: .cancel) { listVM.folderPendingRemoval = nil }
+                .accessibilityIdentifier("cancelRemoveFolderButton")
+        } message: { _ in
+            Text("This removes the folder. Its checklists become loose.")
+        }
         // Create-folder alert: buffer the typed name, confirm on Done.
         .alert("New Folder", isPresented: $isCreatingFolder) {
             TextField("Folder Name", text: $folderNameInput)
@@ -562,6 +583,13 @@ struct ContentView: View {
     @ViewBuilder
     private func folderEditControls(for folder: Folder) -> some View {
         HStack(spacing: 4) {
+            Button { listVM.folderPendingRemoval = folder.id } label: {
+                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove Folder")
+            .accessibilityIdentifier("removeFolder-\(folder.id.uuidString)")
+
             Button { folderNameInput = folder.name; folderBeingRenamed = folder } label: {
                 Image(systemName: "pencil")
             }

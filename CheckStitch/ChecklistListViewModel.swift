@@ -51,6 +51,13 @@ final class ChecklistListViewModel {
         store.moveFolders(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
     }
 
+    /// The folder waiting for its confirm/cancel in the delete dialog; `nil` hides it.
+    var folderPendingRemoval: UUID?
+
+    func removeFolder(id: UUID) {
+        store.deleteFolder(id: id)
+    }
+
     /// Creates a checklist and returns the new id. `store.create()` disambiguates
     /// a duplicate name ("New checklist 2") rather than failing, so there is
     /// always a checklist to open.

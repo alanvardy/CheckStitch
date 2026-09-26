@@ -512,6 +512,23 @@ final class ChecklistStore {
         save()
     }
 
+    /// Deletes a folder: every member is sent back to loose in the same batch
+    /// (each member's coarse clock bumps so the orphan wins the LWW round), and
+    /// one grow-only `FolderTombstone` blocks resurrection. Never writes
+    /// checklist tombstones — the checklists survive.
+    func deleteFolder(id: UUID) {
+        guard let index = folders.firstIndex(where: { $0.id == id }) else { return }
+        let removed = folders.remove(at: index)
+        let deletedAt = now()
+        for checklistIndex in checklists.indices where checklists[checklistIndex].folderID == id {
+            checklists[checklistIndex].folderID = nil
+            checklists[checklistIndex].revision += 1
+            checklists[checklistIndex].modifiedAt = deletedAt
+        }
+        folderTombstones.append(FolderTombstone(folderID: id, deletedAt: deletedAt, revision: removed.revision + 1))
+        save()
+    }
+
     /// Local-only: reminders already created in Reminders are never touched.
     func delete(id: UUID) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
