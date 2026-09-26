@@ -22,8 +22,14 @@ enum ChecklistWidgetLoader {
     }
 
     static func accessState() -> ChecklistWidgetAccessState {
-        EventKitReminderDestination.shared.accessStatus() == .fullAccess
-            ? .ready : .needsAccess
+        switch EventKitReminderDestination.shared.accessStatus() {
+        case .fullAccess:
+            let unlocked = PurchaseEntitlementCache(defaults: AppGroup.defaults).isVerified
+            let used = RunCounter(defaults: AppGroup.defaults).count
+            return (!unlocked && used >= RunGate.freeRunLimit) ? .needsPurchase : .ready
+        case .notDetermined, .denied:
+            return .needsAccess
+        }
     }
 }
 
@@ -85,6 +91,7 @@ struct SingleChecklistWidgetView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .widgetURL(row.needsAccess ? URL(string: "checkstitch://") : nil)
         } else {
             Text("No checklists").font(.caption)
         }

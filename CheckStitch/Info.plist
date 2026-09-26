@@ -17,6 +17,17 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.alanvardy.CheckStitch</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>checkstitch</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 </dict>
