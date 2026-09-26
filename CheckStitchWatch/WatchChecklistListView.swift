@@ -13,9 +13,24 @@ struct WatchChecklistListView: View {
                         systemImage: "checklist",
                         description: Text("Open CheckStitch on your iPhone."))
                 } else {
-                    List(viewModel.checklists) { checklist in
-                        NavigationLink(checklist.name) {
-                            WatchChecklistDetailView(checklist: checklist)
+                    List {
+                        ForEach(viewModel.sections) { section in
+                            Section {
+                                ForEach(section.checklists) { checklist in
+                                    NavigationLink(checklist.name) {
+                                        WatchChecklistDetailView(checklist: checklist)
+                                    }
+                                }
+                            } header: {
+                                // Keep the flat (no-folder) watch list exactly as
+                                // it was; label the loose section only once folders
+                                // exist.
+                                if section.folder != nil {
+                                    Text(section.name ?? "")
+                                } else if viewModel.sections.count > 1 {
+                                    Text("Loose")
+                                }
+                            }
                         }
                     }
                 }

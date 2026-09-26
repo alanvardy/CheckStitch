@@ -95,6 +95,7 @@ import SwiftUI
                                 let coordinator = ChecklistSyncCoordinator(
                                     transport: PhoneSyncAdapter(),
                                     snapshot: { store.checklists },
+                                    folders: { store.folders },
                                     createReminders: { await ChecklistReminders.create(from: $0) },
                                     language: { AppLocaleState.current.language })
                                 self.coordinator = coordinator
@@ -102,6 +103,11 @@ import SwiftUI
                             }
                         }
                         .onChange(of: store.checklists) { _, _ in
+                            coordinator?.checklistsDidChange()
+                        }
+                        // Folder edits do not touch `store.checklists`, so surface
+                        // them separately or the watch would keep stale folder ids.
+                        .onChange(of: store.folders) { _, _ in
                             coordinator?.checklistsDidChange()
                         }
                         // The language picker writes straight to the holder, so

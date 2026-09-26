@@ -7,11 +7,13 @@ struct ChecklistSyncCoordinatorTests {
     private func makeCoordinator(
         transport: FakeChecklistSyncTransport,
         checklists: [Checklist],
-        runner: SpyChecklistRunner
+        runner: SpyChecklistRunner,
+        folders: [Folder] = []
     ) -> ChecklistSyncCoordinator {
         ChecklistSyncCoordinator(
             transport: transport,
             snapshot: { checklists },
+            folders: { folders },
             createReminders: { await runner.run($0) },
             language: { .system })
     }
@@ -28,6 +30,20 @@ struct ChecklistSyncCoordinatorTests {
         #expect(transport.activateCount == 1)
         #expect(transport.sentContexts.count == 1)
         #expect(ChecklistCodec.decode(transport.sentContexts[0]) == checklists)
+    }
+
+    @Test
+    func startPushesFoldersInTheContext() throws {
+        let transport = FakeChecklistSyncTransport()
+        let runner = SpyChecklistRunner()
+        let folder = Folder(name: "Errands")
+        let coordinator = makeCoordinator(transport: transport, checklists: [], runner: runner, folders: [folder])
+
+        coordinator.start()
+
+        let outcome = ChecklistCodec.classify(transport.sentContexts[0])
+        #expect(outcome == .loaded(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "", checklists: [], folders: [folder])))
     }
 
     @Test

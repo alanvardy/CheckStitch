@@ -141,6 +141,7 @@ enum LocalizationFixtures {
             "No checklists",
             "Open CheckStitch on your iPhone.",
             "Checklists",
+            "Loose",
             "Sent",
             "Create reminders",
         ]),

@@ -500,3 +500,39 @@ public enum ChecklistCodec {
 
     private struct VersionProbe: Decodable { let version: Int }
 }
+
+/// One rendered group on the list screens. `folder == nil` is the loose group.
+public struct ChecklistSection: Identifiable, Equatable, Sendable {
+    public init(folder: Folder?, checklists: [Checklist]) {
+        self.folder = folder
+        self.checklists = checklists
+    }
+
+    public let folder: Folder?
+    public let checklists: [Checklist]
+    public var id: String { folder?.id.uuidString ?? "loose" }
+    public var name: String? { folder?.name }
+}
+
+/// Read-only grouping used by the watch (and any surface that needs sections).
+public enum ChecklistGrouping {
+    /// Folders in persisted order, each followed by its members in global
+    /// checklist order; then the loose section last. A `folderID` naming an
+    /// unknown folder is grouped loose, so cross-reference skew never drops a
+    /// checklist.
+    public static func sections(folders: [Folder], checklists: [Checklist]) -> [ChecklistSection] {
+        let known = Set(folders.map(\.id))
+        var byFolder: [UUID: [Checklist]] = [:]
+        var loose: [Checklist] = []
+        for checklist in checklists {
+            if let folderID = checklist.folderID, known.contains(folderID) {
+                byFolder[folderID, default: []].append(checklist)
+            } else {
+                loose.append(checklist)
+            }
+        }
+        var sections = folders.map { ChecklistSection(folder: $0, checklists: byFolder[$0.id] ?? []) }
+        sections.append(ChecklistSection(folder: nil, checklists: loose))
+        return sections
+    }
+}

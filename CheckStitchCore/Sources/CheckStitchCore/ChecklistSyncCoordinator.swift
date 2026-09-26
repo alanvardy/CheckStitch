@@ -7,11 +7,13 @@ public final class ChecklistSyncCoordinator {
     public init(
         transport: ChecklistSyncTransport,
         snapshot: @escaping () -> [Checklist],
+        folders: @escaping () -> [Folder] = { [] },
         createReminders: @escaping (Checklist) async -> ReminderRunOutcome,
         language: @escaping @MainActor () -> AppLanguage
     ) {
         self.transport = transport
         self.snapshot = snapshot
+        self.folders = folders
         self.createReminders = createReminders
         self.language = language
     }
@@ -42,7 +44,7 @@ public final class ChecklistSyncCoordinator {
     }
 
     private func pushContext() {
-        guard let data = try? ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: snapshot())) else { return }
+        guard let data = try? ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: snapshot(), folders: folders())) else { return }
         transport.sendContext(data)
     }
 
@@ -120,6 +122,7 @@ public final class ChecklistSyncCoordinator {
 
     private let transport: ChecklistSyncTransport
     private let snapshot: () -> [Checklist]
+    private let folders: () -> [Folder]
     private let createReminders: (Checklist) async -> ReminderRunOutcome
     private let language: @MainActor () -> AppLanguage
     /// Tail of the serialized run queue; see `handle`.

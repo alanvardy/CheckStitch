@@ -15,6 +15,12 @@ final class WatchChecklistViewModel {
 
     var checklists: [Checklist] { store.checklists }
 
+    var folders: [Folder] { store.folders }
+
+    var sections: [ChecklistSection] {
+        ChecklistGrouping.sections(folders: store.folders, checklists: store.checklists)
+    }
+
     /// Activates the transport and asks the phone for a fresh snapshot.
     func onAppear() {
         store.start()
