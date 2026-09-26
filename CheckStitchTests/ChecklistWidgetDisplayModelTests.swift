@@ -64,4 +64,24 @@ struct ChecklistWidgetDisplayModelTests {
             access: .ready)
         #expect(model.rows.isEmpty)
     }
+
+    @Test(arguments: [ChecklistWidgetAccessState.needsAccess, .needsPurchase])
+    func nonReadyAccessMakesEveryRowNonRunnable(_ access: ChecklistWidgetAccessState) {
+        let checklist = Checklist(name: "Groceries")
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [checklist],
+            configuration: [ChecklistEntity(checklist)],
+            access: access)
+        #expect(model.rows.allSatisfy { !$0.isRunnable && $0.needsAccess })
+    }
+
+    @Test
+    func readyAccessMakesRowsRunnable() {
+        let checklist = Checklist(name: "Groceries")
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [checklist],
+            configuration: [ChecklistEntity(checklist)],
+            access: .ready)
+        #expect(model.rows.allSatisfy { $0.isRunnable && !$0.needsAccess })
+    }
 }

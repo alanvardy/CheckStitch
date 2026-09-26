@@ -61,9 +61,11 @@ struct MultiChecklistWidgetView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
-                        Image(systemName: "exclamationmark.triangle").font(.caption)
+                        Label("Open CheckStitch to enable", systemImage: "exclamationmark.triangle")
+                            .font(.caption)
                     }
                 }
+                .widgetURL(row.needsAccess ? URL(string: "checkstitch://") : nil)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
