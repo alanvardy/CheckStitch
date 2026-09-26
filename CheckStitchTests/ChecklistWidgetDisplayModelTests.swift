@@ -34,6 +34,29 @@ struct ChecklistWidgetDisplayModelTests {
     }
 
     @Test
+    func configurationOrderIsPreservedAndMissingEntitiesAreDropped() {
+        let a = Checklist(name: "A")
+        let b = Checklist(name: "B")
+        let c = Checklist(name: "C")
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [a, b, c],
+            configuration: [ChecklistEntity(c), ChecklistEntity(id: UUID().uuidString, name: "Ghost"), ChecklistEntity(a)],
+            access: .ready)
+        #expect(model.rows.map(\.name) == ["C", "A"])
+    }
+
+    @Test
+    func rowsAreCappedToTheRowBudget() {
+        let checklists = (0..<9).map { Checklist(name: "List \($0)") }
+        let model = ChecklistWidgetDisplayModel(
+            checklists: checklists,
+            configuration: checklists.map(ChecklistEntity.init),
+            access: .ready)
+        #expect(model.rows.count == ChecklistWidgetDisplayModel.rowLimit)
+        #expect(model.rows.map(\.name) == (0..<ChecklistWidgetDisplayModel.rowLimit).map { "List \($0)" })
+    }
+
+    @Test
     func ghostEntityProducesNoRows() {
         let model = ChecklistWidgetDisplayModel(
             checklists: [Checklist(name: "Groceries")],
