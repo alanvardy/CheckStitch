@@ -14,19 +14,20 @@ struct WatchChecklistListView: View {
                         description: Text("Open CheckStitch on your iPhone."))
                 } else {
                     List {
-                        ForEach(viewModel.sections) { section in
-                            Section {
-                                ForEach(section.checklists) { checklist in
-                                    NavigationLink(checklist.name) {
-                                        WatchChecklistDetailView(checklist: checklist)
-                                    }
-                                }
-                            } header: {
-                                // Keep the flat (no-folder) watch list exactly as
-                                // it was; a folder section shows its own name.
-                                if section.folder != nil {
-                                    Text(section.name ?? "")
-                                }
+                        // Folders are rows you tap into; their checklists live
+                        // on `WatchFolderDetailView` so the top level stays short.
+                        ForEach(viewModel.folders) { folder in
+                            NavigationLink {
+                                WatchFolderDetailView(folder: folder)
+                            } label: {
+                                Label(folder.name, systemImage: "folder")
+                            }
+                        }
+                        // Loose checklists have no folder to open, so they stay
+                        // direct rows (the flat list's original shape).
+                        ForEach(viewModel.looseChecklists) { checklist in
+                            NavigationLink(checklist.name) {
+                                WatchChecklistDetailView(checklist: checklist)
                             }
                         }
                     }
