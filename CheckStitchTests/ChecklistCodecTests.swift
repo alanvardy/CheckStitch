@@ -211,6 +211,20 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).map(\.showsOnWatch), [false, true])
     }
 
+    /// A v5 payload that carries the new key plus a key this build does not know
+    /// still classifies `.loaded`: additive fields must never turn a readable
+    /// envelope into `.unreadable`.
+    func testPayloadWithUnrecognizedKeyStillClassifiesLoaded() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"futureField":"x","checklists":[{"id":"\#(id)","name":"Groceries","items":[],"showsOnWatch":false,"futureKey":7}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(envelope.checklists.first?.showsOnWatch, false)
+    }
+
     /// A current-version (v5) envelope whose item carries no `description` key:
     /// must stay `.loaded` with an empty description (the additive-field
     /// guarantee). v3 payloads predate `relativeDate`, so they classify as

@@ -113,4 +113,26 @@ struct ChecklistGroupingTests {
 
         #expect(visible == [folder])
     }
+
+    @Test
+    func hiddenChecklistWithUnknownFolderIsNotShownAsLoose() {
+        let hidden = Checklist(name: "Hidden", showsOnWatch: false, folderID: UUID())
+        let visible = Checklist(name: "Visible", folderID: UUID())
+
+        let loose = ChecklistGrouping.visibleLooseChecklists([hidden, visible], knownFolderIDs: [])
+
+        #expect(loose == [visible])
+    }
+
+    @Test
+    func hiddenChecklistWithTombstonedFolderIsNotShown() {
+        let tombstoned = UUID()
+        let hidden = Checklist(name: "Hidden", showsOnWatch: false, folderID: tombstoned)
+        let shown = Checklist(name: "Shown", folderID: tombstoned)
+
+        let loose = ChecklistGrouping.visibleLooseChecklists([hidden, shown], knownFolderIDs: [])
+
+        #expect(loose == [shown])
+        #expect(!loose.contains(hidden))
+    }
 }
