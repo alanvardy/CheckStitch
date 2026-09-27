@@ -10,15 +10,13 @@ struct ChecklistEntry: TimelineEntry {
 
 @MainActor
 enum ChecklistWidgetLoader {
-    /// Reads the App Group store and folds access state. Phase 1 hard-codes the
-    /// first checklist; later phases pass the intent's configuration.
+    /// Reads the App Group store and resolves the intent's configured
+    /// checklists. An unconfigured widget renders the empty-state hint rather
+    /// than silently running an arbitrary first checklist.
     static func load(configuration: [ChecklistEntity]) -> ChecklistWidgetDisplayModel {
         let checklists = ChecklistStore(defaults: AppGroup.defaults).checklists
-        let resolved = configuration.isEmpty
-            ? checklists.first.map { [ChecklistEntity($0)] } ?? []
-            : configuration
         return ChecklistWidgetDisplayModel(
-            checklists: checklists, configuration: resolved, access: accessState())
+            checklists: checklists, configuration: configuration, access: accessState())
     }
 
     static func accessState() -> ChecklistWidgetAccessState {
@@ -85,6 +83,9 @@ struct SingleChecklistWidgetView: View {
                         Label("Create reminders", systemImage: "play.circle.fill")
                     }
                     .buttonStyle(.borderedProminent)
+                } else if row.needsPurchase {
+                    Label("Open CheckStitch to buy a license", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
                 } else {
                     Label("Open CheckStitch to enable", systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -93,7 +94,11 @@ struct SingleChecklistWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .widgetURL(row.needsAccess ? URL(string: "checkstitch://") : nil)
         } else {
-            Text("No checklists").font(.caption)
+            Text(entry.model.hasChecklists
+                 ? "Edit this widget to pick a checklist"
+                 : "No checklists")
+                .font(.caption)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 

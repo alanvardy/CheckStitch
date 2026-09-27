@@ -51,7 +51,10 @@ struct MultiChecklistWidgetView: View {
 
     var body: some View {
         if entry.model.rows.isEmpty {
-            Text("Edit this widget to pick a checklist").font(.caption)
+            Text(entry.model.hasChecklists
+                 ? "Edit this widget to pick a checklist"
+                 : "No checklists")
+                .font(.caption)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
             VStack(alignment: .leading, spacing: 6) {
@@ -64,6 +67,9 @@ struct MultiChecklistWidgetView: View {
                                 Image(systemName: "play.circle.fill")
                             }
                             .buttonStyle(.plain)
+                        } else if row.needsPurchase {
+                            Label("Open CheckStitch to buy a license", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
                         } else {
                             Label("Open CheckStitch to enable", systemImage: "exclamationmark.triangle")
                                 .font(.caption)
