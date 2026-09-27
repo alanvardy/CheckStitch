@@ -31,6 +31,9 @@ struct ContentView: View {
     @State private var folderNameInput = ""
     /// The folder being renamed, or `nil` when the rename alert is hidden.
     @State private var folderBeingRenamed: Folder?
+    /// Folders whose members are collapsed. A view-level concern — collapse is
+    /// presentation, not persisted store state.
+    @State private var collapsedFolders: Set<UUID> = []
 
     var body: some View {
         ZStack {
@@ -559,24 +562,52 @@ struct ContentView: View {
     @ViewBuilder
     private func folderSection(for folder: Folder) -> some View {
         let members = listVM.checklists(in: folder)
+        let isCollapsed = collapsedFolders.contains(folder.id)
         VStack(spacing: 0) {
-            folderHeader(for: folder)
-            ForEach(members) { checklist in
-                checklistRow(for: checklist)
-                if checklist.id != members.last?.id { Divider() }
+            folderHeader(for: folder, isCollapsed: isCollapsed)
+            if !isCollapsed {
+                ForEach(members) { checklist in
+                    checklistRow(for: checklist)
+                        // Members nest under the folder name, past the
+                        // disclosure chevron and folder glyph.
+                        .padding(.leading, 24)
+                    if checklist.id != members.last?.id { Divider() }
+                }
             }
         }
     }
 
     @ViewBuilder
-    private func folderHeader(for folder: Folder) -> some View {
-        HStack(spacing: 12) {
+    private func folderHeader(for folder: Folder, isCollapsed: Bool) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                withAnimation { toggleFolderCollapsed(folder.id) }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isCollapsed ? "Expand folder" : "Collapse folder")
+            .accessibilityIdentifier("folderDisclosure-\(folder.id.uuidString)")
+
             Image(systemName: "folder")
             Text(folder.name).frame(maxWidth: .infinity, alignment: .leading)
             if isEditing { folderEditControls(for: folder) }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    /// Toggles one folder's collapsed state on the main list.
+    private func toggleFolderCollapsed(_ id: UUID) {
+        if collapsedFolders.contains(id) {
+            collapsedFolders.remove(id)
+        } else {
+            collapsedFolders.insert(id)
+        }
     }
 
     /// Trailing per-folder rename/reorder controls in edit mode, mirroring the
