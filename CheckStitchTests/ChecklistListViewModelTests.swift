@@ -243,4 +243,53 @@ struct ChecklistListViewModelTests {
         let reloaded = ChecklistListViewModel(store: ChecklistStore(defaults: defaults, textEditDelay: nil))
         #expect(reloaded.checklists.map(\.id) == [b, a])
     }
+
+    @Test
+    func dragFolderDownOntoFolderTakesItsSlot() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createFolder(name: "Work")
+        let second = viewModel.createFolder(name: "Personal")
+        let third = viewModel.createFolder(name: "Errands")
+        viewModel.moveFolder(id: first, onto: third)
+        #expect(viewModel.folders.map(\.id) == [second, third, first])
+    }
+
+    @Test
+    func dragFolderUpOntoFolderTakesItsSlot() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createFolder(name: "Work")
+        let second = viewModel.createFolder(name: "Personal")
+        let third = viewModel.createFolder(name: "Errands")
+        viewModel.moveFolder(id: third, onto: first)
+        #expect(viewModel.folders.map(\.id) == [third, first, second])
+    }
+
+    @Test
+    func dragFolderOntoItselfIsANoOp() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createFolder(name: "Work")
+        let second = viewModel.createFolder(name: "Personal")
+        viewModel.moveFolder(id: first, onto: first)
+        #expect(viewModel.folders.map(\.id) == [first, second])
+    }
+
+    @Test
+    func dragFolderOntoUnknownIDIsANoOp() {
+        let viewModel = makeViewModel()
+        let only = viewModel.createFolder(name: "Work")
+        viewModel.moveFolder(id: only, onto: UUID())
+        #expect(viewModel.folders.map(\.id) == [only])
+    }
+
+    @Test
+    func dragFolderOrderPersistsAndReloads() {
+        let defaults = makeIsolatedDefaults()
+        let first = ChecklistListViewModel(store: ChecklistStore(defaults: defaults, textEditDelay: nil))
+        let a = first.createFolder(name: "Work")
+        let b = first.createFolder(name: "Personal")
+        first.moveFolder(id: b, onto: a)
+
+        let reloaded = ChecklistListViewModel(store: ChecklistStore(defaults: defaults, textEditDelay: nil))
+        #expect(reloaded.folders.map(\.id) == [b, a])
+    }
 }

@@ -27,6 +27,8 @@ struct ContentView: View {
     @State private var isEditing = false
     /// The checklist currently being dragged for reorder; nil when no drag.
     @State private var draggingChecklistID: UUID?
+    /// The folder currently being dragged for reorder; nil when no drag.
+    @State private var draggingFolderID: UUID?
     /// Whether the "New Folder" create alert is open.
     @State private var isCreatingFolder = false
     /// Buffered folder name behind the create alert's text field.
@@ -590,7 +592,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func folderHeader(for folder: Folder, isCollapsed: Bool) -> some View {
-        HStack(spacing: 8) {
+        let header = HStack(spacing: 8) {
             Button {
                 withAnimation { listVM.setFolderCollapsed(id: folder.id, !isCollapsed) }
             } label: {
@@ -610,6 +612,20 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+
+        if isEditing {
+            header
+                .onDrag {
+                    draggingFolderID = folder.id
+                    return NSItemProvider(object: folder.id.uuidString as NSString)
+                }
+                .onDrop(of: [.text], delegate: ReorderDropDelegate(
+                    targetID: folder.id,
+                    draggingID: $draggingFolderID,
+                    move: { listVM.moveFolder(id: $0, onto: $1) }))
+        } else {
+            header
+        }
     }
 
     /// Trailing per-folder rename/reorder controls in edit mode, mirroring the
