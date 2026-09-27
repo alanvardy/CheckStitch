@@ -461,10 +461,13 @@ final class ChecklistStore {
     }
 
     /// Creates a folder, disambiguating the name like `create` ("New Folder 2").
-    /// Always succeeds; returns the folder so a caller could open/rename it.
+    /// Always succeeds; returns the folder so a caller could open/rename it. A
+    /// nil or whitespace-only request falls back to "New Folder", so the create
+    /// alert can never leave a folder with a blank header.
     @discardableResult
     func createFolder(name: String? = nil) -> Folder {
-        let folder = Folder(name: Self.uniqueName(basedOn: name ?? "New Folder", taken: folders.map(\.name)),
+        let requested = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let folder = Folder(name: Self.uniqueName(basedOn: requested.isEmpty ? "New Folder" : requested, taken: folders.map(\.name)),
                             modifiedAt: now(), revision: 1)
         folders.append(folder)
         save()
@@ -494,7 +497,10 @@ final class ChecklistStore {
     @discardableResult
     func renameFolder(id: UUID, to name: String) -> Folder? {
         guard let index = folders.firstIndex(where: { $0.id == id }) else { return nil }
-        let disambiguated = Self.uniqueName(basedOn: name, taken: folders.filter { $0.id != id }.map(\.name))
+        // A blank request is a no-op: never blank a folder's header.
+        let requested = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !requested.isEmpty else { return folders[index] }
+        let disambiguated = Self.uniqueName(basedOn: requested, taken: folders.filter { $0.id != id }.map(\.name))
         guard !Self.sameName(folders[index].name, disambiguated) else { return folders[index] }
         folders[index].name = disambiguated
         folders[index].revision += 1

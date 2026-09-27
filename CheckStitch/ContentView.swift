@@ -448,6 +448,7 @@ struct ContentView: View {
                         .padding(.bottom, 8)
                     #endif
                     LazyVStack(spacing: 0) {
+                        let looseMembers = listVM.checklists(in: nil)
                         ForEach(listVM.folders) { folder in
                             folderSection(for: folder)
                             Divider()
@@ -455,9 +456,9 @@ struct ContentView: View {
                         if !listVM.folders.isEmpty {
                             looseHeader
                         }
-                        ForEach(listVM.checklists(in: nil)) { checklist in
+                        ForEach(looseMembers) { checklist in
                             checklistRow(for: checklist)
-                            if checklist.id != listVM.checklists(in: nil).last?.id {
+                            if checklist.id != looseMembers.last?.id {
                                 Divider()
                             }
                         }
@@ -557,11 +558,12 @@ struct ContentView: View {
     /// One folder's header plus its members, rendered above the loose group.
     @ViewBuilder
     private func folderSection(for folder: Folder) -> some View {
+        let members = listVM.checklists(in: folder)
         VStack(spacing: 0) {
             folderHeader(for: folder)
-            ForEach(listVM.checklists(in: folder)) { checklist in
+            ForEach(members) { checklist in
                 checklistRow(for: checklist)
-                if checklist.id != listVM.checklists(in: folder).last?.id { Divider() }
+                if checklist.id != members.last?.id { Divider() }
             }
         }
     }

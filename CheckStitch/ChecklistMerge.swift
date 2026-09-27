@@ -7,7 +7,10 @@ import Foundation
 /// regardless of which envelope is `local` and which is `remote`. Tombstones
 /// union by `(checklistID, itemID)` and always suppress their live entry, so a
 /// deletion made on one device can never be resurrected by an older copy on
-/// another. No store, no seam, no I/O: fully unit-testable in isolation.
+/// another. Folder tombstones suppress their live folder the same unconditional
+/// way — a folder delete is permanent (recreating a folder mints a new UUID),
+/// so a concurrent higher-revision rename loses to it. No store, no seam, no
+/// I/O: fully unit-testable in isolation.
 enum ChecklistMerge {
     static func merge(local: ChecklistEnvelope, remote: ChecklistEnvelope) -> ChecklistEnvelope {
         let tombstones = mergedTombstones(local.tombstones, remote.tombstones)

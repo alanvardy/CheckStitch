@@ -25,10 +25,7 @@ final class ChecklistListViewModel {
     func checklists(in folder: Folder?) -> [Checklist] {
         guard let folder else {
             let known = Set(store.folders.map(\.id))
-            return store.checklists.filter { checklist in
-                guard let folderID = checklist.folderID else { return true }
-                return !known.contains(folderID)
-            }
+            return store.checklists.filter { ChecklistGrouping.isLoose($0, knownFolderIDs: known) }
         }
         return store.checklists.filter { $0.folderID == folder.id }
     }
