@@ -25,6 +25,8 @@ struct ContentView: View {
     /// Present when the main-screen rows are in edit mode (remove/move
     /// controls instead of navigation and the run button).
     @State private var isEditing = false
+    /// The checklist currently being dragged for reorder; nil when no drag.
+    @State private var draggingChecklistID: UUID?
     /// Whether the "New Folder" create alert is open.
     @State private var isCreatingFolder = false
     /// Buffered folder name behind the create alert's text field.
@@ -490,8 +492,9 @@ struct ContentView: View {
     /// the detail screen, the play button turns the list into reminders. In
     /// edit mode the row swaps to a leading remove control and plain name text,
     /// so a tap can neither push the detail screen nor create reminders.
+    @ViewBuilder
     private func checklistRow(for checklist: Checklist) -> some View {
-        HStack(spacing: 12) {
+        let row = HStack(spacing: 12) {
             if isEditing {
                 Button {
                     listVM.checklistPendingRemoval = checklist.id
@@ -527,6 +530,20 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+
+        if isEditing {
+            row
+                .onDrag {
+                    draggingChecklistID = checklist.id
+                    return NSItemProvider(object: checklist.id.uuidString as NSString)
+                }
+                .onDrop(of: [.text], delegate: ReorderDropDelegate(
+                    targetID: checklist.id,
+                    draggingID: $draggingChecklistID,
+                    move: { listVM.moveChecklist(id: $0, onto: $1) }))
+        } else {
+            row
+        }
     }
 
     /// Trailing per-row move controls in edit mode. The first row cannot move
@@ -690,6 +707,31 @@ struct ContentView: View {
     private func consumePendingSharedImport() {
         guard let file = SharedImportInbox.shared.consume() else { return }
         importExportVM.importFile(at: file.url)
+    }
+}
+
+/// Live-reorder DropDelegate for one row/header in the width-capped card.
+/// `dropEntered` moves the dragged item into the target's slot through the view
+/// model, so the section→global index mapping stays unit-tested. A nil
+/// `draggingID` (no drag of this kind in flight) rejects the drop, so a
+/// checklist drag cannot land on a folder header and vice versa.
+private struct ReorderDropDelegate: DropDelegate {
+    let targetID: UUID
+    @Binding var draggingID: UUID?
+    let move: (UUID, UUID) -> Void
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        draggingID == nil ? nil : DropProposal(operation: .move)
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggingID, draggingID != targetID else { return }
+        withAnimation { move(draggingID, targetID) }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingID = nil
+        return true
     }
 }
 

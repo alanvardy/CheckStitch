@@ -164,4 +164,83 @@ struct ChecklistListViewModelTests {
         viewModel.setFolderCollapsed(id: folder, false)
         #expect(viewModel.folders.first?.isCollapsed == false)
     }
+
+    // MARK: Drag to move
+
+    @Test
+    func dragChecklistDownOntoRowTakesItsSlot() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createChecklist()
+        let second = viewModel.createChecklist()
+        let third = viewModel.createChecklist()
+        viewModel.moveChecklist(id: first, onto: third)
+        #expect(viewModel.checklists.map(\.id) == [second, third, first])
+    }
+
+    @Test
+    func dragChecklistUpOntoRowTakesItsSlot() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createChecklist()
+        let second = viewModel.createChecklist()
+        let third = viewModel.createChecklist()
+        viewModel.moveChecklist(id: third, onto: first)
+        #expect(viewModel.checklists.map(\.id) == [third, first, second])
+    }
+
+    @Test
+    func dragChecklistOntoItselfIsANoOp() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createChecklist()
+        let second = viewModel.createChecklist()
+        viewModel.moveChecklist(id: first, onto: first)
+        #expect(viewModel.checklists.map(\.id) == [first, second])
+    }
+
+    @Test
+    func dragChecklistOntoAnotherSectionsRowIsANoOp() {
+        let viewModel = makeViewModel()
+        let folder = viewModel.createFolder(name: "Work")
+        let filed = viewModel.createChecklist()
+        let loose = viewModel.createChecklist()
+        viewModel.moveChecklist(id: filed, toFolder: folder)
+
+        viewModel.moveChecklist(id: filed, onto: loose)
+
+        let f = viewModel.folders.first { $0.id == folder }!
+        #expect(viewModel.checklists(in: f).map(\.id) == [filed])
+        #expect(viewModel.checklists(in: nil).map(\.id) == [loose])
+    }
+
+    @Test
+    func dragChecklistWithinFolderReordersAroundOtherFoldersMembers() {
+        // Global order [c1(fA), x(fB), c2(fA)]: the mapping must skip x entirely.
+        let viewModel = makeViewModel()
+        let folderA = viewModel.createFolder(name: "Work")
+        let folderB = viewModel.createFolder(name: "Personal")
+        let c1 = viewModel.createChecklist()
+        let x = viewModel.createChecklist()
+        let c2 = viewModel.createChecklist()
+        viewModel.moveChecklist(id: c1, toFolder: folderA)
+        viewModel.moveChecklist(id: x, toFolder: folderB)
+        viewModel.moveChecklist(id: c2, toFolder: folderA)
+
+        viewModel.moveChecklist(id: c1, onto: c2)
+
+        let a = viewModel.folders.first { $0.id == folderA }!
+        let b = viewModel.folders.first { $0.id == folderB }!
+        #expect(viewModel.checklists(in: a).map(\.id) == [c2, c1])
+        #expect(viewModel.checklists(in: b).map(\.id) == [x])
+    }
+
+    @Test
+    func dragChecklistOrderPersistsAndReloads() {
+        let defaults = makeIsolatedDefaults()
+        let first = ChecklistListViewModel(store: ChecklistStore(defaults: defaults, textEditDelay: nil))
+        let a = first.createChecklist()
+        let b = first.createChecklist()
+        first.moveChecklist(id: b, onto: a)
+
+        let reloaded = ChecklistListViewModel(store: ChecklistStore(defaults: defaults, textEditDelay: nil))
+        #expect(reloaded.checklists.map(\.id) == [b, a])
+    }
 }
