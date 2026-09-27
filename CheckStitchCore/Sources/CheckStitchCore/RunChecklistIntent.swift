@@ -22,14 +22,22 @@ public struct RunChecklistIntent: AppIntent {
     private let injectedStore: ChecklistStore?
     private let injectedTargeting: (any ReminderDestinationTargeting)?
     private let injectedGate: RunGate?
+    private let injectedRunState: WidgetRunStateStore?
 
-    public init() { self.injectedStore = nil; self.injectedTargeting = nil; self.injectedGate = nil }
+    public init() {
+        self.injectedStore = nil
+        self.injectedTargeting = nil
+        self.injectedGate = nil
+        self.injectedRunState = nil
+    }
 
     @MainActor
-    public init(store: ChecklistStore, targeting: ReminderDestinationTargeting, gate: RunGate) {
+    public init(store: ChecklistStore, targeting: ReminderDestinationTargeting, gate: RunGate,
+                runState: WidgetRunStateStore? = nil) {
         self.injectedStore = store
         self.injectedTargeting = targeting
         self.injectedGate = gate
+        self.injectedRunState = runState
     }
 
     public static var parameterSummary: some ParameterSummary {
@@ -59,10 +67,21 @@ public struct RunChecklistIntent: AppIntent {
         }
 
         let gate = await resolveGate()
+        // The widget button's feedback lives here: a run recorded as `.running`
+        // (plus the reload the store fires) lets a timeline reload render the
+        // spinner, and the finished record drives the checkmark. The app path
+        // holds the same state in `ChecklistRunViewModel` instead.
+        let runState = injectedRunState ?? WidgetRunStateStore()
+        runState.beginRun(id: uuid, at: Date())
+        // Hold the spinner for at least `minimumSpinner` so a fast EventKit save
+        // cannot flash past the user; tests inject zero.
+        async let minimumSpinner: Void = Task.sleep(for: .seconds(runState.minimumSpinner))
         let outcome = await ChecklistReminders.create(
             from: stored,
             targeting: targeting,
             gate: gate)
+        try? await minimumSpinner
+        runState.finishRun(id: uuid, didCreate: outcome.didCreateAllItems, at: Date())
         return .result(dialog: IntentDialog(
             RunChecklistDialogue.message(for: outcome, checklistName: stored.name)))
     }

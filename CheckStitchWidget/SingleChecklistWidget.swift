@@ -3,7 +3,7 @@ import CheckStitchCore
 import SwiftUI
 import WidgetKit
 
-struct ChecklistEntry: TimelineEntry {
+struct ChecklistEntry: TimelineEntry, Sendable {
     let date: Date
     let model: ChecklistWidgetDisplayModel
 }
@@ -13,10 +13,12 @@ enum ChecklistWidgetLoader {
     /// Reads the App Group store and resolves the intent's configured
     /// checklists. An unconfigured widget renders the empty-state hint rather
     /// than silently running an arbitrary first checklist.
-    static func load(configuration: [ChecklistEntity]) -> ChecklistWidgetDisplayModel {
+    static func load(configuration: [ChecklistEntity], at now: Date = Date()) -> ChecklistWidgetDisplayModel {
         let checklists = ChecklistStore(defaults: AppGroup.defaults).checklists
+        let runState = WidgetRunStateStore(defaults: AppGroup.defaults)
         return ChecklistWidgetDisplayModel(
-            checklists: checklists, configuration: configuration, access: accessState())
+            checklists: checklists, configuration: configuration, access: accessState(),
+            runIndicators: runState.indicators(at: now))
     }
 
     static func accessState() -> ChecklistWidgetAccessState {
@@ -49,11 +51,50 @@ struct SingleChecklistProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: ChecklistConfigurationIntent, in context: Context) async -> Timeline<ChecklistEntry> {
-        let model = await MainActor.run {
-            ChecklistWidgetLoader.load(configuration: configuration.checklist.map { [$0] } ?? [])
+        let plan = await MainActor.run {
+            ChecklistWidgetTimeline.make(configuration: configuration.checklist.map { [$0] } ?? [])
         }
-        return Timeline(entries: [ChecklistEntry(date: .now, model: model)],
-                        policy: .after(.now.addingTimeInterval(15 * 60)))
+        return plan.timeline
+    }
+}
+
+/// What the timeline should render, read on the main actor. Kept `Sendable`
+/// because `WidgetKit.Timeline` itself is not, so the provider assembles it
+/// outside `MainActor.run`.
+struct ChecklistWidgetPlan: Sendable {
+    let entries: [ChecklistEntry]
+    let reloadAfter: Date
+
+    var timeline: Timeline<ChecklistEntry> {
+        Timeline(entries: entries, policy: .after(reloadAfter))
+    }
+}
+
+/// Shared timeline plan for both widgets. A run is written to
+/// `WidgetRunStateStore` by `RunChecklistIntent`, and the store's reload hook
+/// asks for a new timeline — this is where the spinner and the checkmark come
+/// from. The second entry is what drops a visible check back to the play icon
+/// without needing another reload.
+@MainActor
+enum ChecklistWidgetTimeline {
+    static func make(configuration: [ChecklistEntity], now: Date = Date()) -> ChecklistWidgetPlan {
+        let runState = WidgetRunStateStore(defaults: AppGroup.defaults)
+        let entry = ChecklistEntry(
+            date: now,
+            model: ChecklistWidgetLoader.load(configuration: configuration, at: now))
+        var entries = [entry]
+        if let checkmarkEnds = runState.checkmarkEndsAt(at: now) {
+            entries.append(ChecklistEntry(
+                date: checkmarkEnds,
+                model: ChecklistWidgetLoader.load(configuration: configuration, at: checkmarkEnds)))
+        }
+        // A run in flight finishes with its own reload, so the only reason to
+        // re-ask is the abandoned-run timeout that unsticks a killed intent.
+        let isRunning = runState.records.contains { $0.phase == .running }
+        return ChecklistWidgetPlan(
+            entries: entries,
+            reloadAfter: now.addingTimeInterval(
+                isRunning ? WidgetRunStateStore.abandonedRunTimeout : 15 * 60))
     }
 }
 
@@ -80,12 +121,13 @@ struct SingleChecklistWidgetView: View {
                 Text(row.name).font(.headline).lineLimit(2)
                 if row.isRunnable {
                     Button(intent: runIntent(for: row)) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 56))
-                            .accessibilityLabel("Create reminders")
+                        runIcon(for: row.indicator)
                     }
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.circle)
+                    .tint(row.indicator == .checkmark ? Color.green : Color.accentColor)
+                    .disabled(row.indicator == .spinner)
+                    .accessibilityLabel("Create reminders")
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else if row.needsPurchase {
                     Label("Open CheckStitch to buy a license", systemImage: "exclamationmark.triangle")
@@ -103,6 +145,26 @@ struct SingleChecklistWidgetView: View {
                  : "No checklists")
                 .font(.caption)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    /// The button's icon, mirroring the app's run button: spinner while the run
+    /// is in flight, green check on success, play otherwise. Widgets render
+    /// snapshots, so the `ProgressView` is a still spinner glyph, not a turning
+    /// one.
+    @ViewBuilder
+    private func runIcon(for indicator: WidgetRunIndicator) -> some View {
+        switch indicator {
+        case .play:
+            Image(systemName: "play.circle.fill")
+                .font(.system(size: 56))
+        case .spinner:
+            ProgressView()
+                .controlSize(.large)
+                .tint(Color.white)
+        case .checkmark:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 56))
         }
     }
 

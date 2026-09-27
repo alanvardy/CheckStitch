@@ -22,11 +22,10 @@ struct MultiChecklistProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: MultiChecklistConfigurationIntent, in context: Context) async -> Timeline<ChecklistEntry> {
-        let model = await MainActor.run {
-            ChecklistWidgetLoader.load(configuration: configuration.checklists ?? [])
+        let plan = await MainActor.run {
+            ChecklistWidgetTimeline.make(configuration: configuration.checklists ?? [])
         }
-        return Timeline(entries: [ChecklistEntry(date: .now, model: model)],
-                        policy: .after(.now.addingTimeInterval(15 * 60)))
+        return plan.timeline
     }
 }
 
@@ -64,9 +63,10 @@ struct MultiChecklistWidgetView: View {
                         Spacer()
                         if row.isRunnable {
                             Button(intent: runIntent(for: row)) {
-                                Image(systemName: "play.circle.fill")
+                                runIcon(for: row.indicator)
                             }
                             .buttonStyle(.plain)
+                            .disabled(row.indicator == .spinner)
                         } else if row.needsPurchase {
                             Label("Open CheckStitch to buy a license", systemImage: "exclamationmark.triangle")
                                 .font(.caption)
@@ -79,6 +79,22 @@ struct MultiChecklistWidgetView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    /// Per-row run icon, mirroring the app: spinner while in flight, green check
+    /// on success, play otherwise.
+    @ViewBuilder
+    private func runIcon(for indicator: WidgetRunIndicator) -> some View {
+        switch indicator {
+        case .play:
+            Image(systemName: "play.circle.fill")
+        case .spinner:
+            ProgressView()
+                .controlSize(.small)
+        case .checkmark:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
         }
     }
 

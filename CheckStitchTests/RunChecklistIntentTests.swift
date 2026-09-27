@@ -17,7 +17,10 @@ struct RunChecklistIntentTests {
         let intent = RunChecklistIntent(
             store: store,
             targeting: spy,
-            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true))
+            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true),
+            runState: WidgetRunStateStore(defaults: makeIsolatedDefaults(),
+                                          minimumSpinner: 0,
+                                          onChange: {}))
         intent.checklist = ChecklistEntity(id: store.checklists[0].id.uuidString, name: "Groceries")
         return (intent: intent, spy: spy, store: store)
     }
@@ -216,12 +219,45 @@ struct RunChecklistIntentTests {
         let intent = RunChecklistIntent(
             store: store,
             targeting: spy,
-            gate: RunGate(counter: counter, isUnlocked: false))
+            gate: RunGate(counter: counter, isUnlocked: false),
+            runState: WidgetRunStateStore(defaults: makeIsolatedDefaults(),
+                                          minimumSpinner: 0,
+                                          onChange: {}))
         intent.checklist = ChecklistEntity(id: store.checklists[0].id.uuidString, name: "Groceries")
 
         _ = try await intent.perform()
 
         #expect(spy.createdTitles.isEmpty)
         #expect(spy.requestAccessCount == 0, "a refused run performs no EventKit work")
+    }
+
+    /// The widget button's feedback is driven by this record: a successful run
+    /// must leave a finished, checkmark-worthy phase behind.
+    @Test
+    func performRecordsTheWidgetRunPhase() async throws {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        store.create(name: "Groceries")
+        let checklistID = store.checklists[0].id
+        store.addItem(to: checklistID, title: "Milk")
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Reminders")],
+            defaultIdentifier: "list-1")
+        let runState = WidgetRunStateStore(defaults: makeIsolatedDefaults(),
+                                           minimumSpinner: 0,
+                                           onChange: {})
+        let intent = RunChecklistIntent(
+            store: store,
+            targeting: spy,
+            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true),
+            runState: runState)
+        intent.checklist = ChecklistEntity(id: checklistID.uuidString, name: "Groceries")
+
+        _ = try await intent.perform()
+
+        #expect(runState.records.count == 1)
+        #expect(runState.records.first?.phase == .finished)
+        #expect(runState.records.first?.didCreate == true)
+        #expect(runState.indicator(for: checklistID, at: Date()) == .checkmark)
     }
 }

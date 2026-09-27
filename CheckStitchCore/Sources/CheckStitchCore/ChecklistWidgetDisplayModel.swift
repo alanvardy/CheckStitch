@@ -11,15 +11,20 @@ public struct ChecklistWidgetRow: Identifiable, Equatable, Sendable {
     /// True only when the free-run limit was reached without a license, so the
     /// views can offer "buy a license" instead of the access prompt.
     public let needsPurchase: Bool
+    /// The run button's icon: play, a spinner while a run is in flight, or the
+    /// transient success check. Always `.play` for a non-runnable row.
+    public let indicator: WidgetRunIndicator
 
     public init(id: Checklist.ID, name: String, entityID: String,
-                isRunnable: Bool, needsAccess: Bool, needsPurchase: Bool) {
+                isRunnable: Bool, needsAccess: Bool, needsPurchase: Bool,
+                indicator: WidgetRunIndicator = .play) {
         self.id = id
         self.name = name
         self.entityID = entityID
         self.isRunnable = isRunnable
         self.needsAccess = needsAccess
         self.needsPurchase = needsPurchase
+        self.indicator = indicator
     }
 }
 
@@ -36,7 +41,8 @@ public struct ChecklistWidgetDisplayModel: Equatable, Sendable {
     public static let rowLimit = 6
 
     public init(checklists: [Checklist], configuration: [ChecklistEntity],
-                access: ChecklistWidgetAccessState) {
+                access: ChecklistWidgetAccessState,
+                runIndicators: [Checklist.ID: WidgetRunIndicator] = [:]) {
         let byID = Dictionary(checklists.map { ($0.id.uuidString, $0) },
                               uniquingKeysWith: { first, _ in first })
         self.rows = Array(configuration.prefix(Self.rowLimit).compactMap { entity in
@@ -47,7 +53,8 @@ public struct ChecklistWidgetDisplayModel: Equatable, Sendable {
                 entityID: entity.id,
                 isRunnable: access == .ready,
                 needsAccess: access != .ready,
-                needsPurchase: access == .needsPurchase)
+                needsPurchase: access == .needsPurchase,
+                indicator: runIndicators[checklist.id] ?? .play)
         })
         self.hasChecklists = !checklists.isEmpty
     }
