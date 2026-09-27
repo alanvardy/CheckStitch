@@ -322,7 +322,11 @@ struct ContentView: View {
         // Leave edit mode when the last checklist goes: the empty state has no
         // toggle, so a later create must not open into a stale edit state.
         .onChange(of: listVM.checklists.isEmpty) { _, isEmpty in
-            if isEmpty { isEditing = false }
+            if isEmpty {
+                isEditing = false
+                draggingChecklistID = nil
+                draggingFolderID = nil
+            }
         }
     }
 
@@ -414,6 +418,10 @@ struct ContentView: View {
     private var editToggleButton: some View {
         Button(isEditing ? "Done" : "Edit") {
             withAnimation { isEditing.toggle() }
+            if !isEditing {
+                draggingChecklistID = nil
+                draggingFolderID = nil
+            }
         }
         .accessibilityIdentifier("editChecklistsButton")
     }
@@ -536,6 +544,10 @@ struct ContentView: View {
         if isEditing {
             row
                 .onDrag {
+                    // A cancelled drag never reaches `performDrop`, so clear the
+                    // other kind's state: a stale id must not drive a move when
+                    // a later drag of the other kind passes over these rows.
+                    draggingFolderID = nil
                     draggingChecklistID = checklist.id
                     return NSItemProvider(object: checklist.id.uuidString as NSString)
                 }
@@ -616,6 +628,9 @@ struct ContentView: View {
         if isEditing {
             header
                 .onDrag {
+                    // See `checklistRow`: clears the checklist drag's stale id so
+                    // a cancelled checklist drag cannot move a row mid-folder-drag.
+                    draggingChecklistID = nil
                     draggingFolderID = folder.id
                     return NSItemProvider(object: folder.id.uuidString as NSString)
                 }
@@ -746,6 +761,9 @@ private struct ReorderDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
+        // Reject a foreign drop (no drag of this kind in flight); only clear our
+        // own id, so an unrelated `.text` drop cannot consume the gesture.
+        guard draggingID != nil else { return false }
         draggingID = nil
         return true
     }
