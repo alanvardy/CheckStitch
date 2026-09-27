@@ -456,9 +456,6 @@ struct ContentView: View {
                             folderSection(for: folder)
                             Divider()
                         }
-                        if !listVM.folders.isEmpty {
-                            looseHeader
-                        }
                         ForEach(looseMembers) { checklist in
                             checklistRow(for: checklist)
                             if checklist.id != looseMembers.last?.id {
@@ -646,16 +643,6 @@ struct ContentView: View {
             .accessibilityLabel("Move down")
             .accessibilityIdentifier("moveFolderDown-\(folder.id.uuidString)")
         }
-    }
-
-    /// The heading over the loose group, shown only once a folder exists.
-    private var looseHeader: some View {
-        HStack {
-            Text("Loose").font(.subheadline).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
     }
 
     private var emptyState: some View {
