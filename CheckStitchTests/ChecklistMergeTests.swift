@@ -942,6 +942,36 @@ struct ChecklistMergeTests {
 
         #expect(merged.folders.first?.isCollapsed == true, "an older remote collapse flag cannot win")
     }
+
+    @Test
+    func winnerShowOnWatchOverwritesLoser() {
+        let id = UUID()
+        var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        newer.showsOnWatch = false
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [older]),
+            remote: envelope(device: "device-b", checklists: [newer])
+        )
+
+        #expect(merged.checklists.first?.showsOnWatch == false, "the newest editor controls the show-on-watch toggle")
+    }
+
+    @Test
+    func loserShowOnWatchIsPreservedWhenNonWinning() {
+        let id = UUID()
+        var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        newer.showsOnWatch = false
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [newer]),
+            remote: envelope(device: "device-b", checklists: [older])
+        )
+
+        #expect(merged.checklists.first?.showsOnWatch == false, "an older revision must not leak its show-on-watch value in")
+    }
 }
 
 @MainActor
