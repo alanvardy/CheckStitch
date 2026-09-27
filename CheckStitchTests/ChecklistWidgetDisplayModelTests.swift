@@ -100,4 +100,30 @@ struct ChecklistWidgetDisplayModelTests {
         #expect(emptyStore.rows.isEmpty)
         #expect(!emptyStore.hasChecklists)
     }
+
+    @Test
+    func runIndicatorIsCarriedOntoItsRow() {
+        let groceries = Checklist(name: "Groceries")
+        let packing = Checklist(name: "Packing")
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [groceries, packing],
+            configuration: [ChecklistEntity(groceries), ChecklistEntity(packing)],
+            access: .ready,
+            runIndicators: [groceries.id: .spinner, packing.id: .checkmark])
+
+        #expect(model.rows.first { $0.id == groceries.id }?.indicator == .spinner)
+        #expect(model.rows.first { $0.id == packing.id }?.indicator == .checkmark)
+    }
+
+    /// No persisted run → the button is a play icon, not a spinner.
+    @Test
+    func rowsWithoutARunShowThePlayIcon() {
+        let checklist = Checklist(name: "Groceries")
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [checklist],
+            configuration: [ChecklistEntity(checklist)],
+            access: .ready)
+
+        #expect(model.rows.allSatisfy { $0.indicator == .play })
+    }
 }

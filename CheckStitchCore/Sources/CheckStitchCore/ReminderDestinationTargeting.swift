@@ -80,6 +80,14 @@ public enum ReminderRunOutcome: Equatable, Sendable {
         case .failed(let message): return message
         }
     }
+
+    /// True only when the run created every item. The app's transient success
+    /// check (`ChecklistRunViewModel.created`) and the widget's checkmark are
+    /// both gated on this, so a partial or failed run never flashes success.
+    public var didCreateAllItems: Bool {
+        if case .created = self { return true }
+        return false
+    }
 }
 
 /// Seam over the EventKit surface the run path needs: permission, list
