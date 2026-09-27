@@ -910,6 +910,38 @@ struct ChecklistMergeTests {
         #expect(merged.folders.isEmpty, "a higher-revision tombstone prunes the live folder")
         #expect(merged.folderTombstones.map(\.folderID) == [folderID], "the tombstone is carried")
     }
+
+    @Test
+    func remoteWinningFolderCollapseFlagIsAdopted() {
+        let folderID = UUID()
+        let newer = folder(id: folderID, name: "Home", revision: 2,
+                           modifiedAt: Date(timeIntervalSince1970: 2), isCollapsed: true)
+        let older = folder(id: folderID, name: "Home", revision: 1,
+                           modifiedAt: Date(timeIntervalSince1970: 1), isCollapsed: false)
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", folders: [older]),
+            remote: envelope(device: "device-b", folders: [newer])
+        )
+
+        #expect(merged.folders.first?.isCollapsed == true, "the newer collapse flag wins")
+    }
+
+    @Test
+    func localWinningFolderKeepsItsCollapseFlag() {
+        let folderID = UUID()
+        let newer = folder(id: folderID, name: "Home", revision: 2,
+                           modifiedAt: Date(timeIntervalSince1970: 2), isCollapsed: true)
+        let older = folder(id: folderID, name: "Home", revision: 1,
+                           modifiedAt: Date(timeIntervalSince1970: 1), isCollapsed: false)
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", folders: [newer]),
+            remote: envelope(device: "device-b", folders: [older])
+        )
+
+        #expect(merged.folders.first?.isCollapsed == true, "an older remote collapse flag cannot win")
+    }
 }
 
 @MainActor
@@ -924,8 +956,9 @@ func envelope(device: String,
 }
 
 @MainActor
-func folder(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPast) -> Folder {
-    Folder(id: id, name: name, modifiedAt: modifiedAt, revision: revision)
+func folder(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPast,
+            isCollapsed: Bool = false) -> Folder {
+    Folder(id: id, name: name, isCollapsed: isCollapsed, modifiedAt: modifiedAt, revision: revision)
 }
 
 @MainActor

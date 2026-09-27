@@ -349,6 +349,32 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertNil(envelope.checklists.first?.folderID)
     }
 
+    func testFolderCollapseFlagSurvivesEnvelopeRoundTrip() throws {
+        let folder = Folder(name: "Work", isCollapsed: true)
+        let envelope = ChecklistEnvelope(deviceID: "d", checklists: [], folders: [folder])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        guard case .loaded(let decoded) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(decoded.folders.first?.isCollapsed, true)
+    }
+
+    /// A v5 payload written before the collapse flag existed lacks the key: it
+    /// must decode to `false`, never a trap.
+    func testFolderWithoutCollapseKeyDecodesToFalse() throws {
+        let id = UUID().uuidString
+        let payload = Data(#"{"version":5,"deviceID":"d","checklists":[],"tombstones":[],"folders":[{"id":"\#(id)","name":"Work","modifiedAt":0,"revision":1}],"folderTombstones":[]}"#.utf8)
+        guard case .loaded(let envelope) = ChecklistCodec.classify(payload) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(payload))")
+            return
+        }
+        XCTAssertEqual(envelope.folders.first?.isCollapsed, false)
+    }
+
     func testFoldersSurviveEnvelopeRoundTrip() throws {
         let folder = Folder(name: "Work")
         let checklist = Checklist(name: "Groceries", folderID: folder.id)

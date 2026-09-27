@@ -509,6 +509,22 @@ final class ChecklistStore {
         return folders[index]
     }
 
+    /// Collapses or expands a folder's members on the list screens. Shares the
+    /// folder's coarse `revision`/`modifiedAt` clock with the name so the flag
+    /// transfers through `ChecklistMerge` (mirrors `renameFolder`); an unchanged
+    /// flag is a no-op, never a spurious LWW win. Returns false for an unknown
+    /// folder.
+    @discardableResult
+    func setFolderCollapsed(id: UUID, _ isCollapsed: Bool) -> Bool {
+        guard let index = folders.firstIndex(where: { $0.id == id }) else { return false }
+        guard folders[index].isCollapsed != isCollapsed else { return true }
+        folders[index].isCollapsed = isCollapsed
+        folders[index].revision += 1
+        folders[index].modifiedAt = now()
+        save()
+        return true
+    }
+
     /// Reorders folders. Folder order *is* the persisted array order and merge
     /// keeps local order (remote-only appends), so — exactly like
     /// `moveChecklists` — this is local-first and stamps no revision.

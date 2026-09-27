@@ -92,6 +92,7 @@ enum ChecklistMerge {
                     overRevision: localFolder.revision, overDate: localFolder.modifiedAt,
                     overDevice: localDevice) {
                 merged.name = remoteFolder.name
+                merged.isCollapsed = remoteFolder.isCollapsed
                 merged.revision = remoteFolder.revision
                 merged.modifiedAt = remoteFolder.modifiedAt
             }
