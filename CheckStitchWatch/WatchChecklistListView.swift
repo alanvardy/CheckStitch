@@ -16,7 +16,7 @@ struct WatchChecklistListView: View {
                     List {
                         // Folders are rows you tap into; their checklists live
                         // on `WatchFolderDetailView` so the top level stays short.
-                        ForEach(viewModel.folders) { folder in
+                        ForEach(viewModel.visibleFolders) { folder in
                             NavigationLink {
                                 WatchFolderDetailView(folder: folder)
                             } label: {

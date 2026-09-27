@@ -598,4 +598,25 @@ public enum ChecklistGrouping {
     ) -> [Checklist] {
         checklists.filter { isLoose($0, knownFolderIDs: knownFolderIDs) && $0.showsOnWatch }
     }
+
+    /// A folder's visible checklists, in global order: filed under `folder` and
+    /// not hidden.
+    public static func visibleChecklists(
+        in folder: Folder, from checklists: [Checklist]
+    ) -> [Checklist] {
+        checklists.filter { $0.folderID == folder.id && $0.showsOnWatch }
+    }
+
+    /// The folders the watch renders: a folder stays when it has no members, or at
+    /// least one visible member; it drops only when it has members and all of them
+    /// are hidden. Membership stays derived from `folderID` — no folder-side child
+    /// list is introduced.
+    public static func visibleFolders(
+        _ folders: [Folder], checklists: [Checklist]
+    ) -> [Folder] {
+        folders.filter { folder in
+            let members = checklists.filter { $0.folderID == folder.id }
+            return members.isEmpty || members.contains { $0.showsOnWatch }
+        }
+    }
 }
