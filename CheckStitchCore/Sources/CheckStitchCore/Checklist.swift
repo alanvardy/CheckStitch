@@ -147,6 +147,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         id: UUID = UUID(), name: String = "New checklist", items: [ChecklistItem] = [],
         destinationListIdentifier: String? = nil,
         prefixesReminderNumbers: Bool = false,
+        showsOnWatch: Bool = true,
         folderID: UUID? = nil,
         modifiedAt: Date = .distantPast, revision: Int = 0,
         itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast
@@ -156,6 +157,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self.items = items
         self.destinationListIdentifier = destinationListIdentifier
         self.prefixesReminderNumbers = prefixesReminderNumbers
+        self.showsOnWatch = showsOnWatch
         self.folderID = folderID
         self.modifiedAt = modifiedAt
         self.revision = revision
@@ -179,6 +181,13 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     /// key: absent in v4-and-earlier payloads decodes to `false` with no version
     /// bump (the `relativeDate` precedent).
     public var prefixesReminderNumbers: Bool
+    /// Whether this checklist is offered on the Apple Watch. Default-on: it is
+    /// the first stored boolean that defaults to `true`, so an absent key reads
+    /// as "shown". Additive optional key: absent in v5-and-earlier payloads
+    /// decodes to `true` with no version bump (the `prefixesReminderNumbers`
+    /// precedent). Shares the checklist's coarse `revision`/`modifiedAt` clock,
+    /// so a toggle is decided by the same last-write-wins rule.
+    public var showsOnWatch: Bool
     /// The id of the folder this checklist is filed under, or `nil` for loose.
     /// A one-field relationship sharing the checklist's coarse clock with the
     /// name/destination, so a membership move is decided by the same
@@ -194,7 +203,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, folderID
+        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, folderID
         case modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
@@ -207,6 +216,11 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // Additive optional field: absent key decodes to false, matching the
         // `description`/`relativeDate` precedent — no version bump.
         let prefixesReminderNumbers = try container.decodeIfPresent(Bool.self, forKey: .prefixesReminderNumbers) ?? false
+        // Additive optional field: absent in v5-and-earlier payloads decodes to
+        // `true` (shown on the watch) with no version bump, matching the
+        // `prefixesReminderNumbers` precedent. This is the only default-`true`
+        // stored field, so the `?? true` is deliberate, not an oversight.
+        let showsOnWatch = try container.decodeIfPresent(Bool.self, forKey: .showsOnWatch) ?? true
         // Additive optional field: absent in v4-and-earlier payloads decodes to
         // nil, matching the `destinationListIdentifier` precedent — no restamp.
         let folderID = try container.decodeIfPresent(UUID.self, forKey: .folderID)
@@ -221,6 +235,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self = Checklist(id: id, name: name, items: items,
                          destinationListIdentifier: destinationListIdentifier,
                          prefixesReminderNumbers: prefixesReminderNumbers,
+                         showsOnWatch: showsOnWatch,
                          folderID: folderID,
                          modifiedAt: modifiedAt, revision: revision,
                          itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
@@ -234,6 +249,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         try container.encode(items, forKey: .items)
         try container.encode(destinationListIdentifier, forKey: .destinationListIdentifier)
         try container.encode(prefixesReminderNumbers, forKey: .prefixesReminderNumbers)
+        try container.encode(showsOnWatch, forKey: .showsOnWatch)
         // Write the key unconditionally, matching the "encoder writes every key"
         // invariant (the `relativeDate` shape).
         if let folderID {
@@ -572,5 +588,14 @@ public enum ChecklistGrouping {
         var sections = folders.map { ChecklistSection(folder: $0, checklists: byFolder[$0.id] ?? []) }
         sections.append(ChecklistSection(folder: nil, checklists: loose))
         return sections
+    }
+
+    /// The loose checklists the watch renders, in global order: loose (no folder,
+    /// or a `folderID` no longer known) and not hidden. The phone keeps sending
+    /// hidden checklists; the watch filters only at render time.
+    public static func visibleLooseChecklists(
+        _ checklists: [Checklist], knownFolderIDs: Set<UUID>
+    ) -> [Checklist] {
+        checklists.filter { isLoose($0, knownFolderIDs: knownFolderIDs) && $0.showsOnWatch }
     }
 }

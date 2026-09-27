@@ -74,6 +74,14 @@ struct ChecklistDetailView: View {
                     } footer: {
                         Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
                     }
+                    Section {
+                        Toggle(isOn: showOnWatchBinding(checklistID: checklistID)) {
+                            Label("Show on watch", systemImage: "applewatch")
+                        }
+                        .accessibilityIdentifier("checklistShowsOnWatchToggle")
+                    } footer: {
+                        Text("Hidden checklists stay on your iPhone but are not shown on the Apple Watch.")
+                    }
                     Section("Items") {
                         ForEach(checklist.items) { item in
                             ItemRow(
@@ -257,6 +265,17 @@ struct ChecklistDetailView: View {
         Binding(
             get: { store.checklist(id: checklistID)?.prefixesReminderNumbers ?? false },
             set: { store.setPrefixesReminderNumbers($0, for: checklistID) }
+        )
+    }
+
+    /// Per-selection write through the store for the "Show on watch" toggle. The
+    /// getter reads the store so a value that arrives over sync updates the
+    /// toggle; `.notFound` (deleted while this screen was open) is ignored,
+    /// matching `numberingBinding`.
+    private func showOnWatchBinding(checklistID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { store.checklist(id: checklistID)?.showsOnWatch ?? true },
+            set: { store.setShowsOnWatch($0, for: checklistID) }
         )
     }
 

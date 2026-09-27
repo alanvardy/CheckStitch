@@ -2051,6 +2051,47 @@
         }
       }
     },
+    "Hidden checklists stay on your iPhone but are not shown on the Apple Watch." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgeblendete Checklisten bleiben auf deinem iPhone, werden aber nicht auf der Apple Watch angezeigt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden checklists stay on your iPhone but are not shown on the Apple Watch."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las listas ocultas permanecen en tu iPhone, pero no se muestran en el Apple Watch."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les listes masquées restent sur votre iPhone mais ne s'affichent pas sur l'Apple Watch."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非表示のチェックリストはiPhoneに残りますが、Apple Watchには表示されません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏的清单会保留在 iPhone 上，但不会显示在 Apple Watch 上。"
+          }
+        }
+      }
+    },
     "How much the wallpaper fades for readability." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3482,6 +3523,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在清单后面显示壁纸。"
+          }
+        }
+      }
+    },
+    "Show on watch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf der Uhr anzeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show on watch"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en el reloj"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher sur la montre"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時計に表示"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在手表上显示"
           }
         }
       }
