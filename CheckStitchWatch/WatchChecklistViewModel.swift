@@ -17,8 +17,21 @@ final class WatchChecklistViewModel {
 
     var folders: [Folder] { store.folders }
 
-    var sections: [ChecklistSection] {
-        ChecklistGrouping.sections(folders: store.folders, checklists: store.checklists)
+    /// Checklists with no folder (or a folder id the phone no longer knows), in
+    /// global order. Rendered as top-level rows directly under the folder rows.
+    var looseChecklists: [Checklist] {
+        let known = Set(store.folders.map(\.id))
+        return store.checklists.filter { ChecklistGrouping.isLoose($0, knownFolderIDs: known) }
+    }
+
+    /// The checklists inside `folder`, in global order.
+    func checklists(in folder: Folder) -> [Checklist] {
+        store.checklists.filter { $0.folderID == folder.id }
+    }
+
+    /// The live folder once a refresh lands, falling back to the pushed seed.
+    func current(_ folder: Folder) -> Folder {
+        store.folders.first { $0.id == folder.id } ?? folder
     }
 
     /// Activates the transport and asks the phone for a fresh snapshot.
