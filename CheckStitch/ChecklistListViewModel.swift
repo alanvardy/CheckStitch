@@ -87,4 +87,26 @@ final class ChecklistListViewModel {
         guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
         store.moveChecklists(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
     }
+
+    /// The section a checklist renders in: its folder id when that folder is
+    /// known, otherwise nil (the loose group). Mirrors `checklists(in:)`/`isLoose`
+    /// so a skewed (unknown) `folderID` gates as loose, exactly as it renders.
+    private func sectionID(for checklist: Checklist) -> UUID? {
+        guard let folderID = checklist.folderID,
+              store.folders.contains(where: { $0.id == folderID }) else { return nil }
+        return folderID
+    }
+
+    /// Maps a checklist drag onto the store's global `checklists` array. `targetID`
+    /// is the row the drag entered: the dragged checklist takes that row's slot in
+    /// its section, so a downward drag lands after the target and an upward drag
+    /// before it. Cross-section drags, self-drops and unknown ids are silent
+    /// no-ops — cross-folder filing stays with `moveChecklist(id:toFolder:)`.
+    func moveChecklist(id: UUID, onto targetID: UUID) {
+        guard id != targetID else { return }
+        guard let from = store.checklists.firstIndex(where: { $0.id == id }),
+              let to = store.checklists.firstIndex(where: { $0.id == targetID }) else { return }
+        guard sectionID(for: store.checklists[from]) == sectionID(for: store.checklists[to]) else { return }
+        store.moveChecklists(from: IndexSet(integer: from), to: from < to ? to + 1 : to)
+    }
 }
