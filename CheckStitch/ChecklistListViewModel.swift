@@ -54,6 +54,17 @@ final class ChecklistListViewModel {
         store.moveFolders(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
     }
 
+    /// Maps a folder drag onto the store's `folders` array. Same take-the-slot
+    /// semantics as `moveChecklist(id:onto:)`; self-drops and unknown ids are
+    /// silent no-ops. Folder order is the persisted array order, so no revision
+    /// is stamped (mirrors `moveFolders`/`moveFolder(id:up:)`).
+    func moveFolder(id: UUID, onto targetID: UUID) {
+        guard id != targetID else { return }
+        guard let from = store.folders.firstIndex(where: { $0.id == id }),
+              let to = store.folders.firstIndex(where: { $0.id == targetID }) else { return }
+        store.moveFolders(from: IndexSet(integer: from), to: from < to ? to + 1 : to)
+    }
+
     /// The folder waiting for its confirm/cancel in the delete dialog; `nil` hides it.
     var folderPendingRemoval: UUID?
 
