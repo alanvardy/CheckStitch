@@ -7,7 +7,7 @@ struct WatchChecklistListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.checklists.isEmpty {
+                if viewModel.visibleFolders.isEmpty && viewModel.looseChecklists.isEmpty {
                     ContentUnavailableView(
                         "No checklists",
                         systemImage: "checklist",
