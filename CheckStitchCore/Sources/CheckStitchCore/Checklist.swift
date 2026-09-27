@@ -516,6 +516,14 @@ public struct ChecklistSection: Identifiable, Equatable, Sendable {
 
 /// Read-only grouping used by the watch (and any surface that needs sections).
 public enum ChecklistGrouping {
+    /// Whether a checklist renders in the loose group: it has no folder, or its
+    /// `folderID` names a folder that is not (yet) known. Shared by the phone
+    /// list and `sections` so the cross-reference-skew rule cannot drift.
+    public static func isLoose(_ checklist: Checklist, knownFolderIDs: Set<UUID>) -> Bool {
+        guard let folderID = checklist.folderID else { return true }
+        return !knownFolderIDs.contains(folderID)
+    }
+
     /// Folders in persisted order, each followed by its members in global
     /// checklist order; then the loose section last. A `folderID` naming an
     /// unknown folder is grouped loose, so cross-reference skew never drops a
@@ -525,11 +533,11 @@ public enum ChecklistGrouping {
         var byFolder: [UUID: [Checklist]] = [:]
         var loose: [Checklist] = []
         for checklist in checklists {
-            if let folderID = checklist.folderID, known.contains(folderID) {
-                byFolder[folderID, default: []].append(checklist)
-            } else {
+            guard !isLoose(checklist, knownFolderIDs: known), let folderID = checklist.folderID else {
                 loose.append(checklist)
+                continue
             }
+            byFolder[folderID, default: []].append(checklist)
         }
         var sections = folders.map { ChecklistSection(folder: $0, checklists: byFolder[$0.id] ?? []) }
         sections.append(ChecklistSection(folder: nil, checklists: loose))

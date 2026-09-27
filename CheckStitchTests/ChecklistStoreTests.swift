@@ -2097,6 +2097,32 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.folders.map(\.name), ["Work"])
     }
 
+    func testCreateFolderWithBlankNameFallsBackToDefault() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.createFolder(name: "")
+        store.createFolder(name: "   ")
+
+        XCTAssertEqual(store.folders.map(\.name), ["New Folder", "New Folder 2"])
+    }
+
+    func testRenameFolderToBlankNameKeepsTheExistingName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+        let before = folder.revision
+
+        let blanked = store.renameFolder(id: folder.id, to: "   ")!
+
+        XCTAssertEqual(blanked.name, "Work")
+        XCTAssertEqual(blanked.revision, before)
+        XCTAssertEqual(store.folders.map(\.name), ["Work"])
+    }
+
     func testMoveFoldersReordersAndPersists() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
