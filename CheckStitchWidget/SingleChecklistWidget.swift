@@ -81,9 +81,12 @@ struct SingleChecklistWidgetView: View {
                 if row.isRunnable {
                     Button(intent: runIntent(for: row)) {
                         Image(systemName: "play.circle.fill")
+                            .font(.system(size: 56))
                             .accessibilityLabel("Create reminders")
                     }
                     .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else if row.needsPurchase {
                     Label("Open CheckStitch to buy a license", systemImage: "exclamationmark.triangle")
                         .font(.caption)

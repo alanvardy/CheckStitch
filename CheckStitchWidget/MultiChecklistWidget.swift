@@ -60,7 +60,7 @@ struct MultiChecklistWidgetView: View {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(entry.model.rows) { row in
                     HStack {
-                        Text(row.name).font(.body).lineLimit(1)
+                        Text(row.name).font(.title3).lineLimit(1)
                         Spacer()
                         if row.isRunnable {
                             Button(intent: runIntent(for: row)) {
