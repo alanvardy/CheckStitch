@@ -25,9 +25,15 @@ final class WatchChecklistViewModel {
         return ChecklistGrouping.visibleLooseChecklists(store.checklists, knownFolderIDs: known)
     }
 
-    /// The checklists inside `folder`, in global order.
+    /// Folders with at least one visible checklist, plus empty folders. A folder
+    /// whose members are all hidden drops off the root list.
+    var visibleFolders: [Folder] {
+        ChecklistGrouping.visibleFolders(store.folders, checklists: store.checklists)
+    }
+
+    /// The checklists inside `folder`, in global order, excluding hidden ones.
     func checklists(in folder: Folder) -> [Checklist] {
-        store.checklists.filter { $0.folderID == folder.id }
+        ChecklistGrouping.visibleChecklists(in: folder, from: store.checklists)
     }
 
     /// The live folder once a refresh lands, falling back to the pushed seed.
