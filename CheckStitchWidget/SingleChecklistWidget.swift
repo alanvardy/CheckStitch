@@ -123,9 +123,7 @@ struct SingleChecklistWidgetView: View {
                     Button(intent: runIntent(for: row)) {
                         runIcon(for: row.indicator)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .buttonBorderShape(.circle)
-                    .tint(row.indicator == .checkmark ? Color.green : Color.accentColor)
+                    .buttonStyle(.plain)
                     .disabled(row.indicator == .spinner)
                     .accessibilityLabel("Create reminders")
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -151,7 +149,7 @@ struct SingleChecklistWidgetView: View {
     /// The button's icon, mirroring the app's run button: spinner while the run
     /// is in flight, green check on success, play otherwise. Widgets render
     /// snapshots, so the `ProgressView` is a still spinner glyph, not a turning
-    /// one.
+    /// one. Drawn without button chrome, so the icon *is* the button.
     @ViewBuilder
     private func runIcon(for indicator: WidgetRunIndicator) -> some View {
         switch indicator {
@@ -161,10 +159,10 @@ struct SingleChecklistWidgetView: View {
         case .spinner:
             ProgressView()
                 .controlSize(.large)
-                .tint(Color.white)
         case .checkmark:
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 56))
+                .foregroundStyle(.green)
         }
     }
 
