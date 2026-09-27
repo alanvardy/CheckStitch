@@ -197,6 +197,24 @@ struct ChecklistListViewModelTests {
     }
 
     @Test
+    func dragChecklistOntoUnknownIDIsANoOp() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createChecklist()
+        let second = viewModel.createChecklist()
+        viewModel.moveChecklist(id: first, onto: UUID())
+        #expect(viewModel.checklists.map(\.id) == [first, second])
+    }
+
+    @Test
+    func dragUnknownChecklistIsANoOp() {
+        let viewModel = makeViewModel()
+        let first = viewModel.createChecklist()
+        let second = viewModel.createChecklist()
+        viewModel.moveChecklist(id: UUID(), onto: second)
+        #expect(viewModel.checklists.map(\.id) == [first, second])
+    }
+
+    @Test
     func dragChecklistOntoAnotherSectionsRowIsANoOp() {
         let viewModel = makeViewModel()
         let folder = viewModel.createFolder(name: "Work")
