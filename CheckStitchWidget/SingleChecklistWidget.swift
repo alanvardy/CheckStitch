@@ -80,7 +80,8 @@ struct SingleChecklistWidgetView: View {
                 Text(row.name).font(.headline).lineLimit(2)
                 if row.isRunnable {
                     Button(intent: runIntent(for: row)) {
-                        Label("Create reminders", systemImage: "play.circle.fill")
+                        Image(systemName: "play.circle.fill")
+                            .accessibilityLabel("Create reminders")
                     }
                     .buttonStyle(.borderedProminent)
                 } else if row.needsPurchase {
