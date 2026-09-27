@@ -178,6 +178,7 @@ public final class ChecklistStore {
             items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate, priority: $0.priority) },
             destinationListIdentifier: source.destinationListIdentifier,
             prefixesReminderNumbers: source.prefixesReminderNumbers,
+            showsOnWatch: source.showsOnWatch,
             modifiedAt: now(),
             revision: 1
         )
@@ -201,6 +202,7 @@ public final class ChecklistStore {
             },
             destinationListIdentifier: checklist.destinationListIdentifier,
             prefixesReminderNumbers: checklist.prefixesReminderNumbers,
+            showsOnWatch: checklist.showsOnWatch,
             modifiedAt: now(),
             revision: 1
         )
@@ -277,6 +279,22 @@ public final class ChecklistStore {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
         guard checklists[index].prefixesReminderNumbers != enabled else { return .updated }
         checklists[index].prefixesReminderNumbers = enabled
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
+        scheduleSave()
+        return .updated
+    }
+
+    /// Sets a checklist's per-checklist "Show on watch" toggle and reports
+    /// whether it applied. Shares the checklist's coarse `revision`/`modifiedAt`
+    /// clock with `rename`/`setDestination`/`setPrefixesReminderNumbers`, so the
+    /// toggle rides the same last-write-wins rule. An unchanged value is a no-op,
+    /// so re-rendering the toggle never manufactures a spurious LWW win.
+    @discardableResult
+    public func setShowsOnWatch(_ enabled: Bool, for id: UUID) -> SetDestinationOutcome {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
+        guard checklists[index].showsOnWatch != enabled else { return .updated }
+        checklists[index].showsOnWatch = enabled
         checklists[index].revision += 1
         checklists[index].modifiedAt = now()
         scheduleSave()

@@ -1883,6 +1883,48 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertTrue(store.checklists.isEmpty)
     }
 
+    func testSetShowsOnWatchUpdatesRevisionAndPersists() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        clock.now = Date(timeIntervalSince1970: 5)
+
+        XCTAssertEqual(store.setShowsOnWatch(false, for: created.id), .updated)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.showsOnWatch, false)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.revision, 2)
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.modifiedAt, clock.now)
+    }
+
+    func testSetShowsOnWatchUnchangedValueIsNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.setShowsOnWatch(false, for: created.id)
+        let revisionAfterToggle = store.checklist(id: created.id)?.revision
+        let modifiedAfterToggle = store.checklist(id: created.id)?.modifiedAt
+        clock.now = Date(timeIntervalSince1970: 9)
+
+        XCTAssertEqual(store.setShowsOnWatch(false, for: created.id), .updated)
+
+        XCTAssertEqual(store.checklist(id: created.id)?.revision, revisionAfterToggle)
+        XCTAssertEqual(store.checklist(id: created.id)?.modifiedAt, modifiedAfterToggle)
+    }
+
+    func testSetShowsOnWatchForUnknownChecklistReturnsNotFound() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+
+        XCTAssertEqual(store.setShowsOnWatch(false, for: UUID()), .notFound)
+        XCTAssertTrue(store.checklists.isEmpty)
+    }
+
     // MARK: - Import primitives
 
     /// An "imported" checklist with non-default identity, so freshness is provable.

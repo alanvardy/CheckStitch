@@ -186,6 +186,31 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).first?.prefixesReminderNumbers, true)
     }
 
+    /// A v5 payload written without `showsOnWatch`: the absent key decodes to
+    /// `true` (the additive-optional guarantee for the first default-on field),
+    /// so older payloads keep showing every checklist without a version bump.
+    func testDecodesV5PayloadWithoutShowsOnWatchAsShown() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertTrue(envelope.checklists.first?.showsOnWatch ?? false)
+    }
+
+    func testShowsOnWatchSurvivesEnvelopeRoundTrip() throws {
+        let hidden = Checklist(name: "Hidden", items: [ChecklistItem(title: "Milk")], showsOnWatch: false)
+        let shown = Checklist(name: "Shown")
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [hidden, shown])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        XCTAssertEqual(ChecklistCodec.decode(data).map(\.showsOnWatch), [false, true])
+    }
+
     /// A current-version (v5) envelope whose item carries no `description` key:
     /// must stay `.loaded` with an empty description (the additive-field
     /// guarantee). v3 payloads predate `relativeDate`, so they classify as

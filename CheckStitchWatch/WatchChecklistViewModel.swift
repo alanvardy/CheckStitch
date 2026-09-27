@@ -18,10 +18,11 @@ final class WatchChecklistViewModel {
     var folders: [Folder] { store.folders }
 
     /// Checklists with no folder (or a folder id the phone no longer knows), in
-    /// global order. Rendered as top-level rows directly under the folder rows.
+    /// global order, excluding any the phone has hidden. Rendered as top-level
+    /// rows directly under the folder rows.
     var looseChecklists: [Checklist] {
         let known = Set(store.folders.map(\.id))
-        return store.checklists.filter { ChecklistGrouping.isLoose($0, knownFolderIDs: known) }
+        return ChecklistGrouping.visibleLooseChecklists(store.checklists, knownFolderIDs: known)
     }
 
     /// The checklists inside `folder`, in global order.

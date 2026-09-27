@@ -279,4 +279,39 @@ struct ChecklistDetailViewTests {
         #expect(ImageRenderer(content: view).uiImage != nil)
         #endif
     }
+
+    /// The flag is default-on: a freshly created checklist is shown on the watch.
+    @Test
+    func showOnWatchDefaultsOn() {
+        #expect(Checklist(name: "Groceries").showsOnWatch)
+    }
+
+    /// Toggling off persists through the store the toggle binds to.
+    @Test
+    func togglingShowOnWatchPersistsThroughTheStore() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let checklist = store.create(name: "Groceries")
+
+        store.setShowsOnWatch(false, for: checklist.id)
+
+        #expect(store.checklist(id: checklist.id)?.showsOnWatch == false)
+    }
+
+    /// The new section renders on the detail screen: staging the view against a
+    /// store whose checklist is hidden must not crash.
+    @Test
+    func detailViewRendersWithAHiddenChecklist() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let checklist = store.create(name: "Groceries")
+        store.setShowsOnWatch(false, for: checklist.id)
+
+        let view = ChecklistDetailView(checklistID: checklist.id).environment(store)
+        #if os(macOS)
+        #expect(ImageRenderer(content: view).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: view).uiImage != nil)
+        #endif
+    }
 }
