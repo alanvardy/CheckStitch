@@ -73,6 +73,7 @@ struct ChecklistWidgetDisplayModelTests {
             configuration: [ChecklistEntity(checklist)],
             access: access)
         #expect(model.rows.allSatisfy { !$0.isRunnable && $0.needsAccess })
+        #expect(model.rows.allSatisfy { $0.needsPurchase == (access == .needsPurchase) })
     }
 
     @Test
@@ -82,6 +83,21 @@ struct ChecklistWidgetDisplayModelTests {
             checklists: [checklist],
             configuration: [ChecklistEntity(checklist)],
             access: .ready)
-        #expect(model.rows.allSatisfy { $0.isRunnable && !$0.needsAccess })
+        #expect(model.rows.allSatisfy { $0.isRunnable && !$0.needsAccess && !$0.needsPurchase })
+    }
+
+    /// The empty-state hint needs to tell "nothing configured yet" (offer the
+    /// edit affordance) from "nothing to configure" (the store is empty).
+    @Test
+    func hasChecklistsDistinguishesUnconfiguredFromEmptyStore() {
+        let unconfigured = ChecklistWidgetDisplayModel(
+            checklists: [Checklist(name: "Groceries")], configuration: [], access: .ready)
+        #expect(unconfigured.rows.isEmpty)
+        #expect(unconfigured.hasChecklists)
+
+        let emptyStore = ChecklistWidgetDisplayModel(
+            checklists: [], configuration: [], access: .ready)
+        #expect(emptyStore.rows.isEmpty)
+        #expect(!emptyStore.hasChecklists)
     }
 }
