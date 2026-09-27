@@ -340,18 +340,48 @@ public struct ChecklistTombstone: Codable, Hashable, Sendable {
 /// carry the same last-write-wins identity `Checklist` uses, so folder renames
 /// and deletes converge through `ChecklistMerge`.
 public struct Folder: Identifiable, Codable, Hashable, Sendable {
-    public init(id: UUID = UUID(), name: String = "New Folder",
+    public init(id: UUID = UUID(), name: String = "New Folder", isCollapsed: Bool = false,
                 modifiedAt: Date = .distantPast, revision: Int = 0) {
         self.id = id
         self.name = name
+        self.isCollapsed = isCollapsed
         self.modifiedAt = modifiedAt
         self.revision = revision
     }
 
     public let id: UUID
     public var name: String
+    /// Whether the folder's members are collapsed on the list screens. A display
+    /// flag that shares the folder's coarse `revision`/`modifiedAt` clock with
+    /// the name, so a collapse toggle transfers through `ChecklistMerge` by the
+    /// same last-write-wins rule. Additive optional key: absent in
+    /// v5-and-earlier payloads decodes to `false` with no version bump (the
+    /// `folderID` precedent).
+    public var isCollapsed: Bool
     public var modifiedAt: Date
     public var revision: Int
+
+    private enum CodingKeys: String, CodingKey { case id, name, isCollapsed, modifiedAt, revision }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        // Additive optional field: absent in pre-collapse payloads decodes to
+        // false, matching the `folderID`/`prefixesReminderNumbers` precedent.
+        isCollapsed = try container.decodeIfPresent(Bool.self, forKey: .isCollapsed) ?? false
+        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? .distantPast
+        revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(isCollapsed, forKey: .isCollapsed)
+        try container.encode(modifiedAt, forKey: .modifiedAt)
+        try container.encode(revision, forKey: .revision)
+    }
 }
 
 /// A persisted folder-deletion record. Mirrors `ChecklistTombstone`: it only

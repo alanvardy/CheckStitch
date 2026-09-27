@@ -154,4 +154,14 @@ struct ChecklistListViewModelTests {
         viewModel.renameFolder(id: folder, to: "Chores")
         #expect(viewModel.folders.first?.name == "Chores")
     }
+
+    @Test
+    func setFolderCollapsedReflects() {
+        let viewModel = makeViewModel()
+        let folder = viewModel.createFolder(name: "Work")
+        viewModel.setFolderCollapsed(id: folder, true)
+        #expect(viewModel.folders.first?.isCollapsed == true)
+        viewModel.setFolderCollapsed(id: folder, false)
+        #expect(viewModel.folders.first?.isCollapsed == false)
+    }
 }

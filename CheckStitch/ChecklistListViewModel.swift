@@ -43,6 +43,12 @@ final class ChecklistListViewModel {
         store.renameFolder(id: id, to: name)
     }
 
+    /// Collapses or expands one folder's members. Persisted and synced through
+    /// the store's envelope, so the state survives relaunch and reaches iCloud.
+    func setFolderCollapsed(id: UUID, _ isCollapsed: Bool) {
+        store.setFolderCollapsed(id: id, isCollapsed)
+    }
+
     func moveFolder(id: UUID, up: Bool) {
         guard let index = store.folders.firstIndex(where: { $0.id == id }) else { return }
         store.moveFolders(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)

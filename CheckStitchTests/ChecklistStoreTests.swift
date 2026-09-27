@@ -2229,5 +2229,51 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklists.count, 1)
         XCTAssertNil(store.checklists.first?.folderID)
     }
+
+    func testSetFolderCollapsedPersistsAndBumpsRevision() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+        XCTAssertFalse(folder.isCollapsed)
+
+        XCTAssertTrue(store.setFolderCollapsed(id: folder.id, true))
+
+        XCTAssertEqual(store.folders.first?.isCollapsed, true)
+        XCTAssertEqual(store.folders.first?.revision, folder.revision + 1)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.folders.first?.isCollapsed, true, "collapse survives relaunch")
+        XCTAssertEqual(reloaded.folders.first?.revision, folder.revision + 1)
+    }
+
+    func testSetFolderCollapsedToTheSameValueIsANoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+
+        XCTAssertTrue(store.setFolderCollapsed(id: folder.id, false))
+        XCTAssertEqual(store.folders.first?.revision, folder.revision, "an unchanged flag never bumps")
+
+        store.setFolderCollapsed(id: folder.id, true)
+        let bumped = store.folders.first?.revision
+        XCTAssertTrue(store.setFolderCollapsed(id: folder.id, true))
+        XCTAssertEqual(store.folders.first?.revision, bumped, "re-collapsing is a no-op")
+    }
+
+    func testSetFolderCollapsedOnUnknownFolderIsANoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        store.createFolder(name: "Work")
+
+        XCTAssertFalse(store.setFolderCollapsed(id: UUID(), true))
+        XCTAssertEqual(store.folders.map(\.name), ["Work"])
+        XCTAssertEqual(store.folders.first?.isCollapsed, false)
+    }
 }
 

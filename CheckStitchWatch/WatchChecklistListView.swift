@@ -23,12 +23,9 @@ struct WatchChecklistListView: View {
                                 }
                             } header: {
                                 // Keep the flat (no-folder) watch list exactly as
-                                // it was; label the loose section only once folders
-                                // exist.
+                                // it was; a folder section shows its own name.
                                 if section.folder != nil {
                                     Text(section.name ?? "")
-                                } else if viewModel.sections.count > 1 {
-                                    Text("Loose")
                                 }
                             }
                         }
