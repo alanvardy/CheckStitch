@@ -51,12 +51,14 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   `make watch-build` → `scripts/tests/run.sh` →
   `shellcheck scripts/*.sh scripts/tests/*.sh`,
   printing `gate: ok`.
-- Every gate leg that compiles Swift passes the shared `WARNINGS_AS_ERRORS`
-  Makefile variable (`SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
-  GCC_TREAT_WARNINGS_AS_ERRORS=YES`), so a compiler warning fails the gate.
+- Warnings-as-errors live in the project-level Debug and Release build
+  configurations of `CheckStitch.xcodeproj/project.pbxproj`
+  (`SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`, `GCC_TREAT_WARNINGS_AS_ERRORS=YES`),
+  so every Xcode build — gate and local — enforces a compiler warning fails the
+  build. The `CheckStitchCore` local SPM package is not separately enforced.
   `scripts/tests/run.sh` (`warnings_as_errors_reaches_compiling_legs`) pins the
-  flag per leg; `build-mac-signed`, `run-watch.sh` and `run-devices.sh` are
-  intentionally outside enforcement.
+  per-leg coverage; `build-mac-signed`, `run-watch.sh` and `run-devices.sh` are
+  device helpers outside the enforced set.
 - `make test-unit` runs `CheckStitchTests` on `platform=macOS` with
   `CODE_SIGNING_ALLOWED=NO` (no sim, no signing). `make test-ui` runs exactly one
   `CheckStitchUITests` smoke case via `build-for-testing` →
