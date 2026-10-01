@@ -33,7 +33,7 @@ CheckStitch does one job properly. Write a checklist, decide where it goes, and 
 - Reminders are created through Apple Reminders and stay on your device or in your own iCloud account. They are never sent to the author or to any third party.
 - CheckStitch only ever creates reminders. It never reads, edits, completes, or deletes them afterwards.
 - Your checklists live on your device and sync through your own iCloud — no account to create, nothing to sign in to.
-- No analytics, no tracking, and no advertising. The only network traffic is the optional background wallpaper.
+- No analytics, no tracking, and no advertising. Network traffic is limited to the optional background wallpaper and, if enabled, crash reports (see the Privacy Policy in the app).
 
 ---
 

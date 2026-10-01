@@ -466,7 +466,7 @@ run_case documentTypeRegistrationWiresInfoPlist documentTypeRegistrationWiresInf
 # on a machine without shellcheck.
 scripts_parse_under_system_bash() {
     local f
-    for f in scripts/*.sh scripts/tests/*.sh; do
+    for f in scripts/*.sh scripts/tests/*.sh ci_scripts/*.sh; do
         /bin/bash -n "$f" || return 1
     done
 }

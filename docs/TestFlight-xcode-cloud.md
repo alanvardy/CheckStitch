@@ -113,6 +113,20 @@ Notes:
 - A build started this way consumes Xcode Cloud compute hours exactly like one
   started from Xcode.
 
+## Crash reporting
+
+Crash reporting uses Sentry, wired in the app and gated behind the crash-report
+preference plus a non-empty DSN. See [CrashReporting.md](CrashReporting.md) for
+setup and triage. The Xcode Cloud workflow needs these Environment variables:
+once `SENTRY_DSN`, `SENTRY_ORG` and `SENTRY_PROJECT` are set (non-secret, so they
+can be plain text in the Environment) and the **secret** `SENTRY_AUTH_TOKEN`,
+`ci_scripts/ci_post_clone.sh` bakes the DSN into `Info.plist` and
+`ci_scripts/ci_post_xcodebuild.sh` uploads the archive's dSYMs on each archive.
+
+- `SENTRY_DSN` — non-secret; baked into `Info.plist`, enables the reporter.
+- `SENTRY_ORG`, `SENTRY_PROJECT` — non-secret; used by the dSYM upload.
+- `SENTRY_AUTH_TOKEN` — **secret**; sentry-cli auth for the dSYM upload.
+
 ## When it breaks
 
 - **Capability revoked / entitlement drift.** Symptom: an Archive that used to
@@ -149,7 +163,9 @@ workflow or a periodic manual check.
 
 Deliberate gaps — do not "fix" them by adding a second release mechanism:
 
-- No `ci_scripts/`, no `ci_post_clone.sh`.
+- `ci_scripts/ci_post_clone.sh` (Sentry DSN bake) and `ci_scripts/ci_post_xcodebuild.sh`
+  (archive dSYM upload) are the only CI scripts; they run under Xcode Cloud and need the
+  `SENTRY_*` Environment variables above (see *Crash reporting*).
 - No `.github/workflows`; Xcode Cloud is the CI.
 - No App Store Connect API key **in the repository**, no `altool`/Transporter
   scripting, no `exportOptions.plist`. The optional `xcode-cloud` helper reads
