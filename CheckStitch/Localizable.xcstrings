@@ -4840,43 +4840,125 @@
         }
       }
     },
-    "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This is the app's only network traffic, and it never includes any reminder, checklist, or preference data." : {
+    "Crash Reports" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This is the app's only network traffic, and it never includes any reminder, checklist, or preference data."
+            "value" : "Crash Reports"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wenn der Hintergrund aktiviert ist, werden das Hintergrundbild und die Künstlerinformationen von einem Proxy unter vardy.cc heruntergeladen. Dies ist die einzige Netzwerkanfrage der App, und sie enthält niemals Erinnerungs-, Checklisten- oder Präferenzdaten."
+            "value" : "Absturzberichte"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cuando el fondo está activado, el fondo de pantalla y la información del artista se descargan desde un proxy en vardy.cc. Esta es la única solicitud de red de la aplicación y nunca incluye datos de recordatorios, listas de verificación ni preferencias."
+            "value" : "Informes de fallos"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lorsque l'arrière-plan est activé, le fond d'écran et les informations sur l'artiste sont téléchargés depuis un proxy à vardy.cc. C'est la seule requête réseau de l'application, et elle ne contient jamais de données de rappel, de liste de contrôle ni de préférences."
+            "value" : "Rapports d'erreur"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "背景を有効にすると、壁紙とアーティスト情報がvardy.ccのプロキシからダウンロードされます。これはアプリの唯一のネットワークリクエストであり、リマインダー、チェックリスト、設定データが含まれることはありません。"
+            "value" : "クラッシュレポート"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "启用背景后，壁纸和艺术家信息会从vardy.cc的代理服务器下载。这是应用唯一的网络请求，绝不会包含任何提醒事项、清单或偏好数据。"
+            "value" : "崩溃报告"
+          }
+        }
+      }
+    },
+    "When crash reporting is enabled, CheckStitch sends crash and diagnostic information to Sentry, our crash-reporting provider. This data is processed in the United States and never includes any checklist, item, reminder, or preference content. You can turn crash reporting off at any time in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When crash reporting is enabled, CheckStitch sends crash and diagnostic information to Sentry, our crash-reporting provider. This data is processed in the United States and never includes any checklist, item, reminder, or preference content. You can turn crash reporting off at any time in Settings."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn Absturzberichte aktiviert sind, sendet CheckStitch Absturz- und Diagnoseinformationen an Sentry, unseren Anbieter für Absturzberichte. Diese Daten werden in den Vereinigten Staaten verarbeitet und enthalten niemals Inhalte von Checklisten, Einträgen, Erinnerungen oder Einstellungen. Du kannst Absturzberichte jederzeit in den Einstellungen deaktivieren."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando los informes de fallos están activados, CheckStitch envía información de fallos y diagnósticos a Sentry, nuestro proveedor de informes de fallos. Estos datos se procesan en Estados Unidos y nunca incluyen contenido de listas, elementos, recordatorios ni preferencias. Puedes desactivar los informes de fallos en cualquier momento en Ajustes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lorsque les rapports d'erreur sont activés, CheckStitch envoie des informations de plantage et de diagnostic à Sentry, notre fournisseur de rapports d'erreur. Ces données sont traitées aux États-Unis et ne contiennent jamais de contenu de listes, d'éléments, de rappels ou de préférences. Vous pouvez désactiver les rapports d'erreur à tout moment dans les Réglages."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クラッシュレポートが有効な場合、CheckStitch はクラッシュおよび診断情報をクラッシュレポート提供元の Sentry に送信します。このデータは米国で処理され、チェックリスト、項目、リマインダー、設定の内容が含まれることはありません。クラッシュレポートは設定でいつでもオフにできます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用崩溃报告后，CheckStitch 会将崩溃和诊断信息发送给我们的崩溃报告服务提供商 Sentry。这些数据在美国处理，绝不会包含任何清单、项目、提醒事项或偏好内容。您可以随时在“设置”中关闭崩溃报告。"
+          }
+        }
+      }
+    },
+    "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This request never includes any reminder, checklist, or preference data." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When the background is enabled, the wallpaper and artist information are fetched via a proxy at vardy.cc. This request never includes any reminder, checklist, or preference data."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn der Hintergrund aktiviert ist, werden das Hintergrundbild und die Künstlerinformationen von einem Proxy unter vardy.cc heruntergeladen. Diese Anfrage enthält niemals Erinnerungs-, Checklisten- oder Präferenzdaten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando el fondo está activado, el fondo de pantalla y la información del artista se descargan desde un proxy en vardy.cc. Esta solicitud nunca incluye datos de recordatorios, listas de verificación ni preferencias."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lorsque l'arrière-plan est activé, le fond d'écran et les informations sur l'artiste sont téléchargés depuis un proxy à vardy.cc. Cette requête ne contient jamais de données de rappel, de liste de contrôle ni de préférences."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景を有効にすると、壁紙とアーティスト情報がvardy.ccのプロキシからダウンロードされます。このリクエストに、リマインダー、チェックリスト、設定データが含まれることはありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用背景后，壁纸和艺术家信息会从vardy.cc的代理服务器下载。此请求绝不会包含任何提醒事项、清单或偏好数据。"
           }
         }
       }

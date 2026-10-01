@@ -20,9 +20,10 @@ struct PrivacySection: Identifiable, Equatable {
 ///
 /// IMPORTANT: this copy hardcodes facts about the app's data flow (Apple
 /// Reminders created via EventKit and never touched afterwards, checklist sync
-/// through the user's own iCloud via shared app storage, and the
-/// `vardy.cc/unsplash` background-image fetch). If any of those data flows
-/// change, update this copy in the same change or it becomes misleading.
+/// through the user's own iCloud via shared app storage, the
+/// `vardy.cc/unsplash` background-image fetch, and Sentry crash reporting).
+/// If any of those data flows change, update this copy in the same change or
+/// it becomes misleading.
 ///
 /// IMPORTANT: every value here is returned unresolved. Resolving eagerly with
 /// `String(localized:bundle:)` pins the *process* locale and silently renders
@@ -54,8 +55,16 @@ enum PrivacyGuideContent {
                 title: resource("Background Image"),
                 body: resource("When the background is enabled, the wallpaper "
                     + "and artist information are fetched via a proxy at vardy.cc. "
-                    + "This is the app's only network traffic, and it never includes any "
-                    + "reminder, checklist, or preference data."))
+                    + "This request never includes any reminder, checklist, or "
+                    + "preference data.")),
+            PrivacySection(
+                id: "crashReports",
+                title: resource("Crash Reports"),
+                body: resource("When crash reporting is enabled, CheckStitch sends "
+                    + "crash and diagnostic information to Sentry, our crash-reporting "
+                    + "provider. This data is processed in the United States and never "
+                    + "includes any checklist, item, reminder, or preference content. "
+                    + "You can turn crash reporting off at any time in Settings."))
         ]
     }
 

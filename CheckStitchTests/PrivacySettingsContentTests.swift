@@ -20,7 +20,7 @@ struct PrivacySettingsContentTests {
     func privacyGuideContentCoversAllDisclosures() {
         let sections = PrivacyGuideContent.sections
 
-        #expect(sections.count == 3)
+        #expect(sections.count == 4)
 
         for section in sections {
             #expect(!section.title.resolved(in: Self.english).isEmpty)
@@ -32,6 +32,11 @@ struct PrivacySettingsContentTests {
         // The background proxy domain is a literal (never translated), so it marks
         // the network-disclosure section regardless of locale.
         #expect(sections.contains { $0.body.resolved(in: Self.english).contains("vardy.cc") })
+
+        // Crash reporting must be disclosed and must name the provider verbatim.
+        let crashSection = sections.first { $0.id == "crashReports" }
+        #expect(crashSection != nil)
+        #expect(crashSection?.body.resolved(in: Self.english).contains("Sentry") == true)
     }
 
     @Test
@@ -105,8 +110,13 @@ struct PrivacySettingsContentTests {
             "Your checklists are stored on your device in shared app storage and synced through "
             + "your own iCloud account. They are never sent to the author or any third party.",
             "When the background is enabled, the wallpaper and artist information are fetched via "
-            + "a proxy at vardy.cc. This is the app's only network traffic, and it never includes "
-            + "any reminder, checklist, or preference data.",
+            + "a proxy at vardy.cc. This request never includes any reminder, checklist, or "
+            + "preference data.",
+            "Crash Reports",
+            "When crash reporting is enabled, CheckStitch sends crash and diagnostic information to "
+            + "Sentry, our crash-reporting provider. This data is processed in the United States and "
+            + "never includes any checklist, item, reminder, or preference content. You can turn "
+            + "crash reporting off at any time in Settings.",
         ]
         let germanTable = try Self.compiledTable("de")
         let spanishTable = try Self.compiledTable("es")
