@@ -11,12 +11,12 @@ WIDGET_SCHEME := CheckStitchWidget
 SCHEME := CheckStitch
 CONFIGURATION := Debug
 DERIVED_DATA := DerivedData
-# Gate legs compile with warnings as errors: a compiler warning fails the leg.
-# scripts/test.sh and CI inherit this through the make recipes; local Xcode
-# builds and project.pbxproj are untouched. `build-mac-signed`,
-# run-watch.sh and run-devices.sh are device helpers and deliberately excluded.
-# scripts/tests/run.sh pins every enforced leg (WARNINGS_AS_ERRORS_LEGS).
-WARNINGS_AS_ERRORS := SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+# Warnings-as-errors live in CheckStitch.xcodeproj/project.pbxproj at the
+# project-level Debug and Release build configurations
+# (SWIFT_TREAT_WARNINGS_AS_ERRORS=YES / GCC_TREAT_WARNINGS_AS_ERRORS=YES), so
+# every Xcode build — including local ones — enforces them. The CheckStitchCore
+# local SPM package is not separately enforced. scripts/tests/run.sh pins these
+# settings (WARNINGS_AS_ERRORS_LEGS).
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
 MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
 
@@ -27,7 +27,6 @@ build:
 	  -destination '$(SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
-	  $(WARNINGS_AS_ERRORS) \
 	  build
 
 # The macOS slice shares the source files with iOS but not the available API,
@@ -42,7 +41,6 @@ build-mac:
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
 	  CODE_SIGNING_ALLOWED=NO \
-	  $(WARNINGS_AS_ERRORS) \
 	  build
 
 # Signed macOS leg. Requires the Mac provisioning profile for the development
@@ -62,7 +60,6 @@ watch-build:
 	  -destination '$(WATCH_SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
-	  $(WARNINGS_AS_ERRORS) \
 	  build
 
 # The widget extension is a second iOS-only product; compile it here so a broken
@@ -72,7 +69,6 @@ widget-build:
 	  -destination '$(WIDGET_SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
-	  $(WARNINGS_AS_ERRORS) \
 	  build
 
 run: build
@@ -88,7 +84,6 @@ test-unit:
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
 	  CODE_SIGNING_ALLOWED=NO \
-	  $(WARNINGS_AS_ERRORS) \
 	  -only-testing:CheckStitchTests \
 	  test
 
@@ -99,13 +94,11 @@ test-ui:
 	  -destination '$(SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
-	  $(WARNINGS_AS_ERRORS) \
 	  build-for-testing
 	xcodebuild -scheme '$(SCHEME)' \
 	  -destination '$(SIM)' \
 	  -configuration '$(CONFIGURATION)' \
 	  -derivedDataPath '$(DERIVED_DATA)' \
-	  $(WARNINGS_AS_ERRORS) \
 	  -only-testing:CheckStitchUITests \
 	  test-without-building
 

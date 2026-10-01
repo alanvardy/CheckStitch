@@ -32,6 +32,9 @@ import SwiftUI
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Start crash reporting first so no setup work escapes the scrubber. Locally
+        // the DSN is empty and no user has opted in, so this stays inert.
+        SentryBootstrap.startIfEnabled()
         // Inject the StoreKit-backed purchase service before any consumer
         // (view models, gate) reads `PurchaseEnvironment.service`. Core holds a
         // StoreKit-free default so out-of-app processes (widgets, Siri) link.

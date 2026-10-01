@@ -14,6 +14,8 @@
 		000000000000000000000064 /* CheckStitchWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 000000000000000000000071 /* CheckStitchWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		000000000000000000000065 /* CheckStitchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000031 /* CheckStitchCore */; };
 		000000000000000000000066 /* CheckStitchWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000081 /* CheckStitchWidget.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		000000000000000000000092 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000091 /* Sentry */; };
+		000000000000000000000093 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000091 /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -136,12 +138,14 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				000000000000000000000060 /* CheckStitchCore in Frameworks */,
+				000000000000000000000092 /* Sentry in Frameworks */,
 			);
 		};
 		000000000000000221000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				000000000000000000000061 /* CheckStitchCore in Frameworks */,
+				000000000000000000000093 /* Sentry in Frameworks */,
 			);
 		};
 		000000000000000321000000 /* Frameworks */ = {
@@ -214,6 +218,7 @@
 			name = CheckStitch;
 			packageProductDependencies = (
 				000000000000000000000031 /* CheckStitchCore */,
+				000000000000000000000091 /* Sentry */,
 			);
 			productName = CheckStitch;
 			productReference = 000000000000000000000120 /* CheckStitch.app */;
@@ -238,6 +243,7 @@
 			name = CheckStitchTests;
 			packageProductDependencies = (
 				000000000000000000000031 /* CheckStitchCore */,
+				000000000000000000000091 /* Sentry */,
 			);
 			productName = CheckStitchTests;
 			productReference = 000000000000000000000041 /* CheckStitchTests.xctest */;
@@ -355,6 +361,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				000000000000000000000030 /* XCLocalSwiftPackageReference "CheckStitchCore" */,
+				000000000000000000000090 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -502,6 +509,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -518,6 +526,7 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
 				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 				XROS_DEPLOYMENT_TARGET = 27.0;
 			};
@@ -567,6 +576,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -581,6 +591,7 @@
 				PROJECT_UNIQUE_VALUE = PL40N1FW;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
 				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 				XROS_DEPLOYMENT_TARGET = 27.0;
 			};
@@ -958,10 +969,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		000000000000000000000090 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.26.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		000000000000000000000031 /* CheckStitchCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CheckStitchCore;
+		};
+		000000000000000000000091 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000090 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

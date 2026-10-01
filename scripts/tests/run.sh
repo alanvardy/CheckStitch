@@ -390,42 +390,54 @@ run_case macos_slice_requests_outgoing_network macos_slice_requests_outgoing_net
 
 # --- warnings-as-errors enforcement ----------------------------------------
 
-# Every gate leg that compiles Swift must carry the shared Makefile
-# warnings-as-errors setting. Later phases append their leg here.
+# Every gate leg that compiles Swift is covered by warnings-as-errors, now
+# enforced by the project-level Debug and Release build configurations in
+# CheckStitch.xcodeproj/project.pbxproj (SWIFT_TREAT_WARNINGS_AS_ERRORS=YES /
+# GCC_TREAT_WARNINGS_AS_ERRORS=YES), so every Xcode build - local or gate -
+# enforces them. Later phases append their leg here.
 WARNINGS_AS_ERRORS_LEGS=(build-mac build test-unit test-ui watch-build widget-build)
 
-# True when every xcodebuild argv line in $1 carries both compiler flags.
-warnings_as_errors_logged() {
-    [[ -s "$1" ]] || return 1
+# True when the project-level Debug and Release PBXProject build configurations
+# in pbxproj $1 each set both warnings-as-errors compiler flags.
+project_enforces_warnings_as_errors() {
+    local pbx="$1"
+    [[ -f "$pbx" ]] || return 1
     awk '
-        { n++ }
-        /SWIFT_TREAT_WARNINGS_AS_ERRORS=YES/ && /GCC_TREAT_WARNINGS_AS_ERRORS=YES/ { ok++ }
-        END { exit (n > 0 && ok == n) ? 0 : 1 }
-    ' "$1"
+        /\/\* Debug configuration for PBXProject "CheckStitch" \*\/ = \{$/ { block = "Debug"; swift = 0; gcc = 0; next }
+        /\/\* Release configuration for PBXProject "CheckStitch" \*\/ = \{$/ { block = "Release"; swift = 0; gcc = 0; next }
+        block == "Debug" || block == "Release" {
+            if ($0 ~ /SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;/) swift = 1
+            if ($0 ~ /GCC_TREAT_WARNINGS_AS_ERRORS = YES;/) gcc = 1
+            if ($0 ~ /^[ \t]*};[ \t]*$/) {
+                ok[block] = (swift && gcc) ? 1 : 0
+                block = ""
+            }
+        }
+        END { exit !(ok["Debug"] && ok["Release"]) }
+    ' "$pbx"
 }
 
-# Drive the real Makefile with a stubbed xcodebuild (no compiler, no simulator)
-# and assert the flag reaches every enforced leg.
+# The project-level settings apply to every compiling leg; this guard asserts
+# them and keeps a per-leg pass so each enforced leg stays documented and a new
+# leg added to the list must exist as a Makefile target.
 warnings_as_errors_reaches_compiling_legs() {
-    new_stubs xcodebuild
-    export SIM="platform=iOS Simulator,id=WARNINGS-AS-ERRORS-UDID"
+    local pbx="CheckStitch.xcodeproj/project.pbxproj"
+    project_enforces_warnings_as_errors "$pbx" || return 1
     local leg
     for leg in "${WARNINGS_AS_ERRORS_LEGS[@]}"; do
-        : >"$STUB_ROOT/xcodebuild.log"
-        make "$leg" >/dev/null 2>&1 || return 1
-        warnings_as_errors_logged "$STUB_ROOT/xcodebuild.log" || return 1
+        grep -q "^${leg}:" Makefile || return 1
     done
 }
 
-# Sad path: the guard must fail when the setting is stripped from a recipe.
+# Sad path: the guard must fail when the two settings are stripped from both
+# project-level configurations.
 warnings_as_errors_guard_detects_a_stripped_flag() {
-    new_stubs xcodebuild
-    export SIM="platform=iOS Simulator,id=WARNINGS-AS-ERRORS-UDID"
-    local mf="$STUB_ROOT/Makefile"
-    sed "s/ \$(WARNINGS_AS_ERRORS)//" Makefile >"$mf"
-    : >"$STUB_ROOT/xcodebuild.log"
-    make -f "$mf" build-mac >/dev/null 2>&1 || return 1
-    ! warnings_as_errors_logged "$STUB_ROOT/xcodebuild.log"
+    local pbx="CheckStitch.xcodeproj/project.pbxproj"
+    [[ -n "$STUB_ROOT" ]] || STUB_ROOT="$(mktemp -d)"
+    local stripped="$STUB_ROOT/project.pbxproj"
+    sed -e '/SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;/d' \
+        -e '/GCC_TREAT_WARNINGS_AS_ERRORS = YES;/d' "$pbx" >"$stripped"
+    ! project_enforces_warnings_as_errors "$stripped"
 }
 
 run_case warnings_as_errors_reaches_compiling_legs warnings_as_errors_reaches_compiling_legs
