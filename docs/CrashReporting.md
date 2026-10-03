@@ -1,13 +1,15 @@
 # Crash Reporting (Sentry)
 
-CheckStitch links [sentry-cocoa](https://github.com/getsentry/sentry-cocoa) on the iOS app
-target only (the macOS slice is deliberate — see below). It is steered through
+CheckStitch links [sentry-cocoa](https://github.com/getsentry/sentry-cocoa) on the app
+(iOS and the macOS slice — see below). It is steered through
 `SentryConfiguration` (a pure, Sentry-free value type) and `SentryBootstrap` (the only place
 besides `SentryScrubber` that imports Sentry). All events and breadcrumbs pass through
-`SentryScrubber`, which strips every free-text field that could carry checklist/reminder content —
-user, extra, request, message, transaction, exception reasons, and breadcrumb message/data — and
-keeps only structural metadata (exception type, allow-listed tags, breadcrumb category/level/
-timestamp). The feature ships inert (empty DSN) until Xcode Cloud supplies the real DSN.
+`SentryScrubber`, which strips the free-text fields the SDK populates from app content — user,
+extra, request, message, transaction, exception reasons, and breadcrumb message/data — and keeps
+only structural metadata (exception type, allow-listed tags, breadcrumb category/type/level/
+timestamp). Sentry's `contexts` are left intact: they carry SDK device/app metadata only, and no
+CheckStitch code adds checklist or reminder content to them. The feature ships inert (empty DSN)
+until Xcode Cloud supplies the real DSN.
 
 ## Sentry org setup
 

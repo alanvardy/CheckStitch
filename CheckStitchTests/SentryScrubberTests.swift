@@ -22,6 +22,7 @@ struct SentryScrubberTests {
     @Test
     func reminderContentIsRemovedFromBreadcrumb() {
         let breadcrumb = Breadcrumb(level: .info, category: "reminder")
+        breadcrumb.type = "navigation"
         breadcrumb.message = "Buy milk from the Grocery list"
         breadcrumb.setData(value: "2%", key: "note")
         breadcrumb.setData(value: "Grocery", key: "listName")
@@ -31,6 +32,7 @@ struct SentryScrubberTests {
         #expect(scrubbed?.message == nil)
         #expect(scrubbed?.data == nil)
         #expect(scrubbed?.category == "reminder") // benign structural field survives
+        #expect(scrubbed?.type == "navigation") // structural type survives, message does not
     }
 
     @Test
