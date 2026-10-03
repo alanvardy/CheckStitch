@@ -2,9 +2,12 @@ import Foundation
 import Sentry
 
 /// Allow-list scrubber applied to every event and breadcrumb before send.
-/// It strips every free-text field that could carry reminder/list content and
-/// keeps only structural metadata (exception type, allow-listed tags, and
-/// breadcrumb category/level/timestamp).
+/// It strips the free-text fields the SDK populates from app content — user,
+/// extra, request, message, transaction, exception reasons, and breadcrumb
+/// message/data — and keeps only structural metadata (exception type,
+/// allow-listed tags, and breadcrumb category/type/level/timestamp). Sentry's
+/// `contexts` are left intact: they carry SDK device/app metadata only, and no
+/// CheckStitch code adds reminder/list content to them.
 /// Returns `nil` to drop a breadcrumb when its payload is not allow-listed.
 enum SentryScrubber {
     /// Tag keys that carry app/device metadata only — never reminder content.
@@ -25,11 +28,13 @@ enum SentryScrubber {
         return event
     }
 
-    /// Keeps category/level/timestamp, drops the free-text message and data bag.
-    /// The `data` setter is deprecated in sentry-cocoa (it becomes read-only), so a
-    /// clean breadcrumb is rebuilt with only the structural fields.
+    /// Keeps category/type/level/timestamp, drops the free-text message and data
+    /// bag. The `data` setter is deprecated in sentry-cocoa (it becomes
+    /// read-only), so a clean breadcrumb is rebuilt with only the structural
+    /// fields.
     nonisolated static func scrub(_ breadcrumb: Breadcrumb) -> Breadcrumb? {
         let scrubbed = Breadcrumb(level: breadcrumb.level, category: breadcrumb.category)
+        scrubbed.type = breadcrumb.type
         scrubbed.timestamp = breadcrumb.timestamp
         return scrubbed
     }

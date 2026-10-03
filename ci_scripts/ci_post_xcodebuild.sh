@@ -24,4 +24,4 @@ fi
 sentry-cli debug-files upload \
     --org "$SENTRY_ORG" \
     --project "$SENTRY_PROJECT" \
-    "$CI_ARCHIVE_PATH"
+    "$CI_ARCHIVE_PATH/dSYMs"
