@@ -30,32 +30,28 @@ shell scripts, localization/docs).
 ### Blockers
 None.
 
-### Fixes worth doing now
-- `CheckStitch/SentryScrubber.swift:6-8` + `docs/CrashReporting.md` — the
-  "strips every free-text field that could carry checklist/reminder content"
-  wording overclaims: the scrubber does not touch `event.contexts` or stack-frame
-  locals. Neither carries app content today (no app code populates contexts;
-  sentry-cocoa does not capture frame locals by default), so the shipped
-  invariant holds, but the doc/comment should be scoped to what it actually
-  strips (user/extra/request/message/transaction/exception reasons/breadcrumb
-  message+data). Documentation-only, zero behaviour change.
+### Fixes applied (menu [2])
+- `CheckStitch/SentryScrubber.swift` — reworded the doc comment to state exactly
+  which free-text fields are stripped and that Sentry `contexts` are left intact
+  because they carry SDK device/app metadata only. Also preserves the structural
+  breadcrumb `type` through the rebuild; test extended to assert it.
+- `docs/CrashReporting.md` — same scope correction, plus the opening line now
+  says "the app (iOS and the macOS slice)" instead of "the iOS app target only".
+- `ci_scripts/ci_post_xcodebuild.sh` — uploads `"$CI_ARCHIVE_PATH/dSYMs"`
+  explicitly rather than the whole `.xcarchive`.
+- Trailing newlines restored on 11 new files and the `Makefile`.
 
-### Optional improvements
-- `ci_scripts/ci_post_xcodebuild.sh:24-27` — pass `"$CI_ARCHIVE_PATH/dSYMs"`
-  explicitly instead of the whole `.xcarchive` for determinism (sentry-cli does
-  walk xcarchives, and this matches the SingleThread reference as-is).
-- `CheckStitch/SentryScrubber.swift:33-34` — breadcrumb rebuild drops `type`;
-  keeping it would preserve auto-breadcrumb grouping without free text.
-- Missing trailing newlines on new Swift/CI files and on `Makefile` (the
-  `clean:` target lost its final newline); cosmetic git noise.
-- `ci_scripts/*.sh` use `#!/bin/sh set -eu` vs the repo convention
-  `#!/bin/bash set -euo pipefail` — deliberate (plan Q2, SingleThread parity,
-  shellcheck-clean, no pipelines).
+All changes re-validated with `./scripts/test.sh` (`gate: ok`, 538 tests / 66
+suites, 26/26 shell tests) and `scripts/l10n-check.sh` (ok).
+
+### Fixes considered and not applied
+- Nil'ing `event.contexts`/`threads` wholesale — would remove device/os/app
+  metadata and can hurt crash grouping/symbolication; no active leak.
+- `ci_scripts/*.sh` keep `#!/bin/sh` + `set -eu` (vs the repo's
+  `#!/bin/bash` + `set -euo pipefail`) — deliberate SingleThread parity, no
+  pipelines, shellcheck-clean.
 
 ### Feedback to ignore / defer
-- `event.contexts`/`threads` not nil'd: nil'ing them wholesale would remove
-  device/os/app metadata and can hurt crash grouping/symbolication; no active
-  leak, and the task mandates the SingleThread pattern. Defer.
 - `CrashReportingPreference.init(key: String = defaultsKey)`: legal Swift,
   compiles under the gate. Not an issue.
 - `@AppStorage(defaultValue: true)` vs `CrashReportingPreference` absent→true:
@@ -70,8 +66,9 @@ None.
 
 `SentryScrubber`, `SentryBootstrap`, `SentryConfiguration`, `ci_scripts/*` are
 byte-faithful ports of `/Users/vardy/dev/SingleThread` apart from the
-`CheckStitchCore` import rename and missing trailing newlines. Sentry is linked
-to the `CheckStitch` app + `CheckStitchTests` targets only — `CheckStitchCore`,
+`CheckStitchCore` import rename and the applied review fixes (breadcrumb `type`
+preservation, explicit `dSYMs` path, trailing newlines). Sentry is linked to the
+`CheckStitch` app + `CheckStitchTests` targets only — `CheckStitchCore`,
 `CheckStitchWatch` and `CheckStitchWidget` are untouched.
 
 ## Remaining manual items (carried from plan.md)
