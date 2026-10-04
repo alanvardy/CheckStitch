@@ -1644,6 +1644,20 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.tombstones.count, afterFirst)
     }
 
+    /// A permanent delete aimed at an active checklist is refused: `removeArchived`
+    /// is the Archived screen's chokepoint and must never hard-delete a live record.
+    func testRemoveArchivedRefusesAnActiveChecklist() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let active = store.create(name: "Active")
+
+        XCTAssertFalse(store.removeArchived(id: active.id))
+        XCTAssertNotNil(store.checklist(id: active.id))
+        XCTAssertTrue(store.tombstones.isEmpty)
+    }
+
     func testRemoveItemsLeavesItemTombstones() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

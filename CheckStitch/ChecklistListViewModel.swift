@@ -91,12 +91,20 @@ final class ChecklistListViewModel {
         store.removeChecklists(at: IndexSet(integer: index))
     }
 
-    /// Converts a one-row nudge into the `moved` index arithmetic: one row up is
-    /// `destination == index - 1`, one row down is `index + 2` (adjusted for the
-    /// removed element).
+    /// Converts a one-row nudge into the `moved` index arithmetic, taking the
+    /// neighbour from the *active* list the screen renders and mapping it back
+    /// to the store's full array, so an archived row sitting between two active
+    /// rows cannot swallow the move. Unknown or already-edge ids are silent
+    /// no-ops.
     func moveChecklist(id: UUID, up: Bool) {
-        guard let index = store.checklists.firstIndex(where: { $0.id == id }) else { return }
-        store.moveChecklists(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
+        let active = store.activeChecklists
+        guard let activeIndex = active.firstIndex(where: { $0.id == id }) else { return }
+        let neighbourIndex = up ? activeIndex - 1 : activeIndex + 1
+        guard active.indices.contains(neighbourIndex),
+              let from = store.checklists.firstIndex(where: { $0.id == id }),
+              let to = store.checklists.firstIndex(where: { $0.id == active[neighbourIndex].id })
+        else { return }
+        store.moveChecklists(from: IndexSet(integer: from), to: from < to ? to + 1 : to)
     }
 
     /// The section a checklist renders in: its folder id when that folder is
