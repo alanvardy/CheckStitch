@@ -57,6 +57,15 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        ArchivedChecklistsView()
+                    } label: {
+                        Label("Archived Checklists", systemImage: "archivebox")
+                    }
+                    .accessibilityIdentifier("settingsArchivedRow")
+                }
+
+                Section {
                     Button(action: onExport) {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }

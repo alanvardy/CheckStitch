@@ -196,6 +196,126 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.archivedChecklists.map(\.id), [created.id])
     }
 
+    /// Restoring clears both flags and bumps the checklist's coarse clock so the
+    /// unarchive wins the same last-write-wins round as an archive or rename.
+    func testRestoreClearsBothFlagsAndBumpsClock() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create(name: "Groceries") // revision 1, modifiedAt 0
+        store.archive(id: created.id) // revision 2, modifiedAt 0
+        clock.now = Date(timeIntervalSince1970: 100)
+
+        XCTAssertTrue(store.restore(id: created.id))
+
+        let restored = store.checklist(id: created.id)
+        XCTAssertFalse(restored?.isArchived ?? true)
+        XCTAssertNil(restored?.archivedAt)
+        XCTAssertEqual(restored?.revision, 3)
+        XCTAssertEqual(restored?.modifiedAt, Date(timeIntervalSince1970: 100))
+    }
+
+    /// Restoring an already-active or unknown id is a no-op returning `false`,
+    /// leaving revision, flags and date unchanged.
+    func testRestoreIsIdempotentNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create(name: "Groceries")
+        store.archive(id: created.id)
+        store.restore(id: created.id)
+        let afterFirst = store.checklist(id: created.id)
+
+        clock.now = Date(timeIntervalSince1970: 500)
+        XCTAssertFalse(store.restore(id: created.id))
+
+        let afterSecond = store.checklist(id: created.id)
+        XCTAssertEqual(afterSecond?.isArchived, afterFirst?.isArchived)
+        XCTAssertEqual(afterSecond?.archivedAt, afterFirst?.archivedAt)
+        XCTAssertEqual(afterSecond?.revision, afterFirst?.revision)
+        XCTAssertEqual(afterSecond?.modifiedAt, afterFirst?.modifiedAt)
+
+        // An unknown id is also a no-op returning false.
+        XCTAssertFalse(store.restore(id: UUID()))
+    }
+
+    /// Restoring a name that an active checklist now owns auto-renames through
+    /// `uniqueName`, so the active name wins and the restored one is "Groceries 2".
+    func testRestoreAutoRenamesOnActiveCollision() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let archived = store.create(name: "Groceries")
+        store.archive(id: archived.id)
+        let active = store.create(name: "Groceries") // active may reuse the archived name
+
+        XCTAssertTrue(store.restore(id: archived.id))
+
+        let restored = store.checklist(id: archived.id)
+        XCTAssertFalse(restored?.isArchived ?? true)
+        XCTAssertEqual(restored?.name, "Groceries 2")
+        XCTAssertTrue(store.activeChecklists.contains { $0.id == active.id })
+        XCTAssertTrue(store.activeChecklists.contains { $0.id == archived.id })
+    }
+
+    /// An archived checklist owns no live name: `create`/`rename`/`importInsert`
+    /// accept a name only an archived checklist holds, and `conflictingChecklist`
+    /// returns nil for it.
+    func testActiveChecklistMayReuseAnArchivedName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+
+        // `conflictingChecklist` ignores archived names.
+        let archivedA = store.create(name: "A")
+        store.archive(id: archivedA.id)
+        XCTAssertNil(store.conflictingChecklist(named: "A"))
+
+        // `create` accepts an archived-only name with no suffix.
+        let archivedB = store.create(name: "B")
+        store.archive(id: archivedB.id)
+        let activeB = store.create(name: "B")
+        XCTAssertEqual(activeB.name, "B")
+
+        // `importInsert` keeps an archived-only source name unchanged.
+        let archivedC = store.create(name: "C")
+        store.archive(id: archivedC.id)
+        let payloadC = Checklist(name: "C", items: [], modifiedAt: Date(), revision: 1)
+        let importedC = store.importInsert(payloadC)
+        XCTAssertEqual(store.checklist(id: importedC)?.name, "C")
+
+        // `rename` may adopt an archived-only name.
+        let archivedD = store.create(name: "D")
+        store.archive(id: archivedD.id)
+        let renamed = store.create(name: "Task")
+        XCTAssertEqual(store.rename(id: renamed.id, to: "D"), .renamed)
+        XCTAssertEqual(store.checklist(id: renamed.id)?.name, "D")
+    }
+
+    /// Archived checklists sort newest `archivedAt` first, with a nil date last
+    /// so the ordering is total.
+    func testArchivedChecklistsSortNewestFirstNilLast() throws {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let newest = Checklist(name: "Newest", isArchived: true, archivedAt: Date(timeIntervalSince1970: 300))
+        let oldest = Checklist(name: "Oldest", isArchived: true, archivedAt: Date(timeIntervalSince1970: 100))
+        let nilDate = Checklist(name: "NilDate", isArchived: true, archivedAt: nil)
+        let envelope = ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "device-a",
+            checklists: [oldest, nilDate, newest])
+        suite.defaults.set(try ChecklistCodec.encode(envelope), forKey: key)
+
+        let store = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(store.archivedChecklists.map(\.name), ["Newest", "Oldest", "NilDate"])
+    }
+
     func testCorruptDataYieldsEmpty() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

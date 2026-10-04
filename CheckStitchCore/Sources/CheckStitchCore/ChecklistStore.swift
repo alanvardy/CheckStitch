@@ -165,11 +165,39 @@ public final class ChecklistStore {
         return true
     }
 
+    /// Restores an archived checklist. When its name now collides with an active
+    /// checklist the name is disambiguated through `uniqueName`. Unknown or
+    /// already-active ids are a no-op returning `false`.
+    @discardableResult
+    public func restore(id: UUID) -> Bool {
+        guard let index = checklists.firstIndex(where: { $0.id == id }),
+              checklists[index].isArchived else { return false }
+        // `activeNames` lists active checklists only, so the still-archived
+        // target is excluded; every occupied name that remains is a live collider
+        // driving the disambiguation (e.g. restoring "Groceries" alongside an
+        // active "Groceries" yields "Groceries 2").
+        if conflictingChecklist(named: checklists[index].name) != nil {
+            checklists[index].name = Self.uniqueName(
+                basedOn: checklists[index].name,
+                taken: activeNames)
+        }
+        checklists[index].isArchived = false
+        checklists[index].archivedAt = nil
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
+        save()
+        return true
+    }
+
+    /// Names an active checklist currently owns. Archived names are deliberately
+    /// free: an active checklist may reuse the name of an archived one.
+    private var activeNames: [String] { activeChecklists.map(\.name) }
+
     /// The first checklist whose name collides with `name` under the store's
     /// trimmed, case-insensitive comparison, or `nil` when the name is free. The
     /// import flow's conflict primitive — `sameName` stays private.
     public func conflictingChecklist(named name: String) -> Checklist? {
-        checklists.first { Self.sameName($0.name, name) }
+        activeChecklists.first { Self.sameName($0.name, name) }
     }
 
     /// Creates a checklist, disambiguating the name when another checklist
@@ -178,7 +206,7 @@ public final class ChecklistStore {
     /// the checklist to open.
     @discardableResult
     public func create(name: String = "New checklist") -> Checklist {
-        let checklist = Checklist(name: Self.uniqueName(basedOn: name, taken: checklists.map(\.name)), modifiedAt: now(), revision: 1)
+        let checklist = Checklist(name: Self.uniqueName(basedOn: name, taken: activeNames), modifiedAt: now(), revision: 1)
         checklists.append(checklist)
         save()
         return checklist
@@ -205,7 +233,7 @@ public final class ChecklistStore {
             ? Self.duplicateName(basedOn: source.name)
             : name
         let copy = Checklist(
-            name: Self.uniqueName(basedOn: requested, taken: checklists.map(\.name)),
+            name: Self.uniqueName(basedOn: requested, taken: activeNames),
             items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate, priority: $0.priority) },
             destinationListIdentifier: source.destinationListIdentifier,
             prefixesReminderNumbers: source.prefixesReminderNumbers,
@@ -248,7 +276,7 @@ public final class ChecklistStore {
     @discardableResult
     public func importInsert(_ checklist: Checklist, as name: String? = nil) -> UUID {
         var copy = freshCopy(of: checklist)
-        copy.name = name ?? Self.uniqueName(basedOn: copy.name, taken: checklists.map(\.name))
+        copy.name = name ?? Self.uniqueName(basedOn: copy.name, taken: activeNames)
         checklists.append(copy)
         save()
         return copy.id
@@ -279,7 +307,7 @@ public final class ChecklistStore {
     @discardableResult
     public func rename(id: UUID, to name: String) -> RenameOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
-        guard checklists.first(where: { $0.id != id && Self.sameName($0.name, name) }) == nil else {
+        guard checklists.first(where: { $0.id != id && !$0.isArchived && Self.sameName($0.name, name) }) == nil else {
             return .nameTaken
         }
         checklists[index].name = name
