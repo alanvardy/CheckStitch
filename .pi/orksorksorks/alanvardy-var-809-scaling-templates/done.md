@@ -1,13 +1,15 @@
 # Done
 
-- **Branch / head SHA**: `alanvardy-var-809-scaling-templates` @ `9038465`
-  (`chore: commit VAR-809 pipeline artifacts, drop DELETEME placeholder`),
-  pushed to `origin` with `--force-with-lease` after the pre-session rebase
-  (no conflicts to resolve; branch was already linear on `main` @ `b416a18`).
-  The `DELETEME` placeholder was `git rm`'d and the `.pi/orksorksorks/<branch>/`
-  pipeline artifacts committed.
+- **Branch / head SHA**: `alanvardy-var-809-scaling-templates`; branch head is the
+  `refactor: apply review optional improvements for VAR-809` commit, whose parent
+  `9038465` is the reviewed code head. Pushed to `origin` with `--force-with-lease`.
+  The branch was already linear on `main` @ `b416a18` (no rebase conflicts); the
+  `DELETEME` placeholder was `git rm`'d and the `.pi/orksorksorks/<branch>/`
+  artifacts committed.
 
-- **Mechanical checks**: `bash scripts/test.sh` → `gate: ok`.
+- **Mechanical checks**: `bash scripts/test.sh` → `gate: ok` (re-run after the
+  optional fixes). `make test-unit` is 556 tests / 66 suites green;
+  `scripts/l10n-check.sh` reports `ok (4 catalogs, 162 keys, 6 languages)`.
   Covers `make build` (iOS simulator), the headless simulator pre-boot, `make test`,
   `make build-mac`, `make watch-build`, the shell suite
   (`tests: 26 passed, 0 failed`), and `shellcheck scripts/*.sh scripts/tests/*.sh`.
@@ -30,18 +32,26 @@
   - Localization: all three new keys carry all 6 languages + `LocalizationFixtures`
     entries and the `×%lld` locale-invariant exclusion.
 
-  **Optional improvements noted, not applied** (non-blocking; no fixes were
-  clearly worth doing now, so nothing was edited):
-  1. `STRING_CATALOG_GENERATE_SYMBOLS = NO` on the app target removes app-wide
-     compile-time string-symbol checking to accommodate one ×-leading key
-     (verified functionally safe — the app target uses only runtime lookup APIs).
-  2. `Bundle.main.localizedString(forKey: "×%lld", value: nil, …)` would render
-     the literal `×%lld` if the manual catalog key were ever culled; a hardcoded
-     default would be more robust.
-  3. `setMultiple` returns `.updated` for a true no-op (semantically loose but
-     consistent with the existing `set*` convention and required for sync).
-  4. Nits: redundant `second <= text.endIndex`; `reserveCapacity(text.count)` is a
-     slight underestimate; the Scaling stepper has no descriptive accessibility value.
+  **Optional improvements applied (user chose [2])**:
+  1. Badge lookup now passes a hardcoded `"×%lld"` fallback to
+     `Bundle.main.localizedString(forKey:value:table:)`, so a missing catalog key
+     renders the intended `×N` rather than the literal key
+     (`ChecklistDetailView.swift`).
+  2. Removed the redundant `second <= text.endIndex` guard in
+     `ChecklistScaling.resolve` (`ChecklistCreator.swift`).
+  3. Added an accessibility hint to the Scaling stepper describing what it does,
+     as a new all-6-language localized key
+     `"Scale item markers by this factor when creating reminders."` in the App
+     catalog plus its `LocalizationFixtures` registration.
+
+  **Optional improvements deliberately not applied**:
+  1. `STRING_CATALOG_GENERATE_SYMBOLS = NO` remains: the `×`-leading format key
+     cannot be replaced by a symbol-generatable key without rendering `N×`
+     instead of `×N`, so the scoped flag is the accepted trade-off (Option A).
+  2. `setMultiple` keeps returning `.updated` for a true no-op — changing it
+     would break the existing `set*` return convention and its sync test.
+  3. `reserveCapacity(text.count)` left as-is: it is only a capacity hint and no
+     principled larger bound exists without extra work in the hot path.
 
 - **Remaining manual items**: the device/simulator verification items from
   `implement.md` still require a human run (installed-bundle checks cannot close

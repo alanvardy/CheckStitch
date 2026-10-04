@@ -77,6 +77,8 @@ struct ChecklistDetailView: View {
                     Section {
                         Stepper("Scaling", value: multipleBinding(checklistID: checklistID),
                                 in: Checklist.multipleRange)
+                            .accessibilityHint(Text(
+                                "Scale item markers by this factor when creating reminders."))
                             .accessibilityIdentifier("checklistScalingStepper")
                     }
                     Section {
@@ -354,7 +356,7 @@ struct ItemRow: View {
                         // identifier from `×%lld`), so resolve it at runtime
                         // against the App catalog and format the factor in.
                         Text(verbatim: String(
-                            format: Bundle.main.localizedString(forKey: "×%lld", value: nil, table: "Localizable"),
+                            format: Bundle.main.localizedString(forKey: "×%lld", value: "×%lld", table: "Localizable"),
                             multiple))
                             .font(.caption)
                             .foregroundStyle(.secondary)

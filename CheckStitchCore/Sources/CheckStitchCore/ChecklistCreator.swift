@@ -39,7 +39,7 @@ public enum ChecklistScaling {
         var index = text.startIndex
         while index < text.endIndex {
             if text[index] == "(", let second = text.index(index, offsetBy: 2, limitedBy: text.endIndex),
-               second <= text.endIndex, text[text.index(after: index)] == "(" {
+               text[text.index(after: index)] == "(" {
                 let digitsStart = second
                 var cursor = digitsStart
                 while cursor < text.endIndex, isASCIIDigit(text[cursor]) {
