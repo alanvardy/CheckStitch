@@ -1099,6 +1099,27 @@ struct ChecklistMergeTests {
         #expect(merged.checklists.isEmpty, "a tombstone removes the checklist regardless of its archive state")
         #expect(merged.tombstones.map(\.checklistID) == [id], "the tombstone survives the merge")
     }
+
+    @Test
+    func tombstonedArchivedRecordStaysDeleted() {
+        let id = UUID()
+        var archived = checklist(id: id, name: "archived", revision: 5, modifiedAt: Date(timeIntervalSince1970: 100))
+        archived.isArchived = true
+        archived.archivedAt = Date(timeIntervalSince1970: 100)
+        let remote = envelope(device: "device-b", tombstones: [
+            tombstone(checklistID: id, revision: 1),
+        ])
+
+        let first = ChecklistMerge.merge(local: envelope(device: "device-a", checklists: [archived]), remote: remote)
+        #expect(first.checklists.isEmpty, "the tombstone suppresses the archived record")
+        #expect(first.tombstones.map(\.checklistID) == [id])
+
+        // Re-merging the already-merged result against the surviving tombstone and
+        // a fresh archived copy does not resurrect it.
+        let replay = ChecklistMerge.merge(local: first, remote: envelope(device: "device-c", checklists: [archived]))
+        #expect(replay.checklists.isEmpty, "a re-merge does not resurrect the deleted archived record")
+        #expect(replay.tombstones.map(\.checklistID) == [id], "the tombstone still suppresses the record")
+    }
 }
 
 @MainActor

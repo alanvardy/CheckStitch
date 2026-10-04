@@ -1595,6 +1595,55 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertNil(reloaded.tombstones.first?.itemID)
     }
 
+    /// Permanent delete from the Archived screen removes the record and records
+    /// a whole-checklist tombstone at `revision + 1`, so sync can never resurrect it.
+    func testRemoveArchivedTombstonesAtRevisionPlusOne() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create(name: "Groceries") // revision 1
+        store.archive(id: created.id)                  // revision 2
+        let removedRevision = store.checklist(id: created.id)?.revision ?? 0
+
+        XCTAssertTrue(store.removeArchived(id: created.id))
+
+        XCTAssertNil(store.checklist(id: created.id))
+        XCTAssertTrue(store.checklists.isEmpty)
+        XCTAssertEqual(store.tombstones.count, 1)
+        XCTAssertEqual(store.tombstones.first?.checklistID, created.id)
+        XCTAssertNil(store.tombstones.first?.itemID)
+        XCTAssertEqual(store.tombstones.first?.revision, removedRevision + 1)
+
+        // The tombstone survives a reload.
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.tombstones.count, 1)
+        XCTAssertEqual(reloaded.tombstones.first?.checklistID, created.id)
+        XCTAssertNil(reloaded.tombstones.first?.itemID)
+    }
+
+    /// A second permanent delete (or an unknown id) is a no-op returning `false`,
+    /// recording no further tombstone.
+    func testRemoveArchivedIsIdempotentNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create(name: "Groceries")
+        store.archive(id: created.id)
+
+        XCTAssertTrue(store.removeArchived(id: created.id))
+        let afterFirst = store.tombstones.count
+
+        XCTAssertFalse(store.removeArchived(id: created.id))
+        XCTAssertEqual(store.tombstones.count, afterFirst, "no second tombstone for an already-removed id")
+
+        // An unknown id is also a no-op returning false.
+        XCTAssertFalse(store.removeArchived(id: UUID()))
+        XCTAssertEqual(store.tombstones.count, afterFirst)
+    }
+
     func testRemoveItemsLeavesItemTombstones() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

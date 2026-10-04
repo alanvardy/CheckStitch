@@ -39,6 +39,7 @@ enum LocalizationFixtures {
             "Dark",
             "Delete",
             "Delete Folder",
+            "Delete Permanently",
             "Description",
             "Done",
             "Due date",

@@ -655,6 +655,19 @@ public final class ChecklistStore {
         save()
     }
 
+    /// Permanently removes a checklist and tombstones the deletion at
+    /// `revision + 1`, so sync can never resurrect it. Intended for the Archived
+    /// screen; unknown ids are a no-op returning `false`.
+    @discardableResult
+    public func removeArchived(id: UUID) -> Bool {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return false }
+        let removed = checklists.remove(at: index)
+        tombstones.append(ChecklistTombstone(
+            checklistID: id, itemID: nil, deletedAt: now(), revision: removed.revision + 1))
+        save()
+        return true
+    }
+
     /// Merges a remote payload into local state. Refuses (no save, no state change)
     /// when the stored payload came from a newer app version, preserving the
     /// never-overwrite-newer guard. Returns whether visible state changed.
