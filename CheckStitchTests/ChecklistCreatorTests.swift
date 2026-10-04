@@ -168,4 +168,41 @@ struct ChecklistCreatorTests {
         #expect(outcome == .permissionDenied)
         #expect(spy.createdTitles.isEmpty)
     }
+
+    @Test(arguments: [("((3))", 2, "6"), ("((0))", 5, "0"), ("x ((2)) y", 3, "x 6 y")])
+    func resolveScalesMarkers(_ text: String, _ multiple: Int, _ expected: String) {
+        #expect(ChecklistScaling.resolve(text, multiple: multiple) == expected)
+    }
+
+    @Test(arguments: ["((abc))", "(x)", "((3)", "3))", "((3)))"])
+    func nonMarkersPassThroughByteForByte(_ text: String) {
+        #expect(ChecklistScaling.resolve(text, multiple: 4) == text)
+    }
+
+    @Test
+    func overflowingDigitsPassThrough() {
+        let text = "((99999999999999999999))"
+        #expect(ChecklistScaling.resolve(text, multiple: 2) == text)
+    }
+
+    @Test
+    func multipleOneIsAFastPath() {
+        #expect(ChecklistScaling.resolve("((2)) raw", multiple: 1) == "((2)) raw")
+    }
+
+    @Test
+    func titleIsScaledThenPrefixed() {
+        let scaled = ChecklistScaling.resolve("milk ((2))", multiple: 3)
+        #expect(ChecklistTitleNumbering.title(scaled, position: 1, numbered: true, itemCount: 1) == "1: milk 6")
+    }
+
+    /// Path B: the test-only creator applies scaling before its positional prefix.
+    @Test
+    func createScalesTitlesWhenMultipleProvided() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
+        let outcome = await creator.create(from: [makeItem("milk ((2))")], multiple: 5)
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdTitles == ["1: milk 10"])
+    }
 }

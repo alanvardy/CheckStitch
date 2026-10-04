@@ -22,7 +22,8 @@ import os
 
     public static func create(from checklist: Checklist,
                               targeting: ReminderDestinationTargeting,
-                              gate: RunGate) async -> ReminderRunOutcome {
+                              gate: RunGate,
+                              multipleOverride: Int? = nil) async -> ReminderRunOutcome {
         // Gate first: reserve the slot (atomically) before any EventKit work, so
         // a refused run writes nothing and concurrent runs cannot both pass at
         // the limit. The slot is released again unless the run creates a reminder.
@@ -30,6 +31,7 @@ import os
         guard gate.reserveRun() else { return .purchaseRequired }
 
         let prefixNumbers = checklist.prefixesReminderNumbers
+        let multiple = multipleOverride ?? checklist.multiple
         var created = 0
         do {
             guard try await targeting.requestAccess() else {
@@ -54,8 +56,9 @@ import os
                 let dueDateComponents = item.dueDateComponents(today: Date())
                 try await targeting.create(
                     title: ChecklistTitleNumbering.title(
-                        item.title, position: position, numbered: prefixNumbers, itemCount: itemCount),
-                    notes: item.hasDescription ? item.description : nil,
+                        ChecklistScaling.resolve(item.title, multiple: multiple),
+                        position: position, numbered: prefixNumbers, itemCount: itemCount),
+                    notes: item.hasDescription ? ChecklistScaling.resolve(item.description, multiple: multiple) : nil,
                     priority: item.priority,
                     in: destination,
                     dueDateComponents: dueDateComponents)

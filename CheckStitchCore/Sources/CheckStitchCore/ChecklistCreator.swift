@@ -26,6 +26,51 @@ public enum ChecklistTitleNumbering {
     }
 }
 
+/// Replaces every `((n))` marker (literal `((`, one or more ASCII digits, `))`)
+/// with the product `n * multiple`, leaving all other text byte-for-byte
+/// unchanged. Returns `text` unchanged when `multiple == 1`. A marker whose
+/// digits do not parse as `Int`, or whose product overflows `Int`, is left
+/// literal. Pure; no model dependency.
+public enum ChecklistScaling {
+    public static func resolve(_ text: String, multiple: Int) -> String {
+        guard multiple != 1, text.contains("((") else { return text }
+        var result = ""
+        result.reserveCapacity(text.count)
+        var index = text.startIndex
+        while index < text.endIndex {
+            if text[index] == "(", let second = text.index(index, offsetBy: 2, limitedBy: text.endIndex),
+               second <= text.endIndex, text[text.index(after: index)] == "(" {
+                let digitsStart = second
+                var cursor = digitsStart
+                while cursor < text.endIndex, isASCIIDigit(text[cursor]) {
+                    cursor = text.index(after: cursor)
+                }
+                if cursor > digitsStart, cursor < text.endIndex, text[cursor] == ")" {
+                    let afterClose = text.index(after: cursor)
+                    // Closing must be exactly `))`: a third `)` right after makes
+                    // the run an over-parenthesised literal, not a marker.
+                    if afterClose < text.endIndex, text[afterClose] == ")",
+                       text.index(after: afterClose) == text.endIndex
+                           || text[text.index(after: afterClose)] != ")",
+                       let value = Int(text[digitsStart..<cursor]),
+                       value.multipliedReportingOverflow(by: multiple).overflow == false {
+                        result += "\(value * multiple)"
+                        index = text.index(after: afterClose)
+                        continue
+                    }
+                }
+            }
+            result.append(text[index])
+            index = text.index(after: index)
+        }
+        return result
+    }
+
+    private static func isASCIIDigit(_ character: Character) -> Bool {
+        character.isASCII && character.isNumber
+    }
+}
+
 /// Owns the reminder-creation policy: ask permission, drop blank titles, create
 /// one reminder per remaining item. Items with a relative date set a
 /// date-only `dueDateComponents` on the reminder; the offset-to-date
@@ -45,7 +90,7 @@ public struct ChecklistCreator: Sendable {
         self.prefixNumbers = prefixNumbers
     }
 
-    public func create(from items: [ChecklistItem]) async -> ChecklistCreationOutcome {
+    public func create(from items: [ChecklistItem], multiple: Int = 1) async -> ChecklistCreationOutcome {
         do {
             guard try await reminders.requestAccess() else { return .permissionDenied }
             let itemCount = items.filter { !$0.isBlank }.count
@@ -58,7 +103,8 @@ public struct ChecklistCreator: Sendable {
                 position += 1
                 try await reminders.create(
                     title: ChecklistTitleNumbering.title(
-                        item.title, position: position, numbered: prefixNumbers, itemCount: itemCount),
+                        ChecklistScaling.resolve(item.title, multiple: multiple),
+                        position: position, numbered: prefixNumbers, itemCount: itemCount),
                     dueDateComponents: item.dueDateComponents(today: today, calendar: calendar))
                 created += 1
             }

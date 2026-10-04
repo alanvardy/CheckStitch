@@ -426,6 +426,39 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertTrue(String(data: data, encoding: .utf8)?.contains(#""folders""#) ?? false)
     }
 
+    func testMultipleSurvivesEnvelopeRoundTrip() throws {
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [Checklist(multiple: 7)])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.multiple, 7)
+        XCTAssertTrue(String(data: data, encoding: .utf8)?.contains(#""multiple""#) ?? false)
+    }
+
+    /// A payload written before the scaling factor existed lacks the key: it
+    /// must decode to 1 (the additive-optional guarantee), never a trap.
+    func testMissingMultipleDecodesToOne() throws {
+        let envelope = ChecklistEnvelope(deviceID: "d", checklists: [Checklist()])
+        var object = try JSONSerialization.jsonObject(with: ChecklistCodec.encode(envelope)) as! [String: Any]
+        var checklists = object["checklists"] as! [[String: Any]]
+        checklists[0].removeValue(forKey: "multiple")
+        object["checklists"] = checklists
+        let data = try JSONSerialization.data(withJSONObject: object)
+
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.multiple, 1)
+    }
+
+    /// Out-of-range scaling factors decode clamped into `multipleRange`, so a
+    /// hand-edited/imported payload is never trusted outside the bound.
+    func testOutOfRangeMultipleClamps() throws {
+        for (raw, expected) in [(0, 1), (100, 99), (-5, 1)] {
+            let envelope = ChecklistEnvelope(deviceID: "d", checklists: [Checklist(multiple: raw)])
+            let decoded = try XCTUnwrap(ChecklistCodec.decode(ChecklistCodec.encode(envelope)).first)
+            XCTAssertEqual(decoded.multiple, expected, "raw \(raw) should clamp to \(expected)")
+        }
+    }
+
     /// The v5 build's `classify` switch only knows versions 1...5, so a v6
     /// payload would fall to its `default` → `.unsupportedVersion`. This pins
     /// the pre-folder v5 decoder: it must refuse a v5 payload written by the

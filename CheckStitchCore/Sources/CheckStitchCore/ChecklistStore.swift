@@ -301,6 +301,23 @@ public final class ChecklistStore {
         return .updated
     }
 
+    /// Sets a checklist's template scaling factor and reports whether it applied.
+    /// Clamps into `Checklist.multipleRange` first (defense in depth for
+    /// imported/hand-edited payloads), then follows the no-op-guard shape: an
+    /// unchanged value never manufactures a spurious LWW win. Shares the
+    /// checklist's coarse `revision`/`modifiedAt` clock.
+    @discardableResult
+    public func setMultiple(_ newValue: Int, for id: UUID) -> SetDestinationOutcome {
+        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
+        let clamped = Checklist.clampedMultiple(newValue)
+        guard checklists[index].multiple != clamped else { return .updated }
+        checklists[index].multiple = clamped
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
+        scheduleSave()
+        return .updated
+    }
+
     /// The first free name in the sequence `base`, `base 2`, `base 3`, …, so a
     /// create never collides. `base` is trimmed first, so a typed
     /// `"  Groceries  "` disambiguates as `"Groceries 2"`, not
