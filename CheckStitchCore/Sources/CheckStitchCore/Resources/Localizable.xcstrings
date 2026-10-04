@@ -369,6 +369,47 @@
           }
         }
       }
+    },
+    "Multiple must be between 1 and 99." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multiple must be between 1 and 99."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Multiplikator muss zwischen 1 und 99 liegen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El múltiplo debe estar entre 1 y 99."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le multiplicateur doit être compris entre 1 et 99."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倍率は 1〜99 の範囲で指定してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倍数必须在 1 到 99 之间。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

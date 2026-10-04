@@ -260,4 +260,41 @@ struct RunChecklistIntentTests {
         #expect(runState.records.first?.didCreate == true)
         #expect(runState.indicator(for: checklistID, at: Date()) == .checkmark)
     }
+
+    /// No override → the stored multiple scales this run.
+    @Test
+    func absentOverrideUsesStoredMultiple() async throws {
+        let (intent, spy, store) = makeIntent()
+        store.setMultiple(3, for: store.checklists[0].id)
+        store.addItem(to: store.checklists[0].id, title: "Milk ((2))")
+        _ = try await intent.perform()
+        #expect(spy.createdTitles == ["Milk 6"])
+    }
+
+    /// An override scales this run only and is never written back to the store.
+    @Test
+    func overrideAppliesForOneRunWithoutPersisting() async throws {
+        let (intent, spy, store) = makeIntent()
+        store.addItem(to: store.checklists[0].id, title: "Milk ((2))")
+        intent.multiple = 5
+        _ = try await intent.perform()
+        #expect(spy.createdTitles == ["Milk 10"])
+        #expect(store.checklists[0].multiple == 1)
+    }
+
+    /// An out-of-range override throws before the status pre-check and before any
+    /// gate reserve or reminder creation — validation is the very first step.
+    @Test(arguments: [0, 100, -1])
+    func outOfRangeOverrideThrowsBeforeAnySideEffect(_ value: Int) async throws {
+        let (intent, spy, _) = makeIntent()
+        intent.multiple = value
+        spy.accessStatusValue = .notDetermined // must be ignored; validation is first
+        do {
+            _ = try await intent.perform()
+            Issue.record("out-of-range multiple should throw")
+        } catch let error as RunChecklistIntentError {
+            #expect(error.errorDescription == "Multiple must be between 1 and 99.")
+        }
+        #expect(spy.createdTitles.isEmpty)
+    }
 }
