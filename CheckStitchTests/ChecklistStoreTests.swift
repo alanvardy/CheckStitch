@@ -1578,6 +1578,20 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.checklist(id: source.id)?.items.first?.revision, 2)  // source untouched
     }
 
+    func testDuplicateCarriesMultiple() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let source = store.create(name: "Groceries")
+        store.setMultiple(4, for: source.id)
+
+        let copy = store.duplicate(id: source.id, name: "Groceries copy")
+
+        XCTAssertEqual(copy?.multiple, 4, "the duplicate keeps the source multiple")
+        XCTAssertEqual(store.checklist(id: source.id)?.multiple, 4, "the source is untouched")
+    }
+
     func testDuplicateDisambiguatesTheCopyName() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
@@ -1999,6 +2013,19 @@ final class ChecklistStoreTests: XCTestCase {
         let reloaded = makeStore(defaults: suite.defaults)
         XCTAssertEqual(reloaded.checklists.count, 1)
         XCTAssertEqual(reloaded.checklists.first?.name, "Groceries")
+    }
+
+    func testImportInsertCarriesMultiple() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let incoming = Checklist(name: "Packing", multiple: 4,
+                                 modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
+        let inserted = store.importInsert(incoming)
+
+        XCTAssertEqual(store.checklist(id: inserted)?.multiple, 4, "import keeps the payload multiple")
+        XCTAssertEqual(store.checklist(id: inserted)?.revision, 1, "imported content never carries the source revision")
     }
 
     func testImportInsertDisambiguatesNameAutomaticallyAndViaOverride() {
