@@ -142,7 +142,7 @@ enum LocalizationFixtures {
             "Couldn't load the store. Check your connection and try again.",
             "Try Again"
         ]),
-        ("Core", ["System", "Light", "Dark", "None", "Low", "Medium", "High", "Version %@ (%@)", "Version %@"]),
+        ("Core", ["System", "Light", "Dark", "None", "Low", "Medium", "High", "Version %@ (%@)", "Version %@", "Multiple must be between 1 and 99."]),
         ("Watch", [
             "No checklists",
             "Open CheckStitch on your iPhone.",

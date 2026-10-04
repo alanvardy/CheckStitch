@@ -4,10 +4,18 @@ import AppIntents
 /// user's pick and `perform()`).
 enum RunChecklistIntentError: LocalizedError {
     case checklistNotFound
+    case invalidMultiple
     var errorDescription: String? {
-        LocalizedStringResource(
-            "That checklist no longer exists.", table: "Localizable", bundle: .main)
-            .resolvedInAppLanguage()
+        switch self {
+        case .checklistNotFound:
+            LocalizedStringResource(
+                "That checklist no longer exists.", table: "Localizable", bundle: .main)
+                .resolvedInAppLanguage()
+        case .invalidMultiple:
+            LocalizedStringResource(
+                "Multiple must be between 1 and 99.", table: "Localizable", bundle: .main)
+                .resolvedInAppLanguage()
+        }
     }
 }
 
@@ -17,6 +25,9 @@ public struct RunChecklistIntent: AppIntent {
 
     @Parameter(title: "Checklist")
     public var checklist: ChecklistEntity
+
+    @Parameter(title: "Multiple")
+    public var multiple: Int?
 
     // test seam; nil → fresh production collaborators
     private let injectedStore: ChecklistStore?
@@ -53,6 +64,12 @@ public struct RunChecklistIntent: AppIntent {
               let stored = store.checklist(id: uuid)
         else { throw RunChecklistIntentError.checklistNotFound }
 
+        // Validate before the status pre-check and before any side effect, so a bad
+        // override can never reserve a run slot or create a reminder.
+        if let multiple, !Checklist.multipleRange.contains(multiple) {
+            throw RunChecklistIntentError.invalidMultiple
+        }
+
         // Status-only pre-check: a cold process may be unauthorized but must
         // never prompt from inside an intent. Residual TOCTOU: access revoked
         // between here and `create` lets its `requestAccess()` re-prompt —
@@ -79,7 +96,8 @@ public struct RunChecklistIntent: AppIntent {
         let outcome = await ChecklistReminders.create(
             from: stored,
             targeting: targeting,
-            gate: gate)
+            gate: gate,
+            multipleOverride: multiple)
         try? await minimumSpinner
         runState.finishRun(id: uuid, didCreate: outcome.didCreateAllItems, at: Date())
         return .result(dialog: IntentDialog(
