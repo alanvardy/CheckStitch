@@ -82,4 +82,44 @@ struct ChecklistEntityQueryTests {
 
         #expect(entities.isEmpty)
     }
+
+    @Test
+    func entitiesForIdentifiersExcludeArchived() async throws {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        let active = store.create(name: "Groceries")
+        let archived = store.create(name: "Packing")
+        store.archive(id: archived.id)
+        let query = ChecklistEntityQuery(store: store)
+
+        let entities = try await query.entities(for: [active.id.uuidString, archived.id.uuidString])
+
+        #expect(entities.map(\.name) == ["Groceries"])
+    }
+
+    /// `entities(matching:)` must not offer archived checklists to Siri.
+    @Test
+    func entitiesMatchingExcludesArchived() async throws {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        _ = store.create(name: "Groceries")
+        let archived = store.create(name: "Packing")
+        store.archive(id: archived.id)
+        let query = ChecklistEntityQuery(store: store)
+
+        let entities = try await query.entities(matching: "PACK")
+
+        #expect(entities.isEmpty)
+    }
+
+    @Test
+    func suggestedEntitiesExcludesArchived() async throws {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        store.create(name: "Groceries")
+        let archived = store.create(name: "Packing")
+        store.archive(id: archived.id)
+        let query = ChecklistEntityQuery(store: store)
+
+        let entities = try await query.suggestedEntities()
+
+        #expect(entities.map(\.name) == ["Groceries"])
+    }
 }

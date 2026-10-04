@@ -43,7 +43,8 @@ public struct ChecklistWidgetDisplayModel: Equatable, Sendable {
     public init(checklists: [Checklist], configuration: [ChecklistEntity],
                 access: ChecklistWidgetAccessState,
                 runIndicators: [Checklist.ID: WidgetRunIndicator] = [:]) {
-        let byID = Dictionary(checklists.map { ($0.id.uuidString, $0) },
+        let visible = checklists.filter { !$0.isArchived }
+        let byID = Dictionary(visible.map { ($0.id.uuidString, $0) },
                               uniquingKeysWith: { first, _ in first })
         self.rows = Array(configuration.prefix(Self.rowLimit).compactMap { entity in
             guard let checklist = byID[entity.id] else { return nil }
@@ -56,7 +57,7 @@ public struct ChecklistWidgetDisplayModel: Equatable, Sendable {
                 needsPurchase: access == .needsPurchase,
                 indicator: runIndicators[checklist.id] ?? .play)
         })
-        self.hasChecklists = !checklists.isEmpty
+        self.hasChecklists = !visible.isEmpty
     }
 
     public let rows: [ChecklistWidgetRow]

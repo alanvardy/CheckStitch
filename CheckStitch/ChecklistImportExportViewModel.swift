@@ -52,7 +52,7 @@ final class ChecklistImportExportViewModel {
     /// exporter. An empty selection exports nothing.
     func exportSelected() {
         isShowingExport = false
-        let selected = store.checklists.filter { exportSelection.contains($0.id) }
+        let selected = store.activeChecklists.filter { exportSelection.contains($0.id) }
         guard !selected.isEmpty else { return }
         do {
             exportDocument = try ChecklistExportDocument(checklists: selected)
@@ -69,7 +69,7 @@ final class ChecklistImportExportViewModel {
     /// shares nothing.
     func shareSelected() {
         isShowingExport = false
-        let selected = store.checklists.filter { exportSelection.contains($0.id) }
+        let selected = store.activeChecklists.filter { exportSelection.contains($0.id) }
         guard !selected.isEmpty else { return }
         do {
             pendingShare = try ChecklistExportDocument(checklists: selected)

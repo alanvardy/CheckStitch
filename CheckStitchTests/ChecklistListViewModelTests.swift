@@ -335,4 +335,20 @@ struct ChecklistListViewModelTests {
         let viewModel = ChecklistListViewModel(store: store)
         #expect(viewModel.checklists.isEmpty)
     }
+
+    @Test
+    func archivedChecklistsAreHiddenInsideFolders() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let folderID = store.createFolder(name: "Errands").id
+        let active = store.create().id
+        let archived = store.create().id
+        store.moveChecklist(id: active, toFolder: folderID)
+        store.moveChecklist(id: archived, toFolder: folderID)
+        store.archive(id: archived)
+
+        let viewModel = ChecklistListViewModel(store: store)
+        let folder = viewModel.folders.first { $0.id == folderID }!
+        #expect(viewModel.checklists(in: folder).map(\.id) == [active])
+    }
 }

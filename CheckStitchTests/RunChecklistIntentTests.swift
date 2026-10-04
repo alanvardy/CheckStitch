@@ -297,4 +297,21 @@ struct RunChecklistIntentTests {
         }
         #expect(spy.createdTitles.isEmpty)
     }
+
+    @Test
+    func archivedChecklistThrowsNotFound() async throws {
+        let (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        store.archive(id: checklistID)
+
+        do {
+            _ = try await intent.perform()
+            Issue.record("an archived checklist should throw, not perform")
+        } catch let error as RunChecklistIntentError {
+            #expect(error.errorDescription == "That checklist no longer exists.")
+        } catch {
+            Issue.record("unexpected error type: \(error)")
+        }
+        #expect(spy.createdTitles.isEmpty)
+    }
 }

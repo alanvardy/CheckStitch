@@ -651,7 +651,7 @@ public enum ChecklistGrouping {
     public static func visibleLooseChecklists(
         _ checklists: [Checklist], knownFolderIDs: Set<UUID>
     ) -> [Checklist] {
-        checklists.filter { isLoose($0, knownFolderIDs: knownFolderIDs) && $0.showsOnWatch }
+        checklists.filter { isLoose($0, knownFolderIDs: knownFolderIDs) && $0.showsOnWatch && !$0.isArchived }
     }
 
     /// A folder's visible checklists, in global order: filed under `folder` and
@@ -659,7 +659,7 @@ public enum ChecklistGrouping {
     public static func visibleChecklists(
         in folder: Folder, from checklists: [Checklist]
     ) -> [Checklist] {
-        checklists.filter { $0.folderID == folder.id && $0.showsOnWatch }
+        checklists.filter { $0.folderID == folder.id && $0.showsOnWatch && !$0.isArchived }
     }
 
     /// The folders the watch renders: a folder stays when it has no members, or at
@@ -671,7 +671,7 @@ public enum ChecklistGrouping {
     ) -> [Folder] {
         folders.filter { folder in
             let members = checklists.filter { $0.folderID == folder.id }
-            return members.isEmpty || members.contains { $0.showsOnWatch }
+            return members.isEmpty || members.contains { $0.showsOnWatch && !$0.isArchived }
         }
     }
 }
