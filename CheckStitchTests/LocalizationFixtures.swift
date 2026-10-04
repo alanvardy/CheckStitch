@@ -82,6 +82,7 @@ enum LocalizationFixtures {
             "Show on watch",
             "Scaling",
             "Scale item markers by this factor when creating reminders.",
+            "Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.",
             "Small",
             "System",
             "Text Size",
