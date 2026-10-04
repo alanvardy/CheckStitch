@@ -80,6 +80,8 @@ struct ChecklistDetailView: View {
                             .accessibilityHint(Text(
                                 "Scale item markers by this factor when creating reminders."))
                             .accessibilityIdentifier("checklistScalingStepper")
+                    } footer: {
+                        Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
                     }
                     Section {
                         Toggle(isOn: showOnWatchBinding(checklistID: checklistID)) {

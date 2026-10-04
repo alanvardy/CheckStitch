@@ -2584,6 +2584,47 @@
         }
       }
     },
+    "Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skalierung multipliziert jede ganze Zahl in doppelten Klammern – z. B. wird aus ((2)) bei Skalierung 3 die 6. Die Klammern werden entfernt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El escalado multiplica cualquier número entero entre dobles paréntesis; p. ej., ((2)) se convierte en 6 con Escalado 3. Se eliminan los paréntesis."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise à l'échelle multiplie tout entier entre doubles parenthèses — p. ex. ((2)) devient 6 avec Mise à l'échelle 3. Les parenthèses sont supprimées."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倍率は二重括弧内の整数を掛けます。例：倍率3で((2))は6になります。括弧は削除されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倍数会乘以双括号中的整数，例如：倍率为 3 时，((2)) 变成 6。括号会被移除。"
+          }
+        }
+      }
+    },
     "List" : {
       "extractionState" : "manual",
       "localizations" : {
