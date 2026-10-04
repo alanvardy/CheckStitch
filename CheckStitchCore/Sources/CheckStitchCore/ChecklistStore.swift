@@ -264,6 +264,8 @@ public final class ChecklistStore {
             prefixesReminderNumbers: checklist.prefixesReminderNumbers,
             showsOnWatch: checklist.showsOnWatch,
             multiple: checklist.multiple,
+            isArchived: false,
+            archivedAt: nil,
             modifiedAt: now(),
             revision: 1
         )

@@ -443,6 +443,22 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(envelope.folders.first?.isCollapsed, false)
     }
 
+    /// A v5 payload written before the archive fields existed omits both keys
+    /// entirely: it must still classify `.loaded` (never `.migratable` or worse)
+    /// and decode the checklist active — the accepted downgrade risk of the
+    /// additive-optional, no-version-bump archive design.
+    func testV5PayloadWithoutArchiveKeysStaysLoaded() throws {
+        let id = UUID().uuidString
+        let payload = Data(#"{"version":5,"deviceID":"d","tombstones":[],"folders":[],"folderTombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
+        guard case .loaded(let envelope) = ChecklistCodec.classify(payload) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(payload))")
+            return
+        }
+        let checklist = try XCTUnwrap(envelope.checklists.first)
+        XCTAssertEqual(checklist.isArchived, false, "absent archive key decodes to false")
+        XCTAssertNil(checklist.archivedAt, "absent archive key decodes to nil")
+    }
+
     func testFoldersSurviveEnvelopeRoundTrip() throws {
         let folder = Folder(name: "Work")
         let checklist = Checklist(name: "Groceries", folderID: folder.id)

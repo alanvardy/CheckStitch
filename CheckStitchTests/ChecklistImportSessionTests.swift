@@ -306,6 +306,42 @@ struct ChecklistImportSessionTests {
         #expect(session.pending.isEmpty)
     }
 
+    /// An archived source imports active on the plain insert path (Keep Both):
+    /// `freshCopy` deliberately drops the archive state so imported content
+    /// always lands visible, never hidden in the archived screen.
+    @Test
+    func importInsertLandsActive() throws {
+        let (session, store) = makeSession()
+        let incoming = Checklist(name: "Archived source", isArchived: true,
+                                 archivedAt: Date(timeIntervalSince1970: 100))
+
+        _ = try session.stage(data: payload([incoming]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.first?.isArchived == false, "insert lands active")
+        #expect(store.checklists.first?.archivedAt == nil, "insert clears the archive stamp")
+    }
+
+    /// An archived source imported through a Replace decision also lands active:
+    /// the fallback to `freshCopy` must not preserve the source's archive state.
+    @Test
+    func importReplaceLandsActive() throws {
+        let (session, store) = makeSession()
+        store.create(name: "Groceries")
+        let incoming = Checklist(name: "Groceries", isArchived: true,
+                                 archivedAt: Date(timeIntervalSince1970: 100))
+
+        _ = try session.stage(data: payload([incoming]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(session.pending.count == 1)
+        session.decide(.replace, for: session.pending.first?.id ?? UUID())
+
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.first?.isArchived == false, "replace lands active")
+        #expect(store.checklists.first?.archivedAt == nil, "replace clears the archive stamp")
+    }
+
     @Test
     func keepExistingLeavesLocalIntact() throws {
         let (session, store) = makeSession()
