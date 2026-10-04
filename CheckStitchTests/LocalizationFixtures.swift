@@ -13,6 +13,7 @@ enum LocalizationFixtures {
         ("App", [
             "%lld days ago",
             "%lld%%",
+            "×%lld",
             "0 means today, 1 means tomorrow, nothing means no date.",
             "About",
             "Add Item",
@@ -196,8 +197,9 @@ enum LocalizationFixtures {
         ExclusionEntry(catalog: "App", key: "OK"),
         // fr "Interface" — same spelling as English
         ExclusionEntry(catalog: "App", key: "Interface"),
-        // percent format string is locale-invariant
+        // percent format strings are locale-invariant
         ExclusionEntry(catalog: "App", key: "%lld%%"),
+        ExclusionEntry(catalog: "App", key: "×%lld"),
         // de/fr "Version" — same spelling as English
         ExclusionEntry(catalog: "Core", key: "Version %@"),
     ]

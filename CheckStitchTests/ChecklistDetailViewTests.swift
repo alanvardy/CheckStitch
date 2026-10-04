@@ -160,7 +160,7 @@ struct ChecklistDetailViewTests {
     func itemRowRendersItsDescriptionAndDate() {
         let row = ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", relativeDate: 3, priority: .high)
+            description: "2 litres", multiple: 1, relativeDate: 3, priority: .high)
         #if os(macOS)
         #expect(ImageRenderer(content: row).nsImage != nil)
         #else
@@ -175,11 +175,37 @@ struct ChecklistDetailViewTests {
     func itemRowRendersForEveryPriority(_ priority: ChecklistItemPriority) {
         let row = ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", relativeDate: 3, priority: priority)
+            description: "2 litres", multiple: 1, relativeDate: 3, priority: priority)
         #if os(macOS)
         #expect(ImageRenderer(content: row).nsImage != nil)
         #else
         #expect(ImageRenderer(content: row).uiImage != nil)
+        #endif
+    }
+
+    /// The `×N` factor badge only shows when scaling actually changes marker
+    /// text, so it is hidden at the neutral value (multiple == 1).
+    @Test(arguments: [(1, false), (2, true), (99, true)])
+    func scalingBadgeHiddenOnlyAtNeutral(_ multiple: Int, _ visible: Bool) {
+        #expect(ItemRow.showsScalingFactor(multiple) == visible)
+    }
+
+    /// A scaled detail view stays renderable: the rows resolve their marker
+    /// text against a checklist whose multiple is set, and the render pass
+    /// produces a frame without crashing or throwing.
+    @Test
+    func scaledDetailViewRenders() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let checklist = store.create(name: "Groceries")
+        store.setMultiple(3, for: checklist.id)
+        store.addItem(to: checklist.id, title: "Milk ((2))")
+
+        let view = ChecklistDetailView(checklistID: checklist.id).environment(store)
+        #if os(macOS)
+        #expect(ImageRenderer(content: view).nsImage != nil)
+        #else
+        #expect(ImageRenderer(content: view).uiImage != nil)
         #endif
     }
 
@@ -216,7 +242,7 @@ struct ChecklistDetailViewTests {
     func itemRowCarriesItsChecklistForTheEditLink() {
         let described = String(describing: ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", relativeDate: 1, priority: .high))
+            description: "2 litres", multiple: 1, relativeDate: 1, priority: .high))
         #expect(described.contains("checklistID"))
         #expect(described.contains("itemID"))
         #expect(described.contains("relativeDate"))

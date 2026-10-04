@@ -94,6 +94,7 @@ struct ChecklistDetailView: View {
                                 itemID: item.id,
                                 title: item.title,
                                 description: item.description,
+                                multiple: checklist.multiple,
                                 relativeDate: item.relativeDate,
                                 priority: item.priority
                             )
@@ -323,6 +324,7 @@ struct ItemRow: View {
     let itemID: UUID
     let title: String
     let description: String
+    let multiple: Int
     let relativeDate: Int?
     let priority: ChecklistItemPriority
 
@@ -344,14 +346,26 @@ struct ItemRow: View {
                             .accessibilityLabel(Text(priority.label))
                             .accessibilityIdentifier("priorityMarker")
                     }
-                    Text(Self.displayTitle(title))
+                    Text(Self.displayTitle(ChecklistScaling.resolve(title, multiple: multiple)))
                     Spacer(minLength: 0)
+                    if Self.showsScalingFactor(multiple) {
+                        // The `×`-leading key cannot be a string-symbol source
+                        // (Xcode's GenerateStringSymbols can't derive a Swift
+                        // identifier from `×%lld`), so resolve it at runtime
+                        // against the App catalog and format the factor in.
+                        Text(verbatim: String(
+                            format: Bundle.main.localizedString(forKey: "×%lld", value: nil, table: "Localizable"),
+                            multiple))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("scalingFactorBadge")
+                    }
                     // Blank when the item carries no date, per the product ask.
                     Text(DueDateLabel.resource(for: relativeDate))
                         .foregroundStyle(.secondary)
                 }
                 if !description.isEmpty {
-                    Text(description)
+                    Text(ChecklistScaling.resolve(description, multiple: multiple))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -370,6 +384,10 @@ struct ItemRow: View {
         case .high: .red
         }
     }
+
+    /// The `×N` factor badge is only meaningful when scaling actually changes
+    /// marker text, so it is hidden at the neutral value.
+    static func showsScalingFactor(_ multiple: Int) -> Bool { multiple > 1 }
 
     /// The row's title. An empty title (the user cleared it on the edit screen)
     /// would otherwise leave the row rendering blank, so it falls back to the

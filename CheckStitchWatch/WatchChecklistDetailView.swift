@@ -50,9 +50,9 @@ struct WatchChecklistDetailView: View {
     var body: some View {
         List(visibleItems) { item in
             VStack(alignment: .leading) {
-                Text(item.title)
+                Text(ChecklistScaling.resolve(item.title, multiple: current.multiple))
                 if item.hasDescription {
-                    Text(item.description)
+                    Text(ChecklistScaling.resolve(item.description, multiple: current.multiple))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
