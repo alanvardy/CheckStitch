@@ -209,12 +209,12 @@ struct ChecklistDetailViewTests {
         #endif
     }
 
-    /// The Scaling stepper is bound to the shared `Checklist.multipleRange`, and
-    /// that range is exactly `1...99`. Pinning the invariant at the model source
-    /// of truth guards the stepper, the store clamp and the intent validation
-    /// against drifting apart from each other.
+    /// The Scaling number field is bound to the shared `Checklist.multipleRange`,
+    /// and that range is exactly `1...99`. Pinning the invariant at the model
+    /// source of truth guards the field, the store clamp and the intent
+    /// validation against drifting apart from each other.
     @Test
-    func scalingStepperBoundIsTheSharedMultipleRange() {
+    func scalingFieldBoundIsTheSharedMultipleRange() {
         #expect(Checklist.multipleRange.lowerBound == 1)
         #expect(Checklist.multipleRange.upperBound == 99)
     }

@@ -75,11 +75,7 @@ struct ChecklistDetailView: View {
                         Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
                     }
                     Section {
-                        Stepper("Scaling", value: multipleBinding(checklistID: checklistID),
-                                in: Checklist.multipleRange)
-                            .accessibilityHint(Text(
-                                "Scale item markers by this factor when creating reminders."))
-                            .accessibilityIdentifier("checklistScalingStepper")
+                        scalingField(checklistID: checklistID)
                     } footer: {
                         Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
                     }
@@ -279,14 +275,43 @@ struct ChecklistDetailView: View {
     }
 
     /// Per-selection write through the store for the scaling factor. The getter
-    /// reads the store so a value that arrives over sync updates the Stepper;
-    /// `.notFound` (deleted while this screen was open) is ignored, matching
-    /// `numberingBinding`.
+    /// reads the store so a value that arrives over sync updates the number
+    /// field; `.notFound` (deleted while this screen was open) is ignored,
+    /// matching `numberingBinding`.
     private func multipleBinding(checklistID: UUID) -> Binding<Int> {
         Binding(
             get: { store.checklist(id: checklistID)?.multiple ?? 1 },
             set: { store.setMultiple($0, for: checklistID) }
         )
+    }
+
+    /// The Scaling factor as a typed number rather than a stepper. iOS gets a
+    /// number pad; macOS has no software keyboard, so the chain is duplicated
+    /// under the guard because SwiftUI modifier calls return distinct opaque
+    /// view types, matching `ItemEditView.dueDateField`. The store clamps a
+    /// typed out-of-range value into `Checklist.multipleRange`.
+    @ViewBuilder
+    private func scalingField(checklistID: UUID) -> some View {
+        LabeledContent("Scaling") {
+            #if os(iOS)
+                TextField("Scaling", value: multipleBinding(checklistID: checklistID),
+                          format: .number)
+                    .labelsHidden()
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityHint(Text(
+                        "Scale item markers by this factor when creating reminders."))
+                    .accessibilityIdentifier("checklistScalingField")
+            #else
+                TextField("Scaling", value: multipleBinding(checklistID: checklistID),
+                          format: .number)
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityHint(Text(
+                        "Scale item markers by this factor when creating reminders."))
+                    .accessibilityIdentifier("checklistScalingField")
+            #endif
+        }
     }
 
     /// Per-selection write through the store for the "Show on watch" toggle. The
