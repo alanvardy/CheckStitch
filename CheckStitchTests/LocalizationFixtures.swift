@@ -81,6 +81,7 @@ enum LocalizationFixtures {
             "Show a wallpaper behind the checklist.",
             "Show on watch",
             "Scaling",
+            "Scale item markers by this factor when creating reminders.",
             "Small",
             "System",
             "Text Size",
