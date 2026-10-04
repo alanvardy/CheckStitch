@@ -14,7 +14,7 @@ final class ChecklistListViewModel {
         self.store = store
     }
 
-    var checklists: [Checklist] { store.checklists }
+    var checklists: [Checklist] { store.activeChecklists }
 
     /// Folders in persisted order; `nil` is the loose group.
     var folders: [Folder] { store.folders }
@@ -25,9 +25,9 @@ final class ChecklistListViewModel {
     func checklists(in folder: Folder?) -> [Checklist] {
         guard let folder else {
             let known = Set(store.folders.map(\.id))
-            return store.checklists.filter { ChecklistGrouping.isLoose($0, knownFolderIDs: known) }
+            return store.activeChecklists.filter { ChecklistGrouping.isLoose($0, knownFolderIDs: known) }
         }
-        return store.checklists.filter { $0.folderID == folder.id }
+        return store.activeChecklists.filter { $0.folderID == folder.id }
     }
 
     @discardableResult
