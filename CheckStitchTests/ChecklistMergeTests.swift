@@ -959,6 +959,38 @@ struct ChecklistMergeTests {
     }
 
     @Test
+    func remoteWinningMultipleIsAdopted() {
+        let id = UUID()
+        var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        newer.multiple = 7
+        var older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+        older.multiple = 1
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [older]),
+            remote: envelope(device: "device-b", checklists: [newer])
+        )
+
+        #expect(merged.checklists.first?.multiple == 7, "a remote win carries the remote multiple")
+    }
+
+    @Test
+    func localWinningMultipleIsPreserved() {
+        let id = UUID()
+        var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        newer.multiple = 7
+        var older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+        older.multiple = 1
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [newer]),
+            remote: envelope(device: "device-b", checklists: [older])
+        )
+
+        #expect(merged.checklists.first?.multiple == 7, "an older remote multiple must not leak in")
+    }
+
+    @Test
     func loserShowOnWatchIsPreservedWhenNonWinning() {
         let id = UUID()
         var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))

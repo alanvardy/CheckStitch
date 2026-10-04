@@ -74,6 +74,35 @@ final class ChecklistExportTests: XCTestCase {
         XCTAssertEqual(env.checklists.first?.destinationListIdentifier, "list-a")
     }
 
+    /// Export → classify → decode keeps the template multiple.
+    func testExportPreservesMultiple() throws {
+        let checklist = Checklist(name: "Groceries", multiple: 7)
+        let data = try ChecklistExport.data(checklists: [checklist])
+
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(env.checklists.first?.multiple, 7)
+    }
+
+    /// A hand-constructed out-of-range payload is clamped into `multipleRange`
+    /// at decode, so an exported/imported payload can never carry an invalid
+    /// factor off the wire.
+    func testExportClampsOutOfRangeMultipleOnDecode() throws {
+        for (raw, expected) in [(0, 1), (100, 99)] {
+            let checklist = Checklist(name: "Groceries", multiple: raw)
+            let data = try ChecklistExport.data(checklists: [checklist])
+
+            guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+                XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+                return
+            }
+            XCTAssertEqual(env.checklists.first?.multiple, expected,
+                           "\(raw) clamps to \(expected) on decode")
+        }
+    }
+
     func testExportEmptySelectionClassifiesLoadedWithNoChecklists() throws {
         let data = try ChecklistExport.data(checklists: [])
 

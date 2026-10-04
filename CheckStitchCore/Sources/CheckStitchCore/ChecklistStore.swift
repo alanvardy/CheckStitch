@@ -179,6 +179,7 @@ public final class ChecklistStore {
             destinationListIdentifier: source.destinationListIdentifier,
             prefixesReminderNumbers: source.prefixesReminderNumbers,
             showsOnWatch: source.showsOnWatch,
+            multiple: source.multiple,
             modifiedAt: now(),
             revision: 1
         )
@@ -203,6 +204,7 @@ public final class ChecklistStore {
             destinationListIdentifier: checklist.destinationListIdentifier,
             prefixesReminderNumbers: checklist.prefixesReminderNumbers,
             showsOnWatch: checklist.showsOnWatch,
+            multiple: checklist.multiple,
             modifiedAt: now(),
             revision: 1
         )
