@@ -12,6 +12,9 @@ struct ChecklistDetailView: View {
     /// Gates deletion behind the confirmation dialog: the remove button only
     /// raises this, and the dialog's destructive button performs the removal.
     @State private var isRemoveConfirmPresented = false
+    /// Gates the archive action behind the confirmation dialog: the overflow
+    /// menu button only raises this, and the dialog's destructive button archives.
+    @State private var isArchiveConfirmPresented = false
     /// Buffered copy of the name field. The rename is validated and committed
     /// from here — on Done, or when the screen is left — instead of per
     /// keystroke, so typing a name another checklist owns does not raise an
@@ -142,6 +145,19 @@ struct ChecklistDetailView: View {
                     // is iOS-only; macOS reorders by drag without edit mode.
                     ToolbarItem(placement: .topBarLeading) { EditButton() }
                     #endif
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button {
+                                isArchiveConfirmPresented = true
+                            } label: {
+                                Label("Archive Checklist", systemImage: "archivebox")
+                            }
+                            .accessibilityIdentifier("archiveChecklistButton")
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                        .accessibilityLabel(Text("Archive Checklist"))
+                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { commitRename() }
                             // iOS 26 wraps bar items in a system glass container.
@@ -204,6 +220,16 @@ struct ChecklistDetailView: View {
                     .accessibilityIdentifier("confirmRemoveChecklistButton")
                 } message: {
                     Text("This removes the checklist and all its items.")
+                }
+                .confirmationDialog("Archive this checklist?", isPresented: $isArchiveConfirmPresented) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Archive Checklist", role: .destructive) {
+                        store.archive(id: checklistID)
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("confirmArchiveChecklistButton")
+                } message: {
+                    Text("You can restore it later from Settings.")
                 }
                 .checklistEditFormWidth(viewportWidth: geometry.size.width)
             } else if !isRemoving {

@@ -134,6 +134,37 @@ public final class ChecklistStore {
         checklists.first { $0.id == id }
     }
 
+    /// Active (non-archived) checklists. The single source every listing/run/query
+    /// surface reads instead of `checklists`.
+    public var activeChecklists: [Checklist] { checklists.filter { !$0.isArchived } }
+
+    /// Archived checklists, newest `archivedAt` first; a `nil` date sorts last so
+    /// the ordering is total.
+    public var archivedChecklists: [Checklist] {
+        checklists.filter(\.isArchived).sorted { lhs, rhs in
+            switch (lhs.archivedAt, rhs.archivedAt) {
+            case let (l?, r?): return l > r
+            case (nil, _?): return false
+            case (_?, nil): return true
+            case (nil, nil): return false
+            }
+        }
+    }
+
+    /// Archives a checklist: sets `isArchived`/`archivedAt` and bumps the coarse
+    /// clock. An already-archived or unknown id is a no-op returning `false`.
+    @discardableResult
+    public func archive(id: UUID) -> Bool {
+        guard let index = checklists.firstIndex(where: { $0.id == id }),
+              !checklists[index].isArchived else { return false }
+        checklists[index].isArchived = true
+        checklists[index].archivedAt = now()
+        checklists[index].revision += 1
+        checklists[index].modifiedAt = now()
+        save()
+        return true
+    }
+
     /// The first checklist whose name collides with `name` under the store's
     /// trimmed, case-insensitive comparison, or `nil` when the name is free. The
     /// import flow's conflict primitive — `sameName` stays private.

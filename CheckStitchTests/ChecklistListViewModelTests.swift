@@ -310,4 +310,29 @@ struct ChecklistListViewModelTests {
         let reloaded = ChecklistListViewModel(store: ChecklistStore(defaults: defaults, textEditDelay: nil))
         #expect(reloaded.folders.map(\.id) == [b, a])
     }
+
+    // MARK: Archive
+
+    @Test
+    func archivedChecklistsAreExcludedFromTheList() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let active = store.create().id
+        let archived = store.create().id
+        store.archive(id: archived)
+
+        let viewModel = ChecklistListViewModel(store: store)
+        #expect(viewModel.checklists.map(\.id) == [active])
+    }
+
+    @Test
+    func emptyStateFollowsActiveChecklists() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let only = store.create().id
+        store.archive(id: only)
+
+        let viewModel = ChecklistListViewModel(store: store)
+        #expect(viewModel.checklists.isEmpty)
+    }
 }

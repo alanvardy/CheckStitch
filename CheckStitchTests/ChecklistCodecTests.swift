@@ -211,6 +211,35 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).map(\.showsOnWatch), [false, true])
     }
 
+    /// A current-version (v5) payload written without the archive keys: the
+    /// absent `isArchived` decodes to `false` and `archivedAt` to `nil` (the
+    /// additive-optional guarantee), so every stored checklist stays active
+    /// with no version bump.
+    func testDecodesV5PayloadWithoutArchiveKeysAsActive() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertFalse(envelope.checklists.first?.isArchived ?? true)
+        XCTAssertNil(envelope.checklists.first?.archivedAt)
+    }
+
+    func testArchiveFlagsSurviveEnvelopeRoundTrip() throws {
+        let archived = Checklist(name: "Old", items: [ChecklistItem(title: "Milk")],
+                                 isArchived: true, archivedAt: Date(timeIntervalSince1970: 5_000))
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [archived])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        let decoded = try XCTUnwrap(ChecklistCodec.decode(data).first)
+        XCTAssertTrue(decoded.isArchived)
+        XCTAssertEqual(decoded.archivedAt, Date(timeIntervalSince1970: 5_000))
+    }
+
     /// A v5 payload that carries the new key plus a key this build does not know
     /// still classifies `.loaded`: additive fields must never turn a readable
     /// envelope into `.unreadable`.

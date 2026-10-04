@@ -120,6 +120,82 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.checklists.map(\.id), [created.id])
     }
 
+    /// Archiving sets both flags and bumps the checklist's coarse clock so the
+    /// archive wins the same last-write-wins round as a rename.
+    func testArchiveSetsBothFlagsAndBumpsClock() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create(name: "Groceries") // revision 1, modifiedAt 0
+        clock.now = Date(timeIntervalSince1970: 100)
+
+        XCTAssertTrue(store.archive(id: created.id))
+
+        let archived = store.checklist(id: created.id)
+        XCTAssertTrue(archived?.isArchived ?? false)
+        XCTAssertEqual(archived?.archivedAt, Date(timeIntervalSince1970: 100))
+        XCTAssertEqual(archived?.revision, 2)
+        XCTAssertEqual(archived?.modifiedAt, Date(timeIntervalSince1970: 100))
+    }
+
+    /// A second archive is a no-op returning `false`, leaving revision and date
+    /// unchanged.
+    func testArchiveIsIdempotentNoOp() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create(name: "Groceries")
+        XCTAssertTrue(store.archive(id: created.id))
+        let afterFirst = store.checklist(id: created.id)
+
+        clock.now = Date(timeIntervalSince1970: 500)
+        XCTAssertFalse(store.archive(id: created.id))
+
+        let afterSecond = store.checklist(id: created.id)
+        XCTAssertEqual(afterSecond?.isArchived, afterFirst?.isArchived)
+        XCTAssertEqual(afterSecond?.archivedAt, afterFirst?.archivedAt)
+        XCTAssertEqual(afterSecond?.revision, afterFirst?.revision)
+        XCTAssertEqual(afterSecond?.modifiedAt, afterFirst?.modifiedAt)
+
+        // An unknown id is also a no-op returning false.
+        XCTAssertFalse(store.archive(id: UUID()))
+    }
+
+    /// `checklist(id:)` is unfiltered, so an archived record still resolves by id;
+    /// only the surfaces reading `activeChecklists`/`archivedChecklists` split it.
+    func testArchivedChecklistStillResolvesByID() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let active = store.create(name: "Active")
+        let archived = store.create(name: "Old")
+        store.archive(id: archived.id)
+
+        XCTAssertEqual(store.checklist(id: archived.id)?.id, archived.id)
+        XCTAssertEqual(store.activeChecklists.map(\.id), [active.id])
+        XCTAssertEqual(store.archivedChecklists.map(\.id), [archived.id])
+        XCTAssertTrue(store.archivedChecklists.first?.isArchived ?? false)
+    }
+
+    func testArchivePersistsAcrossReload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create(name: "Groceries")
+        store.archive(id: created.id)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertTrue(reloaded.checklist(id: created.id)?.isArchived ?? false)
+        XCTAssertEqual(reloaded.activeChecklists.count, 0)
+        XCTAssertEqual(reloaded.archivedChecklists.map(\.id), [created.id])
+    }
+
     func testCorruptDataYieldsEmpty() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }

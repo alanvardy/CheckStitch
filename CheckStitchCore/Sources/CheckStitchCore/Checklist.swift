@@ -150,6 +150,8 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         showsOnWatch: Bool = true,
         multiple: Int = 1,
         folderID: UUID? = nil,
+        isArchived: Bool = false,
+        archivedAt: Date? = nil,
         modifiedAt: Date = .distantPast, revision: Int = 0,
         itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast
     ) {
@@ -161,6 +163,8 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self.showsOnWatch = showsOnWatch
         self.multiple = multiple
         self.folderID = folderID
+        self.isArchived = isArchived
+        self.archivedAt = archivedAt
         self.modifiedAt = modifiedAt
         self.revision = revision
         // Canonical order defaults to the array's own order; an explicit value is
@@ -202,6 +206,16 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     /// name/destination, so a membership move is decided by the same
     /// last-write-wins rule. `nil` is encoded, never dropped.
     public var folderID: UUID?
+    /// Whether this checklist is archived: hidden from every run/list surface but
+    /// still stored, restorable, and synced. Shares the checklist's coarse
+    /// `revision`/`modifiedAt` clock (like the name and destination), so an archive
+    /// is decided by the same last-write-wins rule. Additive optional key: absent in
+    /// v5-and-earlier payloads decodes to `false` with no version bump.
+    public var isArchived: Bool
+    /// When the checklist was archived, for the Archived Checklists screen. `nil`
+    /// for active checklists and for hand-written payloads that omit it. Additive
+    /// optional key, no version bump.
+    public var archivedAt: Date?
     public var modifiedAt: Date
     public var revision: Int
     /// Canonical item ordering as a list of item ids. Kept in lockstep with
@@ -212,7 +226,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, multiple, folderID
+        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, multiple, folderID, isArchived, archivedAt
         case modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
@@ -238,6 +252,10 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // Additive optional field: absent in v4-and-earlier payloads decodes to
         // nil, matching the `destinationListIdentifier` precedent — no restamp.
         let folderID = try container.decodeIfPresent(UUID.self, forKey: .folderID)
+        // Additive optional field: absent key decodes to false, matching the
+        // `showsOnWatch`/`folderID` precedent — no version bump.
+        let isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
+        let archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
         let modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? .distantPast
         let revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
         let itemOrder = try container.decodeIfPresent([UUID].self, forKey: .itemOrder) ?? items.map(\.id)
@@ -252,6 +270,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
                          showsOnWatch: showsOnWatch,
                          multiple: multiple,
                          folderID: folderID,
+                         isArchived: isArchived, archivedAt: archivedAt,
                          modifiedAt: modifiedAt, revision: revision,
                          itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
             .normalizedOrder()
@@ -272,6 +291,14 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
             try container.encode(folderID, forKey: .folderID)
         } else {
             try container.encodeNil(forKey: .folderID)
+        }
+        try container.encode(isArchived, forKey: .isArchived)
+        // Write the key unconditionally, matching the "encoder writes every key"
+        // invariant (the `folderID`/`relativeDate` shape).
+        if let archivedAt {
+            try container.encode(archivedAt, forKey: .archivedAt)
+        } else {
+            try container.encodeNil(forKey: .archivedAt)
         }
         try container.encode(modifiedAt, forKey: .modifiedAt)
         try container.encode(revision, forKey: .revision)
