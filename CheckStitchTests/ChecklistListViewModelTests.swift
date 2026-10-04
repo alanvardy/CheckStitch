@@ -351,4 +351,19 @@ struct ChecklistListViewModelTests {
         let folder = viewModel.folders.first { $0.id == folderID }!
         #expect(viewModel.checklists(in: folder).map(\.id) == [active])
     }
+
+    @Test
+    func moveChecklistUpSkipsAnArchivedRow() {
+        let defaults = makeIsolatedDefaults()
+        let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
+        let first = store.create(name: "First").id
+        let archived = store.create(name: "Archived").id
+        let third = store.create(name: "Third").id
+        store.archive(id: archived)
+
+        let viewModel = ChecklistListViewModel(store: store)
+        viewModel.moveChecklist(id: third, up: true)
+
+        #expect(viewModel.checklists.map(\.id) == [third, first])
+    }
 }

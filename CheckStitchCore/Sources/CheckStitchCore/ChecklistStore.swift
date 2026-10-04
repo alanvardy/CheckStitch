@@ -157,10 +157,11 @@ public final class ChecklistStore {
     public func archive(id: UUID) -> Bool {
         guard let index = checklists.firstIndex(where: { $0.id == id }),
               !checklists[index].isArchived else { return false }
+        let stampedAt = now()
         checklists[index].isArchived = true
-        checklists[index].archivedAt = now()
+        checklists[index].archivedAt = stampedAt
         checklists[index].revision += 1
-        checklists[index].modifiedAt = now()
+        checklists[index].modifiedAt = stampedAt
         save()
         return true
     }
@@ -662,7 +663,8 @@ public final class ChecklistStore {
     /// screen; unknown ids are a no-op returning `false`.
     @discardableResult
     public func removeArchived(id: UUID) -> Bool {
-        guard let index = checklists.firstIndex(where: { $0.id == id }) else { return false }
+        guard let index = checklists.firstIndex(where: { $0.id == id }),
+              checklists[index].isArchived else { return false }
         let removed = checklists.remove(at: index)
         tombstones.append(ChecklistTombstone(
             checklistID: id, itemID: nil, deletedAt: now(), revision: removed.revision + 1))

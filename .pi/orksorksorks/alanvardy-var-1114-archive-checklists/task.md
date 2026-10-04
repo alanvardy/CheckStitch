@@ -1,0 +1,5 @@
+# Task
+
+Let a user archive a checklist instead of deleting it: the checklist disappears from the main list but is kept (and synced) so it can be restored later. A new **Archived Checklists** screen in Settings (Restore + Delete) is the only place archived checklists appear. Archive is reversible bookkeeping that never touches Reminders.
+
+This spans a data-model change to `Checklist` (`isArchived: Bool = false`, `archivedAt: Date?`, additive optional keys via `decodeIfPresent`, deliberately **no** codec version bump), store operations (`ChecklistStore.archive/restore/removeArchived`, name-uniqueness excludes archived, `freshCopy` strips the flags on import), sync adoption in `ChecklistMerge.mergedChecklists`, an "Archive Checklist" button in `ChecklistDetailView`, a new Settings section + subscreen, and hiding archived checklists everywhere else (watch, widget, Siri/App Intents, export selection, run path), plus 8 new localized strings in all 6 languages and tests across the store/codec/merge/widget/query/localization suites.

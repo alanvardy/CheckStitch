@@ -1,0 +1,9 @@
+# Task
+
+Let a user archive a checklist instead of deleting it: the checklist disappears from the main list but is kept (and synced) so it can be restored later. A new **Archived Checklists** screen in Settings (Restore + Delete) is the only place archived checklists appear. Archive is reversible bookkeeping that never touches Reminders.
+
+This spans a data-model change to `Checklist` (`isArchived: Bool = false`, `archivedAt: Date?`, additive optional keys via `decodeIfPresent`, deliberately **no** codec version bump), store operations (`ChecklistStore.archive/restore/removeArchived`, name-uniqueness excludes archived, `freshCopy` strips the flags on import), sync adoption in `ChecklistMerge.mergedChecklists`, an "Archive Checklist" button in `ChecklistDetailView`, a new Settings section + subscreen, and hiding archived checklists everywhere else (watch, widget, Siri/App Intents, export selection, run path), plus 8 new localized strings in all 6 languages and tests across the store/codec/merge/widget/query/localization suites.
+
+## Why LARGE
+
+**CONVENTION_RISK / SCHEMA** — changes the shared persistence format (`ChecklistCodec` encode/decode) plus the `Checklist` data model, with an explicit backward-compatibility trade-off (the intentional "no version bump" decision vs. an older build silently dropping the flag), touching central store and sync code. Also **CROSS_CUTTING** (multiple surfaces: storage, sync/contracts, widget, watch, Siri/App Intents, export, UI) and **MULTI_MODULE** (well beyond ~5 files). The spec is detailed, but the persistence-format/backward-compat and multi-surface reach send it upward.
