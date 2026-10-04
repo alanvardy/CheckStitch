@@ -494,4 +494,41 @@ struct ChecklistRemindersTests {
         #expect(!secondReserved, "the second reservation sees the first's increment")
         #expect(counter.count == 20)
     }
+
+    /// Path A: a stored multiple scales the title (then numbering prefixes) and
+    /// the description directly, while the item text stays untouched.
+    @Test
+    func runScalesTitleAndDescription() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("milk ((3))", description: "((4)) boxes")],
+            destinationListIdentifier: "list-a",
+            prefixesReminderNumbers: true,
+            multiple: 2)
+
+        let outcome = await create(checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdTitles == ["1: milk 6"])
+        #expect(spy.createdNotes == ["8 boxes"])
+    }
+
+    /// The readable surfaces must never rewrite the stored item text: scaling is
+    /// purely a render/creation concern.
+    @Test
+    func runningDoesNotRewriteStoredItemText() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("milk ((3))", description: "((4)) boxes")],
+            destinationListIdentifier: "list-a",
+            prefixesReminderNumbers: true,
+            multiple: 2)
+
+        _ = await create(checklist, targeting: spy)
+
+        #expect(checklist.items[0].title == "milk ((3))")
+        #expect(checklist.items[0].description == "((4)) boxes")
+    }
 }

@@ -75,6 +75,11 @@ struct ChecklistDetailView: View {
                         Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
                     }
                     Section {
+                        Stepper("Scaling", value: multipleBinding(checklistID: checklistID),
+                                in: Checklist.multipleRange)
+                            .accessibilityIdentifier("checklistScalingStepper")
+                    }
+                    Section {
                         Toggle(isOn: showOnWatchBinding(checklistID: checklistID)) {
                             Label("Show on watch", systemImage: "applewatch")
                         }
@@ -265,6 +270,17 @@ struct ChecklistDetailView: View {
         Binding(
             get: { store.checklist(id: checklistID)?.prefixesReminderNumbers ?? false },
             set: { store.setPrefixesReminderNumbers($0, for: checklistID) }
+        )
+    }
+
+    /// Per-selection write through the store for the scaling factor. The getter
+    /// reads the store so a value that arrives over sync updates the Stepper;
+    /// `.notFound` (deleted while this screen was open) is ignored, matching
+    /// `numberingBinding`.
+    private func multipleBinding(checklistID: UUID) -> Binding<Int> {
+        Binding(
+            get: { store.checklist(id: checklistID)?.multiple ?? 1 },
+            set: { store.setMultiple($0, for: checklistID) }
         )
     }
 

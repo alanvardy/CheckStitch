@@ -1925,6 +1925,43 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertTrue(store.checklists.isEmpty)
     }
 
+    func testSetMultipleBumpsCoarseRevision() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let checklist = store.create(name: "Groceries")
+        let before = store.checklist(id: checklist.id)?.revision
+
+        XCTAssertEqual(store.setMultiple(3, for: checklist.id), .updated)
+        XCTAssertEqual(store.checklist(id: checklist.id)?.multiple, 3)
+        XCTAssertEqual(store.checklist(id: checklist.id)?.revision, (before ?? 0) + 1)
+    }
+
+    /// Re-applying the default value must not bump the sync clock and
+    /// manufacture a spurious last-write-wins win.
+    func testSetMultipleNoOpDoesNotBump() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let checklist = store.create(name: "Groceries")
+        let before = store.checklist(id: checklist.id)?.revision
+
+        XCTAssertEqual(store.setMultiple(1, for: checklist.id), .updated)
+        XCTAssertEqual(store.checklist(id: checklist.id)?.revision, before, "already 1, so no bump")
+    }
+
+    func testSetMultipleClamps() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let store = makeStore(defaults: suite.defaults)
+        let checklist = store.create(name: "Groceries")
+
+        for (raw, expected) in [(0, 1), (100, 99)] {
+            XCTAssertEqual(store.setMultiple(raw, for: checklist.id), .updated)
+            XCTAssertEqual(store.checklist(id: checklist.id)?.multiple, expected)
+        }
+    }
+
     // MARK: - Import primitives
 
     /// An "imported" checklist with non-default identity, so freshness is provable.

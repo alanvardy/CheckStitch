@@ -79,6 +79,7 @@ enum LocalizationFixtures {
             "Settings",
             "Show a wallpaper behind the checklist.",
             "Show on watch",
+            "Scaling",
             "Small",
             "System",
             "Text Size",

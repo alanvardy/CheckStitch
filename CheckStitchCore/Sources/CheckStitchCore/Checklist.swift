@@ -148,6 +148,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         destinationListIdentifier: String? = nil,
         prefixesReminderNumbers: Bool = false,
         showsOnWatch: Bool = true,
+        multiple: Int = 1,
         folderID: UUID? = nil,
         modifiedAt: Date = .distantPast, revision: Int = 0,
         itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast
@@ -158,6 +159,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self.destinationListIdentifier = destinationListIdentifier
         self.prefixesReminderNumbers = prefixesReminderNumbers
         self.showsOnWatch = showsOnWatch
+        self.multiple = multiple
         self.folderID = folderID
         self.modifiedAt = modifiedAt
         self.revision = revision
@@ -188,6 +190,13 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     /// precedent). Shares the checklist's coarse `revision`/`modifiedAt` clock,
     /// so a toggle is decided by the same last-write-wins rule.
     public var showsOnWatch: Bool
+    /// The template scaling factor applied to `((n))` markers in item
+    /// titles/descriptions at reminder-creation time. Defaults to 1 (no scaling).
+    /// Shares the checklist's coarse `revision`/`modifiedAt` clock (like the
+    /// name/destination/toggles), so a change rides the same last-write-wins rule.
+    /// Additive optional key: absent in v5-and-earlier payloads decodes to 1 with
+    /// no version bump; out-of-range payloads clamp into `multipleRange`.
+    public var multiple: Int
     /// The id of the folder this checklist is filed under, or `nil` for loose.
     /// A one-field relationship sharing the checklist's coarse clock with the
     /// name/destination, so a membership move is decided by the same
@@ -203,7 +212,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, folderID
+        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, multiple, folderID
         case modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
@@ -221,6 +230,11 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // `prefixesReminderNumbers` precedent. This is the only default-`true`
         // stored field, so the `?? true` is deliberate, not an oversight.
         let showsOnWatch = try container.decodeIfPresent(Bool.self, forKey: .showsOnWatch) ?? true
+        // Additive optional field: absent in v5-and-earlier payloads decodes to 1
+        // (no scaling) with no version bump. Hand-edited/imported payloads outside
+        // `multipleRange` clamp into range rather than being trusted.
+        let multiple = Checklist.clampedMultiple(
+            try container.decodeIfPresent(Int.self, forKey: .multiple) ?? 1)
         // Additive optional field: absent in v4-and-earlier payloads decodes to
         // nil, matching the `destinationListIdentifier` precedent — no restamp.
         let folderID = try container.decodeIfPresent(UUID.self, forKey: .folderID)
@@ -236,6 +250,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
                          destinationListIdentifier: destinationListIdentifier,
                          prefixesReminderNumbers: prefixesReminderNumbers,
                          showsOnWatch: showsOnWatch,
+                         multiple: multiple,
                          folderID: folderID,
                          modifiedAt: modifiedAt, revision: revision,
                          itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
@@ -250,6 +265,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         try container.encode(destinationListIdentifier, forKey: .destinationListIdentifier)
         try container.encode(prefixesReminderNumbers, forKey: .prefixesReminderNumbers)
         try container.encode(showsOnWatch, forKey: .showsOnWatch)
+        try container.encode(multiple, forKey: .multiple)
         // Write the key unconditionally, matching the "encoder writes every key"
         // invariant (the `relativeDate` shape).
         if let folderID {
@@ -266,8 +282,20 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension Checklist {
+    /// Inclusive range of allowed scaling factors. Read by the Stepper, the store
+    /// clamp and the intent validation so the bound lives in exactly one place.
+    public static let multipleRange: ClosedRange<Int> = 1...99
+
+    /// The nearest in-range scaling factor. Used at both ingress points (codec
+    /// decode and `ChecklistStore.setMultiple`).
+    public static func clampedMultiple(_ value: Int) -> Int {
+        min(max(value, multipleRange.lowerBound), multipleRange.upperBound)
+    }
+
     /// Upgrades a v1 entry: v1 carried no sync or ordering state, so stamp both
     /// from the record's own identity rather than granting a spurious win.
+    /// `multiple` shares this same coarse clock — `migrated(at:)` already
+    /// restamps `modifiedAt`/`revision`, so there is no per-field clock to seed.
     public func migrated(at date: Date) -> Checklist {
         var copy = self
         let priorModifiedAt = modifiedAt
