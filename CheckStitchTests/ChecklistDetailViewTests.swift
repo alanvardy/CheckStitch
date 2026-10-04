@@ -209,6 +209,16 @@ struct ChecklistDetailViewTests {
         #endif
     }
 
+    /// The Scaling stepper is bound to the shared `Checklist.multipleRange`, and
+    /// that range is exactly `1...99`. Pinning the invariant at the model source
+    /// of truth guards the stepper, the store clamp and the intent validation
+    /// against drifting apart from each other.
+    @Test
+    func scalingStepperBoundIsTheSharedMultipleRange() {
+        #expect(Checklist.multipleRange.lowerBound == 1)
+        #expect(Checklist.multipleRange.upperBound == 99)
+    }
+
     /// The marker palette comes from `SingleThread`: red high, yellow medium,
     /// green low. The unprioritised case never renders a marker.
     @Test
