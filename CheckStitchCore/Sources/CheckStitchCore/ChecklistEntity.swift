@@ -32,20 +32,20 @@ public struct ChecklistEntityQuery: EntityStringQuery {
     @MainActor
     public func entities(for identifiers: [String]) async throws -> [ChecklistEntity] {
         let wanted = Set(identifiers)
-        return currentStore().checklists
+        return currentStore().activeChecklists
             .filter { wanted.contains($0.id.uuidString) }
             .map(ChecklistEntity.init)
     }
 
     @MainActor
     public func entities(matching string: String) async throws -> [ChecklistEntity] {
-        currentStore().checklists
+        currentStore().activeChecklists
             .filter { $0.name.localizedCaseInsensitiveContains(string) }
             .map(ChecklistEntity.init)
     }
 
     @MainActor
     public func suggestedEntities() async throws -> [ChecklistEntity] {
-        currentStore().checklists.map(ChecklistEntity.init)
+        currentStore().activeChecklists.map(ChecklistEntity.init)
     }
 }

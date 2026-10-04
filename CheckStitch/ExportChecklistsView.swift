@@ -20,7 +20,7 @@ struct ExportChecklistsView: View {
     var body: some View {
         ChecklistSelectionView(
             title: "Export Checklists",
-            rows: store.checklists.map {
+            rows: store.activeChecklists.map {
                 ChecklistSelectionRow(id: $0.id, name: $0.name, detail: nil)
             },
             selection: $selection,

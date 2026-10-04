@@ -135,4 +135,35 @@ struct ChecklistGroupingTests {
         #expect(loose == [shown])
         #expect(!loose.contains(hidden))
     }
+
+    @Test
+    func archivedChecklistIsHiddenFromVisibleLooseChecklists() {
+        let active = Checklist(name: "Active")
+        let archived = Checklist(name: "Archived", isArchived: true)
+
+        let visible = ChecklistGrouping.visibleLooseChecklists([archived, active], knownFolderIDs: [])
+
+        #expect(visible == [active])
+    }
+
+    @Test
+    func archivedChecklistIsHiddenFromVisibleFolderMembers() {
+        let folder = Folder(name: "Errands")
+        let active = Checklist(name: "Active", folderID: folder.id)
+        let archived = Checklist(name: "Archived", folderID: folder.id, isArchived: true)
+
+        let visible = ChecklistGrouping.visibleChecklists(in: folder, from: [archived, active])
+
+        #expect(visible == [active])
+    }
+
+    @Test
+    func folderOfOnlyArchivedMembersIsHidden() {
+        let folder = Folder(name: "Errands")
+        let archived = Checklist(name: "Archived", folderID: folder.id, isArchived: true)
+
+        let visible = ChecklistGrouping.visibleFolders([folder], checklists: [archived])
+
+        #expect(visible.isEmpty)
+    }
 }

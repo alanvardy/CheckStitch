@@ -126,4 +126,27 @@ struct ChecklistWidgetDisplayModelTests {
 
         #expect(model.rows.allSatisfy { $0.indicator == .play })
     }
+
+    @Test
+    func archivedConfiguredChecklistProducesNoRows() {
+        let archived = Checklist(name: "Archived", isArchived: true)
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [archived],
+            configuration: [ChecklistEntity(archived)],
+            access: .ready)
+
+        #expect(model.rows.isEmpty)
+    }
+
+    @Test
+    func hasChecklistsIsFalseWhenOnlyArchivedAreConfigured() {
+        let archived = Checklist(name: "Archived", isArchived: true)
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [archived],
+            configuration: [],
+            access: .ready)
+
+        #expect(model.rows.isEmpty)
+        #expect(!model.hasChecklists)
+    }
 }

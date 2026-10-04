@@ -61,7 +61,8 @@ public struct RunChecklistIntent: AppIntent {
         let targeting = injectedTargeting ?? EventKitReminderDestination.shared
 
         guard let uuid = UUID(uuidString: checklist.id),
-              let stored = store.checklist(id: uuid)
+              let stored = store.checklist(id: uuid),
+              !stored.isArchived
         else { throw RunChecklistIntentError.checklistNotFound }
 
         // Validate before the status pre-check and before any side effect, so a bad
