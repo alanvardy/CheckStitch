@@ -1004,6 +1004,101 @@ struct ChecklistMergeTests {
 
         #expect(merged.checklists.first?.showsOnWatch == false, "an older revision must not leak its show-on-watch value in")
     }
+
+    @Test
+    func archiveFlagIsCopiedWhenRemoteWins() {
+        let id = UUID()
+        var remote = checklist(id: id, name: "archived", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        remote.isArchived = true
+        remote.archivedAt = Date(timeIntervalSince1970: 2)
+        let local = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [local]),
+            remote: envelope(device: "device-b", checklists: [remote])
+        )
+
+        #expect(merged.checklists.first?.isArchived == true, "the winning archive is copied across")
+        #expect(merged.checklists.first?.archivedAt == Date(timeIntervalSince1970: 2))
+        #expect(merged.checklists.first?.name == "archived", "the whole winner's record is adopted")
+    }
+
+    @Test
+    func archiveFlagIsCopiedWhenLocalWins() {
+        let id = UUID()
+        let local = checklist(id: id, name: "active", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        var remote = checklist(id: id, name: "archived", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+        remote.isArchived = true
+        remote.archivedAt = Date(timeIntervalSince1970: 1)
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [local]),
+            remote: envelope(device: "device-b", checklists: [remote])
+        )
+
+        #expect(merged.checklists.first?.isArchived == false, "the loser's archive never leaks in")
+        #expect(merged.checklists.first?.archivedAt == nil)
+        #expect(merged.checklists.first?.name == "active")
+    }
+
+    @Test
+    func concurrentRenameSupersedesAnArchive() {
+        let id = UUID()
+        // Equal revision, so the newer `modifiedAt` breaks the tie: the local
+        // rename (later clock) beats the remote's archive, leaving the checklist
+        // active under its new name.
+        let localRename = checklist(id: id, name: "renamed", revision: 1, modifiedAt: Date(timeIntervalSince1970: 2))
+        var remoteArchive = checklist(id: id, name: "old name", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+        remoteArchive.isArchived = true
+        remoteArchive.archivedAt = Date(timeIntervalSince1970: 1)
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [localRename]),
+            remote: envelope(device: "device-b", checklists: [remoteArchive])
+        )
+
+        #expect(merged.checklists.first?.name == "renamed", "the concurrent rename wins on the later clock")
+        #expect(merged.checklists.first?.isArchived == false, "the losing archive must not leak in")
+        #expect(merged.checklists.first?.archivedAt == nil)
+    }
+
+    @Test
+    func archiveConvergesInEitherArgumentOrder() {
+        let id = UUID()
+        var archived = checklist(id: id, name: "archived", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
+        archived.isArchived = true
+        archived.archivedAt = Date(timeIntervalSince1970: 2)
+        let active = checklist(id: id, name: "active", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
+
+        let archivedFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [archived]),
+            remote: envelope(device: "device-b", checklists: [active])
+        )
+        let activeFirst = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [active]),
+            remote: envelope(device: "device-b", checklists: [archived])
+        )
+
+        #expect(archivedFirst.checklists.first?.isArchived == true)
+        #expect(activeFirst.checklists.first?.isArchived == true, "the archive converges in either argument order")
+        #expect(archivedFirst.checklists.first?.archivedAt == activeFirst.checklists.first?.archivedAt)
+    }
+
+    @Test
+    func tombstoneSuppressesArchivedRecord() {
+        let id = UUID()
+        var archived = checklist(id: id, name: "archived", revision: 5, modifiedAt: Date(timeIntervalSince1970: 100))
+        archived.isArchived = true
+        archived.archivedAt = Date(timeIntervalSince1970: 100)
+        let remote = envelope(device: "device-b", tombstones: [
+            tombstone(checklistID: id, revision: 1),
+        ])
+
+        let merged = ChecklistMerge.merge(local: envelope(device: "device-a", checklists: [archived]), remote: remote)
+
+        #expect(merged.checklists.isEmpty, "a tombstone removes the checklist regardless of its archive state")
+        #expect(merged.tombstones.map(\.checklistID) == [id], "the tombstone survives the merge")
+    }
 }
 
 @MainActor

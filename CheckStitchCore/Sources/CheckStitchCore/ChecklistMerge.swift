@@ -142,6 +142,8 @@ public enum ChecklistMerge {
                 merged.showsOnWatch = remoteChecklist.showsOnWatch
                 merged.multiple = remoteChecklist.multiple
                 merged.folderID = remoteChecklist.folderID
+                merged.isArchived = remoteChecklist.isArchived
+                merged.archivedAt = remoteChecklist.archivedAt
                 merged.revision = remoteChecklist.revision
                 merged.modifiedAt = remoteChecklist.modifiedAt
             }
