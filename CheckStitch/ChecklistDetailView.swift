@@ -128,6 +128,11 @@ struct ChecklistDetailView: View {
                         .accessibilityIdentifier("duplicateChecklistButton")
                         .checkStitchButton()
 
+                        // The confirmation dialog lives on the button itself,
+                        // not the enclosing Form: it renders as a popover
+                        // anchored to the view it is attached to, so a Form-level
+                        // attachment points the bubble at the top of the screen
+                        // instead of the tapped button.
                         Button {
                             isArchiveConfirmPresented = true
                         } label: {
@@ -135,6 +140,16 @@ struct ChecklistDetailView: View {
                         }
                         .accessibilityIdentifier("archiveChecklistButton")
                         .checkStitchButton()
+                        .confirmationDialog("Archive this checklist?", isPresented: $isArchiveConfirmPresented) {
+                            Button("Cancel", role: .cancel) {}
+                            Button("Archive Checklist", role: .destructive) {
+                                store.archive(id: checklistID)
+                                dismiss()
+                            }
+                            .accessibilityIdentifier("confirmArchiveChecklistButton")
+                        } message: {
+                            Text("You can restore it later from Settings.")
+                        }
 
                         Button(role: .destructive) {
                             isRemoveConfirmPresented = true
@@ -143,6 +158,18 @@ struct ChecklistDetailView: View {
                         }
                         .accessibilityIdentifier("removeChecklistButton")
                         .checkStitchButton()
+                        .confirmationDialog("Remove Checklist", isPresented: $isRemoveConfirmPresented) {
+                            Button("Cancel", role: .cancel) {}
+                                .accessibilityIdentifier("cancelRemoveChecklistButton")
+                            Button("Remove", role: .destructive) {
+                                isRemoving = true
+                                store.delete(id: checklistID)
+                                dismiss()
+                            }
+                            .accessibilityIdentifier("confirmRemoveChecklistButton")
+                        } message: {
+                            Text("This removes the checklist and all its items.")
+                        }
                     }
                 }
                 .navigationTitle("Edit checklist")
@@ -203,28 +230,6 @@ struct ChecklistDetailView: View {
                     .accessibilityIdentifier("confirmDuplicateChecklistButton")
                 } message: {
                     Text("Creates a copy with the same items.")
-                }
-                .confirmationDialog("Remove Checklist", isPresented: $isRemoveConfirmPresented) {
-                    Button("Cancel", role: .cancel) {}
-                        .accessibilityIdentifier("cancelRemoveChecklistButton")
-                    Button("Remove", role: .destructive) {
-                        isRemoving = true
-                        store.delete(id: checklistID)
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("confirmRemoveChecklistButton")
-                } message: {
-                    Text("This removes the checklist and all its items.")
-                }
-                .confirmationDialog("Archive this checklist?", isPresented: $isArchiveConfirmPresented) {
-                    Button("Cancel", role: .cancel) {}
-                    Button("Archive Checklist", role: .destructive) {
-                        store.archive(id: checklistID)
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("confirmArchiveChecklistButton")
-                } message: {
-                    Text("You can restore it later from Settings.")
                 }
                 .checklistEditFormWidth(viewportWidth: geometry.size.width)
             } else if !isRemoving {
