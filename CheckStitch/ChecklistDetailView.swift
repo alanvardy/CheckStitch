@@ -12,8 +12,8 @@ struct ChecklistDetailView: View {
     /// Gates deletion behind the confirmation dialog: the remove button only
     /// raises this, and the dialog's destructive button performs the removal.
     @State private var isRemoveConfirmPresented = false
-    /// Gates the archive action behind the confirmation dialog: the overflow
-    /// menu button only raises this, and the dialog's destructive button archives.
+    /// Gates the archive action behind the confirmation dialog: the archive
+    /// button only raises this, and the dialog's button performs the archive.
     @State private var isArchiveConfirmPresented = false
     /// Buffered copy of the name field. The rename is validated and committed
     /// from here — on Done, or when the screen is left — instead of per
@@ -128,6 +128,14 @@ struct ChecklistDetailView: View {
                         .accessibilityIdentifier("duplicateChecklistButton")
                         .checkStitchButton()
 
+                        Button {
+                            isArchiveConfirmPresented = true
+                        } label: {
+                            Label("Archive Checklist", systemImage: "archivebox")
+                        }
+                        .accessibilityIdentifier("archiveChecklistButton")
+                        .checkStitchButton()
+
                         Button(role: .destructive) {
                             isRemoveConfirmPresented = true
                         } label: {
@@ -145,19 +153,6 @@ struct ChecklistDetailView: View {
                     // is iOS-only; macOS reorders by drag without edit mode.
                     ToolbarItem(placement: .topBarLeading) { EditButton() }
                     #endif
-                    ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            Button {
-                                isArchiveConfirmPresented = true
-                            } label: {
-                                Label("Archive Checklist", systemImage: "archivebox")
-                            }
-                            .accessibilityIdentifier("archiveChecklistButton")
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
-                        .accessibilityLabel(Text("Archive Checklist"))
-                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { commitRename() }
                             // iOS 26 wraps bar items in a system glass container.
