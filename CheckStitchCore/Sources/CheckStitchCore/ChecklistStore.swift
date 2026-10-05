@@ -213,6 +213,24 @@ public final class ChecklistStore {
         return checklist
     }
 
+    /// Creates a checklist with a caller-supplied name and one title-only item per
+    /// entry, in a single `save()`/single `onChange` — the Create Checklist intent
+    /// must not save N times. The name is disambiguated by `uniqueName` exactly as
+    /// `create(name:)`. Callers pass a non-blank name and non-blank titles; the
+    /// intent normalises and validates before calling.
+    @discardableResult
+    public func create(name: String, itemTitles: [String]) -> Checklist {
+        let items = itemTitles.map { ChecklistItem(title: $0, modifiedAt: now(), revision: 1) }
+        let checklist = Checklist(
+            name: Self.uniqueName(basedOn: name, taken: activeNames),
+            items: items,
+            modifiedAt: now(),
+            revision: 1)
+        checklists.append(checklist)
+        save()
+        return checklist
+    }
+
     /// The name a duplicate is offered by default: the source name plus a
     /// literal " copy", left for `uniqueName` to disambiguate on commit — a
     /// second copy of "Groceries" is therefore offered as "Groceries copy 2".

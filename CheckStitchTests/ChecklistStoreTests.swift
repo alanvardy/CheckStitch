@@ -63,6 +63,60 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data ?? Data()).count, 1)
     }
 
+    func testCreateWithItemTitlesKeepsInputOrderAndTitleOnlyShape() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create(name: "Groceries", itemTitles: ["Milk", "milk", "Eggs"])
+
+        XCTAssertEqual(store.checklists.count, 1)
+        let items = try? XCTUnwrap(created.items)
+        XCTAssertEqual(items?.map(\.title), ["Milk", "milk", "Eggs"])  // no dedup
+        for item in items ?? [] {
+            XCTAssertEqual(item.description, "")
+            XCTAssertNil(item.relativeDate)
+            XCTAssertEqual(item.priority, .none)
+        }
+        XCTAssertEqual(created.multiple, 1)
+        XCTAssertNil(created.folderID)
+        XCTAssertTrue(created.showsOnWatch)
+    }
+
+    func testCreateWithItemTitlesSavesExactlyOnce() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        var count = 0
+        store.onChange = { count += 1 }
+        _ = store.create(name: "Groceries", itemTitles: ["Milk", "Eggs", "Bread"])
+        XCTAssertEqual(count, 1)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklists.count, 1)
+        XCTAssertEqual(reloaded.checklists.first?.items.map(\.title), ["Milk", "Eggs", "Bread"])
+    }
+
+    func testCreateWithItemTitlesDisambiguatesName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        _ = store.create(name: "Groceries")
+        _ = store.create(name: "Groceries", itemTitles: ["Milk"])
+        XCTAssertEqual(store.checklists.map(\.name), ["Groceries", "Groceries 2"])
+
+        // A whitespace-padded duplicate is trimmed before disambiguation, so in a
+        // store that already owns "Groceries" the created name is "Groceries 2".
+        let secondSuite = makeDefaults()
+        defer { secondSuite.defaults.removePersistentDomain(forName: secondSuite.suiteName) }
+        let other = makeStore(defaults: secondSuite.defaults)
+        _ = other.create(name: "Groceries")
+        let padded = other.create(name: "  Groceries  ", itemTitles: ["Bread"])
+        XCTAssertEqual(padded.name, "Groceries 2")
+    }
+
     func testRenamePersists() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
