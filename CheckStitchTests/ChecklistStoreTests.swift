@@ -2039,6 +2039,64 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(changes, 1, "applying remote state must not schedule a push back to the cloud")
     }
 
+    func testReconcileFoldsInExternalAppGroupWrite() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        // Simulate the Create Checklist intent writing through a fresh store in
+        // another process: a different deviceID, one "From Intent" checklist.
+        let external = try! ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: "intent-process",
+            checklists: [Checklist(id: UUID(), name: "From Intent", modifiedAt: Date(timeIntervalSince1970: 5_000), revision: 1)]))
+        suite.defaults.set(external, forKey: key)
+
+        XCTAssertTrue(store.reconcileFromDefaults())
+        XCTAssertEqual(store.checklists.map(\.name), ["From Intent"])
+        XCTAssertEqual(changes, 1, "a folded-in write rides the change")
+    }
+
+    func testReconcileIsIdempotentOnColdLaunch() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        // Write the payload before the store exists, as a cold launch would read it.
+        let external = try! ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: "intent-process",
+            checklists: [Checklist(id: UUID(), name: "From Intent", modifiedAt: Date(timeIntervalSince1970: 5_000), revision: 1)]))
+        suite.defaults.set(external, forKey: key)
+
+        let store = makeStore(defaults: suite.defaults)   // init already loaded it
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        XCTAssertEqual(store.checklists.map(\.name), ["From Intent"])
+        XCTAssertFalse(store.reconcileFromDefaults())
+        XCTAssertEqual(changes, 0)
+        XCTAssertEqual(store.checklists.map(\.name), ["From Intent"])
+    }
+
+    func testReconcileRefusesNewerStoredPayload() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let future = try! ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion + 1,
+            deviceID: "newer-app",
+            checklists: [Checklist(id: UUID(), name: "Future", modifiedAt: Date(timeIntervalSince1970: 5_000), revision: 1)]))
+        suite.defaults.set(future, forKey: key)
+
+        let store = makeStore(defaults: suite.defaults)
+        XCTAssertFalse(store.canAcceptRemoteChanges)
+        XCTAssertFalse(store.reconcileFromDefaults())
+        XCTAssertTrue(store.checklists.isEmpty)
+    }
+
     // MARK: - Duplicate
 
     func testDuplicateCopiesItemsWithFreshIdentifiersAndRevisions() {
