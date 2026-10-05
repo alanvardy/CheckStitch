@@ -3,8 +3,9 @@ import EventKit
 import Foundation
 
 /// Builds an item without saving anything anywhere.
-func makeItem(_ title: String, description: String = "") -> ChecklistItem {
-    ChecklistItem(title: title, description: description)
+func makeItem(_ title: String, description: String = "",
+              isEnabled: Bool = true) -> ChecklistItem {
+    ChecklistItem(title: title, description: description, isEnabled: isEnabled)
 }
 
 /// A `UserDefaults` isolated from `.standard`, wiped so appearance suites can

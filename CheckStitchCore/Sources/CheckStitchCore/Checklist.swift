@@ -8,12 +8,14 @@ import os
 public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     public init(
         id: UUID = UUID(), title: String, description: String = "",
+        isEnabled: Bool = true,
         modifiedAt: Date = .distantPast, revision: Int = 0, relativeDate: Int? = nil,
         priority: ChecklistItemPriority = .none,
         titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
         descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil,
         relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil,
-        priorityRevision: Int? = nil, priorityModifiedAt: Date? = nil
+        priorityRevision: Int? = nil, priorityModifiedAt: Date? = nil,
+        enabledRevision: Int? = nil, enabledModifiedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -32,6 +34,9 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         self.priority = priority
         self.priorityRevision = priorityRevision ?? revision
         self.priorityModifiedAt = priorityModifiedAt ?? modifiedAt
+        self.isEnabled = isEnabled
+        self.enabledRevision = enabledRevision ?? revision
+        self.enabledModifiedAt = enabledModifiedAt ?? modifiedAt
     }
 
     public let id: UUID
@@ -56,6 +61,15 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     public var priority: ChecklistItemPriority
     public var priorityRevision: Int
     public var priorityModifiedAt: Date
+    /// Whether this item is included when the checklist runs. A disabled item is
+    /// kept (exported, stored) but never produces a reminder. Additive optional
+    /// flag: absent in earlier payloads decodes to `true` (enabled), matching the
+    /// `prefixesReminderNumbers` precedent, so existing items stay runnable with
+    /// no version bump. Rides a per-field clock (`enabledRevision`/
+    /// `enabledModifiedAt`) like `priority`.
+    public var isEnabled: Bool
+    public var enabledRevision: Int
+    public var enabledModifiedAt: Date
 
     /// True when the item carries description text. The stored value is
     /// preserved verbatim (matching `title`), so surrounding whitespace on real
@@ -72,11 +86,16 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Whether this item can be run: it carries a real title and is enabled. A
+    /// disabled item is kept in the list but never produces a reminder.
+    public var isRunnable: Bool { !isBlank && isEnabled }
+
     private enum CodingKeys: String, CodingKey {
         case id, title, description, modifiedAt, revision, relativeDate
         case titleRevision, titleModifiedAt, descriptionRevision, descriptionModifiedAt
         case relativeDateRevision, relativeDateModifiedAt
         case priority, priorityRevision, priorityModifiedAt
+        case isEnabled, enabledRevision, enabledModifiedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -106,6 +125,11 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         priority = try container.decodeIfPresent(ChecklistItemPriority.self, forKey: .priority) ?? .none
         priorityRevision = try container.decodeIfPresent(Int.self, forKey: .priorityRevision) ?? revision
         priorityModifiedAt = try container.decodeIfPresent(Date.self, forKey: .priorityModifiedAt) ?? modifiedAt
+        // Additive key: absent in earlier payloads decodes to true (enabled), the
+        // `prefixesReminderNumbers`/`showsOnWatch` precedent — no version bump.
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        enabledRevision = try container.decodeIfPresent(Int.self, forKey: .enabledRevision) ?? revision
+        enabledModifiedAt = try container.decodeIfPresent(Date.self, forKey: .enabledModifiedAt) ?? modifiedAt
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -132,6 +156,9 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
         try container.encode(priority, forKey: .priority)
         try container.encode(priorityRevision, forKey: .priorityRevision)
         try container.encode(priorityModifiedAt, forKey: .priorityModifiedAt)
+        try container.encode(isEnabled, forKey: .isEnabled)
+        try container.encode(enabledRevision, forKey: .enabledRevision)
+        try container.encode(enabledModifiedAt, forKey: .enabledModifiedAt)
     }
 }
 
@@ -177,6 +204,9 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var name: String
     public var items: [ChecklistItem]
+
+    /// True when at least one item would produce a reminder on a run.
+    public var hasRunnableItems: Bool { items.contains(where: \.isRunnable) }
     /// `EKCalendar.calendarIdentifier` of the chosen Reminders list. `nil` means
     /// "system default list", so legacy payloads keep today's behaviour.
     public var destinationListIdentifier: String?
@@ -347,6 +377,8 @@ extension Checklist {
             upgraded.relativeDateModifiedAt = date
             upgraded.priorityRevision = upgraded.revision
             upgraded.priorityModifiedAt = date
+            upgraded.enabledRevision = upgraded.revision
+            upgraded.enabledModifiedAt = date
             return upgraded
         }
         return copy

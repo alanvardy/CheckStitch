@@ -211,6 +211,51 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.decode(data).map(\.showsOnWatch), [false, true])
     }
 
+    /// A current-version (v5) item written without the per-item `isEnabled` key:
+    /// the absent key decodes to `true` (the additive-optional guarantee), so
+    /// every stored item stays enabled without a version bump.
+    func testDecodesItemWithoutIsEnabledAsTrue() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(id)","title":"Milk"}]}]}"#.utf8)
+
+        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertTrue(envelope.checklists.first?.items.first?.isEnabled ?? false)
+    }
+
+    /// A disabled item rides the per-item `isEnabled` clock and survives a codec
+    /// round-trip; the envelope version is unchanged (still `5`).
+    func testIsEnabledFalseSurvivesEnvelopeRoundTrip() throws {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", isEnabled: false)])
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [checklist])
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        XCTAssertEqual(envelope.version, 5, "isEnabled must not bump the envelope version")
+        let decoded = try XCTUnwrap(ChecklistCodec.decode(data).first?.items.first)
+        XCTAssertFalse(decoded.isEnabled)
+        XCTAssertEqual(decoded.enabledRevision, decoded.revision)
+        XCTAssertEqual(decoded.enabledModifiedAt, decoded.modifiedAt)
+    }
+
+    /// The encoder writes the `isEnabled` flag and its per-field clock
+    /// unconditionally, matching the "encoder writes every key" invariant.
+    func testEncodedItemPayloadContainsEnabledKeys() throws {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", isEnabled: false)])
+        let data = try ChecklistCodec.encode(ChecklistEnvelope(deviceID: "device-a", checklists: [checklist]))
+
+        let root = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let checklists = try XCTUnwrap(root["checklists"] as? [[String: Any]])
+        let items = try XCTUnwrap(checklists.first?["items"] as? [[String: Any]])
+        let item = try XCTUnwrap(items.first)
+        XCTAssertEqual(item["isEnabled"] as? Bool, false)
+        XCTAssertNotNil(item["enabledRevision"])
+        XCTAssertNotNil(item["enabledModifiedAt"])
+    }
+
     /// A current-version (v5) payload written without the archive keys: the
     /// absent `isArchived` decodes to `false` and `archivedAt` to `nil` (the
     /// additive-optional guarantee), so every stored checklist stays active
