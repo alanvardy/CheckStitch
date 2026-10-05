@@ -61,6 +61,29 @@ final class ChecklistExportTests: XCTestCase {
         XCTAssertEqual(item.priorityRevision, item.revision)
     }
 
+    /// A checklist containing a disabled item exports and imports with the flag
+    /// (and its per-field clock) intact.
+    func testExportPreservesDisabledItem() throws {
+        let checklist = Checklist(name: "Groceries", items: [
+            ChecklistItem(title: "Milk", isEnabled: true),
+            ChecklistItem(title: "Eggs", isEnabled: false),
+        ])
+        let data = try ChecklistExport.data(checklists: [checklist])
+
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(env.checklists, [checklist])
+        XCTAssertEqual(env.checklists.first?.items.map(\.isEnabled), [true, false])
+        guard let eggs = env.checklists.first?.items.last else {
+            XCTFail("export lost the disabled item")
+            return
+        }
+        XCTAssertFalse(eggs.isEnabled)
+        XCTAssertEqual(eggs.enabledRevision, eggs.revision)
+    }
+
     /// Export → classify → decode keeps the chosen destination (codec v4 already
     /// encodes it; this pins the boundary).
     func testExportPreservesDestination() throws {

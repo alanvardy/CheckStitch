@@ -217,4 +217,46 @@ struct ChecklistItemTests {
         #expect(decoded.items.first?.priority == .high)
         #expect(decoded.items.first?.priorityRevision == decoded.items.first?.revision)
     }
+
+    // MARK: - isRunnable / hasRunnableItems
+
+    /// A disabled item never produces a reminder, even when its title is real.
+    @Test
+    func disabledItemIsNotRunnable() {
+        #expect(!ChecklistItem(title: "Milk", isEnabled: false).isRunnable)
+    }
+
+    /// A blank item is not runnable regardless of its enabled flag.
+    @Test(arguments: [true, false])
+    func blankItemIsNotRunnable(_ isEnabled: Bool) {
+        #expect(!ChecklistItem(title: "  ", isEnabled: isEnabled).isRunnable)
+    }
+
+    /// A non-blank enabled item is the one case that produces a reminder.
+    @Test
+    func enabledNonBlankItemIsRunnable() {
+        #expect(ChecklistItem(title: "Milk").isRunnable)
+        #expect(ChecklistItem(title: " x ", isEnabled: true).isRunnable)
+    }
+
+    /// `hasRunnableItems` is false whenever no item could produce a reminder:
+    /// empty, all blank, or all disabled.
+    @Test
+    func hasRunnableItemsIsFalseWithoutARunnableItem() {
+        #expect(!Checklist(items: []).hasRunnableItems)
+        #expect(!Checklist(items: [ChecklistItem(title: "  ")]).hasRunnableItems)
+        #expect(!Checklist(items: [ChecklistItem(title: "Milk", isEnabled: false)]).hasRunnableItems)
+        #expect(!Checklist(items: [ChecklistItem(title: "  ", isEnabled: false)]).hasRunnableItems)
+    }
+
+    /// One non-blank enabled item is enough for `hasRunnableItems`.
+    @Test
+    func hasRunnableItemsIsTrueWithAEnabledItem() {
+        #expect(Checklist(items: [ChecklistItem(title: "Milk")]).hasRunnableItems)
+        // A disabled-only list alongside one enabled blank-free item.
+        #expect(Checklist(items: [
+            ChecklistItem(title: "Milk", isEnabled: false),
+            ChecklistItem(title: "Eggs"),
+        ]).hasRunnableItems)
+    }
 }

@@ -220,6 +220,12 @@ public enum ChecklistMerge {
                 merged.priorityRevision = remoteItem.priorityRevision
                 merged.priorityModifiedAt = remoteItem.priorityModifiedAt
             }
+            if wins(revision: remoteItem.enabledRevision, date: remoteItem.enabledModifiedAt, device: remoteDevice,
+                    overRevision: localItem.enabledRevision, overDate: localItem.enabledModifiedAt, overDevice: localDevice) {
+                merged.isEnabled = remoteItem.isEnabled
+                merged.enabledRevision = remoteItem.enabledRevision
+                merged.enabledModifiedAt = remoteItem.enabledModifiedAt
+            }
             // Defensive: production stamping keeps every field clock at or below
             // the coarse revision, but a hand-crafted or inconsistent payload
             // must never let the merged coarse clock fall below a field clock it
@@ -227,7 +233,7 @@ public enum ChecklistMerge {
             // on the coarse clock being the item's high-water mark.
             merged.revision = max(
                 merged.revision,
-                merged.titleRevision, merged.descriptionRevision, merged.relativeDateRevision, merged.priorityRevision
+                merged.titleRevision, merged.descriptionRevision, merged.relativeDateRevision, merged.priorityRevision, merged.enabledRevision
             )
             result[index] = merged
         }
