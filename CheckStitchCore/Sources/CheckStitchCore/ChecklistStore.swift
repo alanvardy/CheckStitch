@@ -732,6 +732,26 @@ public final class ChecklistStore {
         return visibleChanged
     }
 
+    /// Re-reads the App Group payload and folds any externally written state
+    /// (the Create Checklist intent writes through a fresh store) into memory.
+    /// Called on every return to `.active`. Idempotent on a cold launch, where
+    /// `init` already read the same payload. `apply(remote:)` suppresses `onChange`;
+    /// fire it once explicitly when state actually changed so the iCloud push rides
+    /// the change (the watch push rides the SwiftUI `checklists` change).
+    @discardableResult
+    public func reconcileFromDefaults() -> Bool {
+        guard canOverwriteStoredPayload else { return false }
+        defaults.synchronize()   // a cross-process App Group write may not be visible yet
+        guard let data = defaults.data(forKey: key),
+              case .loaded(let remote) = ChecklistCodec.classify(data)
+        else { return false }
+        let before = envelope
+        apply(remote: remote)
+        guard envelope != before else { return false }
+        onChange?()
+        return true
+    }
+
     /// Persists any coalesced text edit immediately. Called when the screen is
     /// dismissed and when the app leaves the foreground, so the debounce window
     /// can never outlive the user's session.

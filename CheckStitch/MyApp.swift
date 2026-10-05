@@ -79,8 +79,12 @@ import SwiftUI
             }
             .restorationBehavior(.disabled)
             .onChange(of: scenePhase) { _, phase in
-                // Flush coalesced text edits and push before the app suspends.
-                if phase != .active {
+                if phase == .active {
+                    // Fold in a checklist written by the Create Checklist intent
+                    // while CheckStitch was backgrounded, before an edit can clobber it.
+                    store.reconcileFromDefaults()
+                } else {
+                    // Flush coalesced text edits and push before the app suspends.
                     store.flushPendingSave()
                     syncService.pushNow()
                 }
@@ -131,8 +135,12 @@ import SwiftUI
                     .task { await purchaseService.start() }
             }
             .onChange(of: scenePhase) { _, phase in
-                // Flush coalesced text edits and push before the app suspends.
-                if phase != .active {
+                if phase == .active {
+                    // Fold in a checklist written by the Create Checklist intent
+                    // while CheckStitch was backgrounded, before an edit can clobber it.
+                    store.reconcileFromDefaults()
+                } else {
+                    // Flush coalesced text edits and push before the app suspends.
                     store.flushPendingSave()
                     syncService.pushNow()
                 }
