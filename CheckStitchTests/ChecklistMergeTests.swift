@@ -349,6 +349,78 @@ struct ChecklistMergeTests {
     }
 
     @Test
+    func enabledRemoteEditWins() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let fromA = item(id: itemID, title: "Milk", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         isEnabled: true,
+                         enabledRevision: 1, enabledModifiedAt: Date(timeIntervalSince1970: 10))
+        let fromB = item(id: itemID, title: "Milk", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         isEnabled: false,
+                         enabledRevision: 2, enabledModifiedAt: Date(timeIntervalSince1970: 20))
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB])]))
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.isEnabled == false, "the newer enabled clock wins (disabled on the newer device)")
+        #expect(mergedItem?.enabledRevision == 2)
+        #expect(mergedItem?.enabledModifiedAt == Date(timeIntervalSince1970: 20))
+        #expect(mergedItem?.revision == 2, "the whole-item winner's coarse clock survives")
+        #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
+    }
+
+    @Test
+    func olderEnabledToggleDoesNotLeak() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        // Device A carries the newer enabled clock (2/t20, disabled); device B's
+        // older toggle (1/t10, enabled) must not resurrect the enabled state.
+        let fromA = item(id: itemID, title: "Milk", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                         isEnabled: false,
+                         enabledRevision: 2, enabledModifiedAt: Date(timeIntervalSince1970: 20))
+        let fromB = item(id: itemID, title: "Milk", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                         isEnabled: true,
+                         enabledRevision: 1, enabledModifiedAt: Date(timeIntervalSince1970: 10))
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromA])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [fromB])]))
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.isEnabled == false, "the older toggle does not leak")
+        #expect(mergedItem?.enabledRevision == 2)
+        #expect(mergedItem?.enabledModifiedAt == Date(timeIntervalSince1970: 20))
+        #expect(mergedItem?.revision == 2, "the whole-item winner's coarse clock survives")
+        #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
+    }
+
+    /// The coarse high-water clamp covers the enabled clock like every other
+    /// field clock: an adopted `enabledRevision` above the payload's own coarse
+    /// `revision` must raise `merged.revision` so the `removed.revision + 1`
+    /// tombstone invariant keeps holding.
+    @Test
+    func mergedCoarseClockCoversAnAdoptedEnabledClock() {
+        let checklistID = UUID()
+        let itemID = UUID()
+        let localItem = item(id: itemID, title: "Milk", revision: 1, modifiedAt: Date(timeIntervalSince1970: 10),
+                             isEnabled: true,
+                             enabledRevision: 1, enabledModifiedAt: Date(timeIntervalSince1970: 10))
+        let skewedItem = item(id: itemID, title: "Milk", revision: 2, modifiedAt: Date(timeIntervalSince1970: 20),
+                              isEnabled: false,
+                              enabledRevision: 6, enabledModifiedAt: Date(timeIntervalSince1970: 60))
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [localItem])]),
+            remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [skewedItem])]))
+        let mergedItem = merged.checklists.first?.items.first
+
+        #expect(mergedItem?.revision == 6, "the coarse clock is raised to the adopted enabled clock")
+        #expect(mergedItem?.enabledRevision == 6)
+        #expect(mergedItem?.enabledModifiedAt == Date(timeIntervalSince1970: 60))
+        #expect(mergedItem?.isEnabled == false, "the skewed newer-enabled clock still wins its axis")
+        #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
+    }
+
+    @Test
     func tombstoneBeatsANewerFieldClock() {
         let checklistID = UUID()
         let mayBeDeleted = UUID()
@@ -428,7 +500,9 @@ struct ChecklistMergeTests {
                               titleRevision: 9, titleModifiedAt: Date(timeIntervalSince1970: 90),
                               descriptionRevision: 8, descriptionModifiedAt: Date(timeIntervalSince1970: 80),
                               relativeDateRevision: 7, relativeDateModifiedAt: Date(timeIntervalSince1970: 70),
-                              priorityRevision: 6, priorityModifiedAt: Date(timeIntervalSince1970: 60))
+                              priorityRevision: 6, priorityModifiedAt: Date(timeIntervalSince1970: 60),
+                              isEnabled: false,
+                              enabledRevision: 5, enabledModifiedAt: Date(timeIntervalSince1970: 50))
         let merged = ChecklistMerge.merge(
             local: envelope(device: "device-a", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [localItem])]),
             remote: envelope(device: "device-b", checklists: [checklist(id: checklistID, name: "Groceries", revision: 1, items: [skewedItem])]))
@@ -439,6 +513,8 @@ struct ChecklistMergeTests {
         #expect(mergedItem?.descriptionRevision == 8)
         #expect(mergedItem?.relativeDateRevision == 7)
         #expect(mergedItem?.priorityRevision == 6)
+        #expect(mergedItem?.enabledRevision == 5, "the adopted enabled clock is also covered")
+        #expect(mergedItem?.isEnabled == false)
         #expect(mergedItem?.title == "Milk", "the skewed remote title still wins its own axis")
         #expect(mergedItem?.description == "note")
         #expect(ChecklistMerge.merge(local: merged, remote: merged).contentEquals(merged))
@@ -1155,13 +1231,17 @@ func item(id: UUID, title: String, description: String = "", revision: Int,
           titleRevision: Int? = nil, titleModifiedAt: Date? = nil,
           descriptionRevision: Int? = nil, descriptionModifiedAt: Date? = nil,
           relativeDateRevision: Int? = nil, relativeDateModifiedAt: Date? = nil,
-          priorityRevision: Int? = nil, priorityModifiedAt: Date? = nil) -> ChecklistItem {
-    ChecklistItem(id: id, title: title, description: description, modifiedAt: modifiedAt,
-                  revision: revision, relativeDate: relativeDate, priority: priority,
+          priorityRevision: Int? = nil, priorityModifiedAt: Date? = nil,
+          isEnabled: Bool = true,
+          enabledRevision: Int? = nil, enabledModifiedAt: Date? = nil) -> ChecklistItem {
+    ChecklistItem(id: id, title: title, description: description, isEnabled: isEnabled,
+                  modifiedAt: modifiedAt, revision: revision, relativeDate: relativeDate,
+                  priority: priority,
                   titleRevision: titleRevision, titleModifiedAt: titleModifiedAt,
                   descriptionRevision: descriptionRevision, descriptionModifiedAt: descriptionModifiedAt,
                   relativeDateRevision: relativeDateRevision, relativeDateModifiedAt: relativeDateModifiedAt,
-                  priorityRevision: priorityRevision, priorityModifiedAt: priorityModifiedAt)
+                  priorityRevision: priorityRevision, priorityModifiedAt: priorityModifiedAt,
+                  enabledRevision: enabledRevision, enabledModifiedAt: enabledModifiedAt)
 }
 
 @MainActor
