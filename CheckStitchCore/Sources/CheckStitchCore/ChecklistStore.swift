@@ -741,7 +741,7 @@ public final class ChecklistStore {
     @discardableResult
     public func reconcileFromDefaults() -> Bool {
         guard canOverwriteStoredPayload else { return false }
-        defaults.synchronize()   // a cross-process App Group write may not be visible yet
+        defaults.synchronize()   // no-op on modern Darwin; kept as a harmless visibility nudge
         guard let data = defaults.data(forKey: key),
               case .loaded(let remote) = ChecklistCodec.classify(data)
         else { return false }
