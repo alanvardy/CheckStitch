@@ -408,46 +408,46 @@ struct ItemRow: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    // The coloured exclamation marker SingleThread uses: the
-                    // same font as the title, only the level's colour
-                    // (red/yellow/green) distinguishes high/medium/low. No
-                    // marker for an unprioritised item, so its row is
-                    // unchanged.
-                    if !priority.marker.isEmpty {
-                        Text(priority.marker)
-                            .font(.body)
-                            .foregroundStyle(Self.priorityColor(priority))
-                            .accessibilityLabel(Text(priority.label))
-                            .accessibilityIdentifier("priorityMarker")
-                    }
-                    Text(Self.displayTitle(ChecklistScaling.resolve(title, multiple: multiple)))
-                    Spacer(minLength: 0)
-                    if Self.showsScalingFactor(multiple) {
-                        // The `×`-leading key cannot be a string-symbol source
-                        // (Xcode's GenerateStringSymbols can't derive a Swift
-                        // identifier from `×%lld`), so resolve it at runtime
-                        // against the App catalog and format the factor in.
-                        Text(verbatim: String(
-                            format: Bundle.main.localizedString(forKey: "×%lld", value: "×%lld", table: "Localizable"),
-                            multiple))
-                            .font(.caption)
+                        // The coloured exclamation marker SingleThread uses: the
+                        // same font as the title, only the level's colour
+                        // (red/yellow/green) distinguishes high/medium/low. No
+                        // marker for an unprioritised item, so its row is
+                        // unchanged.
+                        if !priority.marker.isEmpty {
+                            Text(priority.marker)
+                                .font(.body)
+                                .foregroundStyle(Self.priorityColor(priority))
+                                .accessibilityLabel(Text(priority.label))
+                                .accessibilityIdentifier("priorityMarker")
+                        }
+                        Text(Self.displayTitle(ChecklistScaling.resolve(title, multiple: multiple)))
+                        Spacer(minLength: 0)
+                        if Self.showsScalingFactor(multiple) {
+                            // The `×`-leading key cannot be a string-symbol source
+                            // (Xcode's GenerateStringSymbols can't derive a Swift
+                            // identifier from `×%lld`), so resolve it at runtime
+                            // against the App catalog and format the factor in.
+                            Text(verbatim: String(
+                                format: Bundle.main.localizedString(forKey: "×%lld", value: "×%lld", table: "Localizable"),
+                                multiple))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("scalingFactorBadge")
+                        }
+                        // Blank when the item carries no date, per the product ask.
+                        Text(DueDateLabel.resource(for: relativeDate))
                             .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("scalingFactorBadge")
                     }
-                    // Blank when the item carries no date, per the product ask.
-                    Text(DueDateLabel.resource(for: relativeDate))
-                        .foregroundStyle(.secondary)
+                    if !description.isEmpty {
+                        Text(ChecklistScaling.resolve(description, multiple: multiple))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                if !description.isEmpty {
-                    Text(ChecklistScaling.resolve(description, multiple: multiple))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    // Disabled rows dim; the app never marks items complete, so
-                    // no strikethrough.
-                    .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                // Disabled rows dim; the app never marks items complete, so
+                // no strikethrough.
+                .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
             }
         }
         .accessibilityIdentifier("itemRow-\(itemID.uuidString)")
