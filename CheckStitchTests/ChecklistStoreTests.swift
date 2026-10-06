@@ -1158,6 +1158,177 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(reloadedItem?.priorityModifiedAt, Date(timeIntervalSince1970: 1_000))
     }
 
+    // MARK: - isEnabled
+
+    /// A newly added item is enabled by default — the additive `Bool` precedent:
+    /// `isEnabled` defaults to `true` so existing checklists never silently lose
+    /// an item from a run.
+    func testAddItemDefaultsToEnabled() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+
+        let item = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(item?.isEnabled, true)
+        XCTAssertEqual(item?.enabledRevision, item?.revision, "the enabled clock seeds from the coarse revision")
+        XCTAssertEqual(item?.enabledModifiedAt, item?.modifiedAt)
+    }
+
+    /// A changed enabled flag stamps its own clock (and the coarse clock it rides
+    /// on) and bumps `revision`; the other field clocks keep their own stamps.
+    func testUpdateItemIsEnabledStampsEnabledClockAndBumpsRevision() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        let checklistRevision = store.checklist(id: created.id)?.revision
+        let checklistModifiedAt = store.checklist(id: created.id)?.modifiedAt
+        let titleRevision = item.titleRevision
+        let titleModifiedAt = item.titleModifiedAt
+        let descriptionRevision = item.descriptionRevision
+        let descriptionModifiedAt = item.descriptionModifiedAt
+        let relativeDateRevision = item.relativeDateRevision
+        let relativeDateModifiedAt = item.relativeDateModifiedAt
+        let priorityRevision = item.priorityRevision
+        let priorityModifiedAt = item.priorityModifiedAt
+
+        clock.now = Date(timeIntervalSince1970: 50)
+        store.updateItem(checklistID: created.id, itemID: item.id, isEnabled: false)
+
+        let edited = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(edited?.isEnabled, false)
+        XCTAssertEqual(edited?.revision, item.revision + 1, "1 add + one toggle")
+        XCTAssertEqual(edited?.enabledRevision, edited?.revision, "the enabled clock stamps the coarse revision")
+        XCTAssertEqual(edited?.enabledModifiedAt, clock.now)
+        XCTAssertEqual(edited?.modifiedAt, clock.now)
+        XCTAssertEqual(edited?.titleRevision, titleRevision, "the title clock keeps its own stamp")
+        XCTAssertEqual(edited?.titleModifiedAt, titleModifiedAt)
+        XCTAssertEqual(edited?.descriptionRevision, descriptionRevision)
+        XCTAssertEqual(edited?.descriptionModifiedAt, descriptionModifiedAt)
+        XCTAssertEqual(edited?.relativeDateRevision, relativeDateRevision)
+        XCTAssertEqual(edited?.relativeDateModifiedAt, relativeDateModifiedAt)
+        XCTAssertEqual(edited?.priorityRevision, priorityRevision)
+        XCTAssertEqual(edited?.priorityModifiedAt, priorityModifiedAt)
+        // An item op never bumps the checklist's own revision/modifiedAt.
+        XCTAssertEqual(store.checklist(id: created.id)?.revision, checklistRevision)
+        XCTAssertEqual(store.checklist(id: created.id)?.modifiedAt, checklistModifiedAt)
+    }
+
+    /// Re-committing an unchanged enabled flag must not bump any clock — the
+    /// discrete-pick no-op guard, so re-rendering the toggle never wins a
+    /// spurious LWW round.
+    func testUpdateItemIsEnabledNoOpsWhenUnchanged() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        clock.now = Date(timeIntervalSince1970: 20)
+        store.updateItem(checklistID: created.id, itemID: item.id, isEnabled: false)
+        guard let before = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the edited item")
+            return
+        }
+
+        var changes = 0
+        store.onChange = { changes += 1 }
+        clock.now = Date(timeIntervalSince1970: 30)
+        store.updateItem(checklistID: created.id, itemID: item.id, isEnabled: false)
+
+        let after = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(after?.revision, before.revision)
+        XCTAssertEqual(after?.modifiedAt, before.modifiedAt)
+        XCTAssertEqual(after?.isEnabled, before.isEnabled)
+        XCTAssertEqual(after?.enabledRevision, before.enabledRevision)
+        XCTAssertEqual(after?.enabledModifiedAt, before.enabledModifiedAt)
+        XCTAssertEqual(changes, 0, "an unchanged value must not schedule a save or push")
+    }
+
+    func testUpdateItemIsEnabledPersistsAndReloads() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+
+        store.updateItem(checklistID: created.id, itemID: item.id, isEnabled: false)
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        let reloadedItem = try? XCTUnwrap(reloaded.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(reloadedItem?.isEnabled, false)
+    }
+
+    /// Sad path: unknown checklist or item ids are silent no-ops, exactly like
+    /// the other item field edits — no bump, no save, no push.
+    func testUpdateItemIsEnabledIgnoresUnknownIDs() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        let itemRevision = item.revision
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        store.updateItem(checklistID: UUID(), itemID: UUID(), isEnabled: false)
+        store.updateItem(checklistID: created.id, itemID: UUID(), isEnabled: false)
+
+        let after = try? XCTUnwrap(store.checklist(id: created.id)?.items.first)
+        XCTAssertEqual(after?.revision, itemRevision)
+        XCTAssertEqual(after?.isEnabled, true)
+        XCTAssertEqual(changes, 0)
+    }
+
+    /// A found-item enabled edit is a no-op for the checklist's own
+    /// revision/modifiedAt — item ops never ride the checklist's coarse clock.
+    func testUpdateItemIsEnabledLeavesChecklistClockUntouched() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+        let clock = Clock()
+        clock.now = Date(timeIntervalSince1970: 10)
+        let store = ChecklistStore(defaults: suite.defaults, key: key, textEditDelay: nil, now: { clock.now })
+        let created = store.create()
+        store.addItem(to: created.id)
+        guard let item = store.checklist(id: created.id)?.items.first else {
+            XCTFail("expected the added item")
+            return
+        }
+        let checklistRevision = store.checklist(id: created.id)?.revision
+        let checklistModifiedAt = store.checklist(id: created.id)?.modifiedAt
+
+        clock.now = Date(timeIntervalSince1970: 100)
+        store.updateItem(checklistID: created.id, itemID: item.id, isEnabled: false)
+
+        XCTAssertEqual(store.checklist(id: created.id)?.revision, checklistRevision)
+        XCTAssertEqual(store.checklist(id: created.id)?.modifiedAt, checklistModifiedAt)
+    }
+
     // MARK: - moveItems
 
     func testMoveReordersItemsWithinList() {
