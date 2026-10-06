@@ -2097,6 +2097,29 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertTrue(store.checklists.isEmpty)
     }
 
+    func testReconcileFiresOnceForAFolderOnlyChange() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        var changes = 0
+        store.onChange = { changes += 1 }
+
+        // A remote write that changes only folders adds no checklist, yet the
+        // payload changed, so the fold must still ride exactly one `onChange`.
+        let folder = Folder(name: "Work", modifiedAt: Date(timeIntervalSince1970: 6_000), revision: 1)
+        let external = try! ChecklistCodec.encode(ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion,
+            deviceID: "intent-process",
+            checklists: [],
+            folders: [folder]))
+        suite.defaults.set(external, forKey: key)
+
+        XCTAssertTrue(store.reconcileFromDefaults())
+        XCTAssertEqual(store.folders.map(\.name), ["Work"])
+        XCTAssertEqual(changes, 1, "a folder-only fold still rides exactly one change")
+    }
+
     // MARK: - Duplicate
 
     func testDuplicateCopiesItemsWithFreshIdentifiersAndRevisions() {
