@@ -36,7 +36,10 @@ final class ChecklistRunViewModel {
     /// Guards against duplicate taps synchronously (before the first `await`),
     /// then runs one checklist.
     func createReminders(for id: UUID) async {
-        guard !creating.contains(id), let checklist = store.checklist(id: id) else { return }
+        guard !creating.contains(id),
+              let checklist = store.checklist(id: id),
+              checklist.hasRunnableItems
+        else { return }
         creating.insert(id)
         // Hold the spinner for at least `spinnerDuration` so saving quickly
         // doesn't flash the progress feedback past the user.

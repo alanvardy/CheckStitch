@@ -160,7 +160,8 @@ struct ChecklistDetailViewTests {
     func itemRowRendersItsDescriptionAndDate() {
         let row = ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", multiple: 1, relativeDate: 3, priority: .high)
+            description: "2 litres", multiple: 1, relativeDate: 3, priority: .high,
+            isEnabled: true, onToggleEnabled: {})
         #if os(macOS)
         #expect(ImageRenderer(content: row).nsImage != nil)
         #else
@@ -175,7 +176,8 @@ struct ChecklistDetailViewTests {
     func itemRowRendersForEveryPriority(_ priority: ChecklistItemPriority) {
         let row = ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", multiple: 1, relativeDate: 3, priority: priority)
+            description: "2 litres", multiple: 1, relativeDate: 3, priority: priority,
+            isEnabled: true, onToggleEnabled: {})
         #if os(macOS)
         #expect(ImageRenderer(content: row).nsImage != nil)
         #else
@@ -252,7 +254,8 @@ struct ChecklistDetailViewTests {
     func itemRowCarriesItsChecklistForTheEditLink() {
         let described = String(describing: ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", multiple: 1, relativeDate: 1, priority: .high))
+            description: "2 litres", multiple: 1, relativeDate: 1, priority: .high,
+            isEnabled: true, onToggleEnabled: {}))
         #expect(described.contains("checklistID"))
         #expect(described.contains("itemID"))
         #expect(described.contains("relativeDate"))

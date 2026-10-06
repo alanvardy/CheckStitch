@@ -99,7 +99,11 @@ struct ChecklistDetailView: View {
                                 description: item.description,
                                 multiple: checklist.multiple,
                                 relativeDate: item.relativeDate,
-                                priority: item.priority
+                                priority: item.priority,
+                                isEnabled: item.isEnabled,
+                                onToggleEnabled: {
+                                    store.updateItem(checklistID: checklistID, itemID: item.id, isEnabled: !item.isEnabled)
+                                }
                             )
                         }
                         .onDelete { offsets in
@@ -369,11 +373,14 @@ struct ChecklistDetailView: View {
 }
 
 /// One item row: the item's priority marker, its title, its human-readable due
-/// date and its description, all read-only. The whole row is the link into the
-/// pushed `ItemEditView`, so the tap target is the row rather than a small
-/// pencil icon. That is why the row no longer hosts editable fields: a
-/// `NavigationLink` row makes its inline controls inert, so title/description
-/// editing moved onto the edit screen with the date.
+/// date and its description, all read-only. A leading checkbox toggles the
+/// item's enabled state without navigating. The checkbox sits **outside** the
+/// `NavigationLink` label: an inline `Toggle` or `Button` inside a link's label
+/// is inert, and tapping it would trigger the push. The rest of the row is the
+/// link into the pushed `ItemEditView`, so the tap target is the row rather
+/// than a small pencil icon. That is why the row no longer hosts editable
+/// fields: a `NavigationLink` row makes its inline controls inert, so
+/// title/description editing moved onto the edit screen with the date.
 struct ItemRow: View {
     let checklistID: UUID
     let itemID: UUID
@@ -382,13 +389,25 @@ struct ItemRow: View {
     let multiple: Int
     let relativeDate: Int?
     let priority: ChecklistItemPriority
+    let isEnabled: Bool
+    let onToggleEnabled: () -> Void
 
     var body: some View {
-        NavigationLink {
-            ItemEditView(checklistID: checklistID, itemID: itemID)
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .top, spacing: 12) {
+            Button(action: onToggleEnabled) {
+                Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isEnabled ? Color.accentColor : Color.secondary)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text("Include in reminders"))
+            .accessibilityIdentifier("itemEnabledToggle-\(itemID.uuidString)")
+
+            NavigationLink {
+                ItemEditView(checklistID: checklistID, itemID: itemID)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                     // The coloured exclamation marker SingleThread uses: the
                     // same font as the title, only the level's colour
                     // (red/yellow/green) distinguishes high/medium/low. No
@@ -424,6 +443,11 @@ struct ItemRow: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+            }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // Disabled rows dim; the app never marks items complete, so
+                    // no strikethrough.
+                    .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
             }
         }
         .accessibilityIdentifier("itemRow-\(itemID.uuidString)")
