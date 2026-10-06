@@ -93,13 +93,14 @@ public struct ChecklistCreator: Sendable {
     public func create(from items: [ChecklistItem], multiple: Int = 1) async -> ChecklistCreationOutcome {
         do {
             guard try await reminders.requestAccess() else { return .permissionDenied }
-            let itemCount = items.filter { !$0.isBlank }.count
+            let itemCount = items.filter(\.isRunnable).count
             var created = 0
             var position = 0
             let today = now()
-            for item in items where !item.isBlank {
-                // Position is assigned after blank items are dropped, so an emptied
-                // row never leaves a gap: item one is always 1.
+            for item in items where item.isRunnable {
+                // Position is assigned after non-runnable items (blank or
+                // disabled) are dropped, so an emptied or disabled row never
+                // leaves a gap: item one is always 1.
                 position += 1
                 try await reminders.create(
                     title: ChecklistTitleNumbering.title(

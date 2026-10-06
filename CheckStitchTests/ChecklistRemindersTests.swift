@@ -104,6 +104,35 @@ struct ChecklistRemindersTests {
     }
 
     @Test
+    func disabledItemsAreSkipped() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("Milk"), makeItem("Eggs", isEnabled: false), makeItem("Bread")],
+            destinationListIdentifier: "list-a")
+
+        let outcome = await create(checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["Milk", "Bread"])
+    }
+
+    @Test
+    func numberingSkipsDisabledItemsWithoutGaps() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("one"), makeItem("skip", isEnabled: false), makeItem("two")],
+            destinationListIdentifier: "list-a",
+            prefixesReminderNumbers: true)
+
+        let outcome = await create(checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["1: one", "2: two"])
+    }
+
+    @Test
     func notesForwardDescription() async {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
@@ -203,6 +232,24 @@ struct ChecklistRemindersTests {
 
         #expect(outcome == .partiallyCreated(
             created: 2, total: 3, reason: TestError.boom.localizedDescription))
+    }
+
+    /// The partial-report denominator counts only runnable items: a disabled
+    /// item never inflates it, matching the creation loop predicate.
+    @Test
+    func midLoopThrowTotalExcludesDisabledItems() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        spy.createFailureCount = 1
+        let checklist = Checklist(items: [
+            makeItem("Milk"), makeItem("Skip", isEnabled: false), makeItem("Eggs"),
+        ], destinationListIdentifier: "list-a")
+
+        let outcome = await create(checklist, targeting: spy)
+
+        #expect(outcome == .partiallyCreated(
+            created: 1, total: 2, reason: TestError.boom.localizedDescription))
+        #expect(spy.createdTitles == ["Milk"])
     }
 
     /// Throw on the very first create: zero items were committed, so the run is
@@ -476,6 +523,24 @@ struct ChecklistRemindersTests {
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
         #expect(outcome == .created(count: 0))
+        #expect(counter.count == 19, "a run that created nothing does not consume a free run")
+    }
+
+    /// An all-disabled run is just as empty as an all-blank one: nothing is
+    /// created and the free run slot is released.
+    @Test
+    func allDisabledRunDoesNotAdvanceTheCounter() async {
+        let counter = RunCounter(defaults: makeIsolatedDefaults())
+        for _ in 0..<19 { counter.increment() }
+        let gate = RunGate(counter: counter, isUnlocked: false)
+        let spy = SpyReminderDestination(); spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("a", isEnabled: false), makeItem("b", isEnabled: false)],
+                                  destinationListIdentifier: "list-a")
+
+        let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
+
+        #expect(outcome == .created(count: 0))
+        #expect(spy.createdTitles.isEmpty)
         #expect(counter.count == 19, "a run that created nothing does not consume a free run")
     }
 
