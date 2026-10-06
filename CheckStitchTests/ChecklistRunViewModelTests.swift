@@ -114,6 +114,19 @@ struct ChecklistRunViewModelTests {
         #expect(spy.createdTitles.count == 1, "a second tap must not enqueue a second run")
     }
 
+    /// Like `makeStore` but every item is explicitly disabled, so nothing is runnable.
+    private func makeAllDisabledStore(items: [String]) -> (ChecklistStore, UUID) {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
+        let id = store.create(name: "Groceries").id
+        for title in items {
+            store.addItem(to: id)
+            let itemID = store.checklist(id: id)?.items.last?.id ?? UUID()
+            store.updateItem(checklistID: id, itemID: itemID, title: title)
+            store.updateItem(checklistID: id, itemID: itemID, isEnabled: false)
+        }
+        return (store, id)
+    }
+
     @Test
     func unknownChecklistIDIsANoOp() async {
         let store = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
@@ -156,5 +169,47 @@ struct ChecklistRunViewModelTests {
 
         #expect(!viewModel.isShowingPaywall)
         #expect(spy.createdTitles == ["one"])
+    }
+
+    @Test
+    func createRemindersProceedsWhenAtLeastOneItemIsRunnable() async {
+        // One titled (runnable) item and one blank item: only the runnable one runs.
+        let (store, id) = makeStore(items: ["milk", ""])
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.createReminders(for: id)
+
+        #expect(spy.createdTitles == ["milk"])
+        #expect(viewModel.creating.isEmpty)
+        #expect(viewModel.created.isEmpty)
+    }
+
+    @Test
+    func createRemindersIsANoOpWhenEveryItemIsDisabled() async {
+        let (store, id) = makeAllDisabledStore(items: ["milk", "eggs"])
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.createReminders(for: id)
+
+        #expect(spy.createdTitles.isEmpty, "nothing is created for a fully disabled checklist")
+        #expect(viewModel.creating.isEmpty, "the guard returns before `creating` is ever set")
+        #expect(viewModel.created.isEmpty)
+        #expect(viewModel.runErrorMessage == nil)
+    }
+
+    @Test
+    func createRemindersIsANoOpWhenEveryItemIsBlank() async {
+        let (store, id) = makeStore(items: ["", ""])
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.createReminders(for: id)
+
+        #expect(spy.createdTitles.isEmpty, "blank items never produce reminders")
+        #expect(viewModel.creating.isEmpty, "the guard returns before `creating` is ever set")
+        #expect(viewModel.created.isEmpty)
+        #expect(viewModel.runErrorMessage == nil)
     }
 }

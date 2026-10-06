@@ -535,7 +535,7 @@ struct ContentView: View {
             } else {
                 NavigationLink(checklist.name, value: checklist.id)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                createRemindersButton(for: checklist.id)
+                createRemindersButton(for: checklist)
             }
         }
         .padding(.horizontal, 16)
@@ -710,7 +710,8 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func createRemindersButton(for id: UUID) -> some View {
+    private func createRemindersButton(for checklist: Checklist) -> some View {
+        let id = checklist.id
         Button {
             Task { await runVM.createReminders(for: id) }
         } label: {
@@ -725,7 +726,7 @@ struct ContentView: View {
             }
         }
         .buttonStyle(.borderless)
-        .disabled(runVM.creating.contains(id))
+        .disabled(runVM.creating.contains(id) || !checklist.hasRunnableItems)
         .accessibilityLabel("Create reminders from checklist")
         .accessibilityIdentifier("createRemindersButton")
     }
