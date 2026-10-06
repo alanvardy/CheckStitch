@@ -5,7 +5,7 @@ import Testing
 struct ChecklistWidgetDisplayModelTests {
     @Test
     func configuredChecklistBecomesARunnableRow() {
-        let checklist = Checklist(name: "Groceries")
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])
         let model = ChecklistWidgetDisplayModel(
             checklists: [checklist],
             configuration: [ChecklistEntity(checklist)],
@@ -78,7 +78,7 @@ struct ChecklistWidgetDisplayModelTests {
 
     @Test
     func readyAccessMakesRowsRunnable() {
-        let checklist = Checklist(name: "Groceries")
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])
         let model = ChecklistWidgetDisplayModel(
             checklists: [checklist],
             configuration: [ChecklistEntity(checklist)],
@@ -148,5 +148,40 @@ struct ChecklistWidgetDisplayModelTests {
 
         #expect(model.rows.isEmpty)
         #expect(!model.hasChecklists)
+    }
+
+    /// A ready checklist whose items are all disabled or blank has no runnable
+    /// items, so its row is not runnable either.
+    @Test
+    func aChecklistsRunnabilityTracksItsEnabledItems() {
+        let disabledOnly = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", isEnabled: false)])
+        let disabledModel = ChecklistWidgetDisplayModel(
+            checklists: [disabledOnly],
+            configuration: [ChecklistEntity(disabledOnly)],
+            access: .ready)
+        #expect(disabledModel.rows.first?.isRunnable == false)
+
+        let withAnEnabledItem = Checklist(name: "Groceries", items: [
+            ChecklistItem(title: "Milk", isEnabled: false),
+            ChecklistItem(title: "Bread"),
+        ])
+        let enabledModel = ChecklistWidgetDisplayModel(
+            checklists: [withAnEnabledItem],
+            configuration: [ChecklistEntity(withAnEnabledItem)],
+            access: .ready)
+        #expect(enabledModel.rows.first?.isRunnable == true)
+    }
+
+    /// The access gate still dominates: without `.ready` a checklist with
+    /// runnable items is not runnable.
+    @Test
+    func accessGateDominatesEvenWithRunnableItems() {
+        let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")])
+        let model = ChecklistWidgetDisplayModel(
+            checklists: [checklist],
+            configuration: [ChecklistEntity(checklist)],
+            access: .needsAccess)
+        #expect(model.rows.first?.isRunnable == false)
+        #expect(model.rows.first?.needsAccess == true)
     }
 }
