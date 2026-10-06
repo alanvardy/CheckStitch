@@ -484,6 +484,23 @@ public final class ChecklistStore {
         scheduleSave()
     }
 
+    /// Sets an item's enabled flag. A discrete pick, so like `priority` an
+    /// unchanged value is a no-op (never a spurious LWW win), and the save
+    /// debounces like the other field edits.
+    public func updateItem(checklistID: UUID, itemID: UUID, isEnabled: Bool) {
+        guard let checklistIndex = checklists.firstIndex(where: { $0.id == checklistID }),
+              let itemIndex = checklists[checklistIndex].items.firstIndex(where: { $0.id == itemID })
+        else { return }
+        guard checklists[checklistIndex].items[itemIndex].isEnabled != isEnabled else { return }
+        let revisedAt = now()
+        checklists[checklistIndex].items[itemIndex].isEnabled = isEnabled
+        checklists[checklistIndex].items[itemIndex].revision += 1
+        checklists[checklistIndex].items[itemIndex].modifiedAt = revisedAt
+        checklists[checklistIndex].items[itemIndex].enabledRevision = checklists[checklistIndex].items[itemIndex].revision
+        checklists[checklistIndex].items[itemIndex].enabledModifiedAt = revisedAt
+        scheduleSave()
+    }
+
     public func removeItems(from id: UUID, at offsets: IndexSet) {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return }
         for offset in offsets.sorted(by: >) {
