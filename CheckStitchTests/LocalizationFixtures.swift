@@ -53,6 +53,7 @@ enum LocalizationFixtures {
             "Hidden checklists stay on your iPhone but are not shown on the Apple Watch.",
             "How much the wallpaper fades for readability.",
             "In %lld days",
+            "Include in reminders",
             "Interface",
             "Item",
             "Item not found",
