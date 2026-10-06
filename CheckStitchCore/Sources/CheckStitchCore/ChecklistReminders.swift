@@ -44,11 +44,12 @@ import os
                 gate.releaseRun()
                 return .destinationMissing
             }
-            let itemCount = checklist.items.filter { !$0.isBlank }.count
+            let itemCount = checklist.items.filter(\.isRunnable).count
             var position = 0
-            for item in checklist.items where !item.isBlank {
-                // Numbering is assigned after blank items are dropped, so an emptied
-                // row never leaves a gap: item one is always 1.
+            for item in checklist.items where item.isRunnable {
+                // Numbering is assigned after non-runnable items (blank or
+                // disabled) are dropped, so an emptied or disabled row never
+                // leaves a gap: item one is always 1.
                 position += 1
                 // Both paths compute the date from the same pure Core function;
                 // `Date()` is the device-local today, matching the SingleThread
@@ -71,7 +72,7 @@ import os
         } catch {
             logger.error("Failed to create checklist reminders: \(error.localizedDescription, privacy: .public)")
             gate.releaseRun()
-            let total = checklist.items.filter { !$0.isBlank }.count
+            let total = checklist.items.filter(\.isRunnable).count
             if created > 0 {
                 // Mid-loop throw: earlier items are already committed. Report the
                 // exact split instead of a generic failure.

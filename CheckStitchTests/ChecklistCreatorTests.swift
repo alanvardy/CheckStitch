@@ -33,6 +33,18 @@ struct ChecklistCreatorTests {
         #expect(spy.createdTitles.isEmpty)
     }
 
+    /// Preview parity: a disabled item is dropped, exactly like a blank one.
+    @Test
+    func disabledItemsAreSkipped() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy)
+        let outcome = await creator.create(from: [
+            makeItem("one"), makeItem("two", isEnabled: false),
+        ])
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdTitles == ["one"])
+    }
+
     @Test
     func permissionDeniedReturnsOutcomeWithoutCreating() async {
         let spy = SpyReminderCreator()
@@ -130,6 +142,19 @@ struct ChecklistCreatorTests {
         let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
         let outcome = await creator.create(from: [
             makeItem("one"), makeItem(""), makeItem("two"), makeItem("   "),
+        ])
+        #expect(outcome == .created(count: 2))
+        #expect(spy.createdTitles == ["1: one", "2: two"])
+    }
+
+    /// Preview parity: a disabled item is dropped before numbering, so the
+    /// preview shows contiguous positions across it with no gap.
+    @Test
+    func numberingSkipsDisabledItemsWithoutGaps() async {
+        let spy = SpyReminderCreator()
+        let creator = ChecklistCreator(reminders: spy, prefixNumbers: true)
+        let outcome = await creator.create(from: [
+            makeItem("one"), makeItem("skip", isEnabled: false), makeItem("two"),
         ])
         #expect(outcome == .created(count: 2))
         #expect(spy.createdTitles == ["1: one", "2: two"])
