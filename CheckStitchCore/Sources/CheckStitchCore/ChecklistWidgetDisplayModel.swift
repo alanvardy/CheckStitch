@@ -52,7 +52,7 @@ public struct ChecklistWidgetDisplayModel: Equatable, Sendable {
                 id: checklist.id,
                 name: checklist.name,
                 entityID: entity.id,
-                isRunnable: access == .ready,
+                isRunnable: access == .ready && checklist.hasRunnableItems,
                 needsAccess: access != .ready,
                 needsPurchase: access == .needsPurchase,
                 indicator: runIndicators[checklist.id] ?? .play)

@@ -58,9 +58,9 @@ final class WatchChecklistViewModel {
         store.checklists.first { $0.id == checklist.id } ?? checklist
     }
 
-    /// Blank rows are never turned into reminders, so the watch hides them too.
+    /// Blank rows and disabled rows are never turned into reminders, so the watch hides them too.
     func visibleItems(of checklist: Checklist) -> [ChecklistItem] {
-        current(checklist).items.filter { !$0.isBlank }
+        current(checklist).items.filter(\.isRunnable)
     }
 
     func phase(runID: UUID?) -> RunPhase {
