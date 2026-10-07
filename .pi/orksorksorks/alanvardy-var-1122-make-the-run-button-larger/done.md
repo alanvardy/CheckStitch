@@ -10,8 +10,9 @@
   height, so toggling edit no longer changes the list's rhythm. Run logic,
   disabled state, accessibility label/identifier, and
   `.buttonStyle(.borderless)` are unchanged.
-- **Commit SHA(s)**: `cc0077e` ("Make the checklist run button a full-height
-  square"), pushed to `origin/alanvardy-var-1122-make-the-run-button-larger`.
+- **Commit SHA(s)**: `d322538` ("Pin checklist rows to a fixed height for the
+  larger run icon"), on top of `9a7e5ea` ("Make the checklist run button a
+  full-height square"); pushed to `origin/alanvardy-var-1122-make-the-run-button-larger`.
 - **Verification**: `make build` (simulator, warnings-as-errors) →
   `** BUILD SUCCEEDED **`; `make test-unit` → 603 tests in 67 suites passed;
   full gate `bash scripts/test.sh` → `gate: ok` (incl. UI smoke, `build-mac`,
