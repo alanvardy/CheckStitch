@@ -28,9 +28,21 @@ struct ChecklistSelectionView: View {
     var secondaryTitle: LocalizedStringKey?
     var secondaryAccessibilityID: String?
     var onSecondary: (() -> Void)?
+    /// Optional "Select All" affordance beside the secondary action — the export
+    /// sheet's convenience so every active checklist is chosen at once. The import
+    /// sheet has only a confirm and leaves these nil.
+    var selectAllTitle: LocalizedStringKey?
+    var selectAllAccessibilityID: String?
+    var onSelectAll: (() -> Void)?
 
     /// Pure, so the disable state is unit-testable without a live hierarchy.
     var canConfirm: Bool { !selection.isEmpty }
+
+    /// Pure: every row is already selected, so the Select All button is inert.
+    var allRowsSelected: Bool { !rows.isEmpty && selection.count == rows.count }
+
+    /// Pure: there is something to select, so Select All may be enabled.
+    var canSelectAll: Bool { !allRowsSelected }
 
     /// Pure toggle helper, exposed for tests.
     static func toggled(_ selection: Set<UUID>, id: UUID) -> Set<UUID> {
@@ -46,7 +58,8 @@ struct ChecklistSelectionView: View {
     /// outline is tappable, not just the text.
     private func actionButton(_ title: LocalizedStringKey,
                              identifier: String,
-                             action: @escaping () -> Void) -> some View {
+                             action: @escaping () -> Void,
+                             enabled: Bool = true) -> some View {
         Button(action: action) {
             Text(title)
                 .padding(.horizontal, 18)
@@ -61,7 +74,7 @@ struct ChecklistSelectionView: View {
                 }
                 .contentShape(RoundedRectangle(cornerRadius: CardPlate.cornerRadius))
         }
-        .disabled(!canConfirm)
+        .disabled(!enabled)
         .checkStitchButton()
         .accessibilityIdentifier(identifier)
     }
@@ -103,14 +116,21 @@ struct ChecklistSelectionView: View {
             HStack(spacing: 16) {
                 actionButton(confirmTitle,
                              identifier: confirmAccessibilityID,
-                             action: onConfirm)
+                             action: onConfirm,
+                             enabled: canConfirm)
                 #if os(iOS)
                 // The share presenter is iOS-only, so macOS never draws the
-                // second action (the export sheet there is unchanged).
+                // second or Select All actions (the export sheet there is unchanged).
                 if let secondaryTitle, let onSecondary {
                     actionButton(secondaryTitle,
                                  identifier: secondaryAccessibilityID ?? "",
                                  action: onSecondary)
+                }
+                if let selectAllTitle, let onSelectAll {
+                    actionButton(selectAllTitle,
+                                 identifier: selectAllAccessibilityID ?? "",
+                                 action: onSelectAll,
+                                 enabled: canSelectAll)
                 }
                 #endif
             }

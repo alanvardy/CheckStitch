@@ -17,6 +17,12 @@ struct ExportChecklistsView: View {
         ChecklistSelectionView.toggled(selection, id: id)
     }
 
+    /// Pure: the full selection when every active checklist is chosen.
+    /// Exposed so the select-all logic is unit-testable without a live hierarchy.
+    static func selectAll(_ checklists: [Checklist]) -> Set<UUID> {
+        Set(checklists.map { $0.id })
+    }
+
     var body: some View {
         ChecklistSelectionView(
             title: "Export Checklists",
@@ -31,6 +37,9 @@ struct ExportChecklistsView: View {
             confirmAccessibilityID: "confirmExportButton",
             secondaryTitle: "Share…",
             secondaryAccessibilityID: "shareChecklistsButton",
-            onSecondary: onShare)
+            onSecondary: onShare,
+            selectAllTitle: "Select All",
+            selectAllAccessibilityID: "selectAllChecklistsButton",
+            onSelectAll: { selection = Self.selectAll(store.activeChecklists) })
     }
 }
