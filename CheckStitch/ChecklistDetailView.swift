@@ -58,6 +58,9 @@ struct ChecklistDetailView: View {
                             }
                         }
                         .accessibilityIdentifier("destinationListPicker")
+                        Text("The Reminders list where the new reminders will be added.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
 
                         if destinationUnavailable {
                             Text("Reminder lists aren't available, so a destination can't be chosen here.")
