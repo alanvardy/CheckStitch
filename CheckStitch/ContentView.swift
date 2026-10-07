@@ -725,15 +725,20 @@ struct ContentView: View {
         Button {
             Task { await runVM.createReminders(for: id) }
         } label: {
-            if runVM.creating.contains(id) {
-                ProgressView()
-                    .controlSize(.small)
-            } else if runVM.created.contains(id) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-            } else {
-                Image(systemName: "play.circle.fill")
+            Group {
+                if runVM.creating.contains(id) {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if runVM.created.contains(id) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Image(systemName: "play.circle.fill")
+                }
             }
+            .font(.title2)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .disabled(runVM.creating.contains(id) || !checklist.hasRunnableItems)
