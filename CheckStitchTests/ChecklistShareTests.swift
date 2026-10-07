@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 struct ChecklistShareTests {
     private func makeDocument(names: [String]) throws -> ChecklistExportDocument {
         let checklists = names.map { Checklist(name: $0, items: [ChecklistItem(title: "Milk")]) }
-        return try ChecklistExportDocument(checklists: checklists)
+        return try ChecklistExportDocument(checklists: checklists, from: [])
     }
 
     @Test
@@ -48,7 +48,7 @@ struct ChecklistShareTests {
 
     @Test
     func emptyDocumentStillYieldsValidJSONBytes() async throws {
-        let document = try ChecklistExportDocument(checklists: [])
+        let document = try ChecklistExportDocument(checklists: [], from: [])
         let provider = ChecklistShare.itemProvider(for: document, filename: "x.json")
 
         let data = try await withCheckedThrowingContinuation { continuation in

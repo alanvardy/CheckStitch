@@ -55,7 +55,7 @@ final class ChecklistImportExportViewModel {
         let selected = store.activeChecklists.filter { exportSelection.contains($0.id) }
         guard !selected.isEmpty else { return }
         do {
-            exportDocument = try ChecklistExportDocument(checklists: selected)
+            exportDocument = try ChecklistExportDocument(checklists: selected, from: store.folders)
             isExporting = true
         } catch {
             exportErrorMessage = error.localizedDescription
@@ -72,7 +72,7 @@ final class ChecklistImportExportViewModel {
         let selected = store.activeChecklists.filter { exportSelection.contains($0.id) }
         guard !selected.isEmpty else { return }
         do {
-            pendingShare = try ChecklistExportDocument(checklists: selected)
+            pendingShare = try ChecklistExportDocument(checklists: selected, from: store.folders)
         } catch {
             // Same error surface as export: the share itself has no error channel.
             exportErrorMessage = error.localizedDescription

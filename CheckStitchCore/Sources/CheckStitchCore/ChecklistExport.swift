@@ -1,19 +1,25 @@
 import Foundation
 
 /// Serialises a selected subset of checklists as a *document* envelope: version
-/// current, no device identity, no tombstones. An export is therefore a valid
-/// `ChecklistCodec` payload (`classify == .loaded`) but never resurrects
-/// deletions or injects a foreign `deviceID` into a future LWW tie-break.
+/// current, no device identity, no tombstones and no foreign device id. An
+/// export is therefore a valid `ChecklistCodec` payload (`classify == .loaded`)
+/// but never resurrects deletions or injects a foreign `deviceID` into a future
+/// LWW tie-break. The folders referenced by the exported checklists ride along
+/// (deduped, empty `folderTombstones`) so folder membership survives a round
+/// trip.
 public enum ChecklistExport {
-    public static func envelope(checklists: [Checklist]) -> ChecklistEnvelope {
-        ChecklistEnvelope(version: ChecklistCodec.currentVersion,
-                          deviceID: "",
-                          checklists: checklists,
-                          tombstones: [])
+    public static func envelope(checklists: [Checklist], from folders: [Folder]) -> ChecklistEnvelope {
+        let referenced = Set(checklists.compactMap(\.folderID))
+        return ChecklistEnvelope(version: ChecklistCodec.currentVersion,
+                                 deviceID: "",
+                                 checklists: checklists,
+                                 tombstones: [],
+                                 folders: folders.filter { referenced.contains($0.id) },
+                                 folderTombstones: [])
     }
 
-    public static func data(checklists: [Checklist]) throws -> Data {
-        try ChecklistCodec.encode(envelope(checklists: checklists))
+    public static func data(checklists: [Checklist], from folders: [Folder]) throws -> Data {
+        try ChecklistCodec.encode(envelope(checklists: checklists, from: folders))
     }
 
     /// File name stem, no extension — the export panel supplies `.json` from the

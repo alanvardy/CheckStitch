@@ -10,8 +10,8 @@ struct ChecklistExportDocument: FileDocument {
 
     let data: Data
 
-    init(checklists: [Checklist]) throws {
-        self.data = try ChecklistExport.data(checklists: checklists)
+    init(checklists: [Checklist], from folders: [Folder]) throws {
+        self.data = try ChecklistExport.data(checklists: checklists, from: folders)
     }
 
     init(configuration: ReadConfiguration) throws {

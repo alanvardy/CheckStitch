@@ -2946,5 +2946,54 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(store.folders.map(\.name), ["Work"])
         XCTAssertEqual(store.folders.first?.isCollapsed, false)
     }
+
+    func testResolveOrCreateFolderReusesSameName() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+
+        XCTAssertEqual(store.resolveOrCreateFolder(named: " work "), folder.id,
+                       "a trimmed, case-insensitive match is reused")
+        XCTAssertEqual(store.folders.count, 1, "reuse mints nothing new")
+    }
+
+    func testResolveOrCreateFolderMintsWhenAbsent() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let resolved = store.resolveOrCreateFolder(named: "Work")
+
+        XCTAssertEqual(store.folders.map(\.name), ["Work"])
+        XCTAssertEqual(store.folders.first?.id, resolved)
+        XCTAssertEqual(store.folders.first?.revision, 1)
+    }
+
+    func testImportInsertWithFolderCarriesMembership() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let folder = store.createFolder(name: "Work")
+        let inserted = store.importInsert(makeImportedChecklist(), folderID: folder.id)
+
+        XCTAssertEqual(store.checklist(id: inserted)?.folderID, folder.id, "membership lands on the fresh copy")
+
+        let reloaded = makeStore(defaults: suite.defaults)
+        XCTAssertEqual(reloaded.checklist(id: inserted)?.folderID, folder.id, "membership survives a reload")
+    }
+
+    func testImportInsertWithoutFolderLandsLoose() {
+        let suite = makeDefaults()
+        defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
+
+        let store = makeStore(defaults: suite.defaults)
+        let inserted = store.importInsert(makeImportedChecklist())
+
+        XCTAssertNil(store.checklist(id: inserted)?.folderID,
+                     "the folder-ID default keeps the copy loose")
+    }
 }
 
