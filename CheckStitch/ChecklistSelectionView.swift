@@ -42,7 +42,8 @@ struct ChecklistSelectionView: View {
     var allRowsSelected: Bool { !rows.isEmpty && selection.count == rows.count }
 
     /// Pure: there is something to select, so Select All may be enabled.
-    var canSelectAll: Bool { !allRowsSelected }
+    /// Disabled when there are no rows at all.
+    var canSelectAll: Bool { !rows.isEmpty && !allRowsSelected }
 
     /// Pure toggle helper, exposed for tests.
     static func toggled(_ selection: Set<UUID>, id: UUID) -> Set<UUID> {
@@ -124,7 +125,8 @@ struct ChecklistSelectionView: View {
                 if let secondaryTitle, let onSecondary {
                     actionButton(secondaryTitle,
                                  identifier: secondaryAccessibilityID ?? "",
-                                 action: onSecondary)
+                                 action: onSecondary,
+                                 enabled: canConfirm)
                 }
                 if let selectAllTitle, let onSelectAll {
                     actionButton(selectAllTitle,

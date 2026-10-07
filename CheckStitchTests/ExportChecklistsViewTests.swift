@@ -65,6 +65,35 @@ struct ExportChecklistsViewTests {
         #expect(renders(view))
     }
 
+    @Test
+    func canSelectAllTracksWhetherEveryRowIsSelected() {
+        let id = UUID()
+        let rows = [ChecklistSelectionRow(id: id, name: "Groceries", detail: nil)]
+        let none = ChecklistSelectionView(
+            title: "Import Checklists", rows: rows, selection: .constant([]),
+            confirmTitle: "Import", onConfirm: {}, onCancel: {},
+            rowAccessibilityID: "importSelectionRow",
+            confirmAccessibilityID: "confirmImportButton")
+        let all = ChecklistSelectionView(
+            title: "Import Checklists", rows: rows,
+            selection: .constant(Set([id])),
+            confirmTitle: "Import", onConfirm: {}, onCancel: {},
+            rowAccessibilityID: "importSelectionRow",
+            confirmAccessibilityID: "confirmImportButton")
+        let noRows = ChecklistSelectionView(
+            title: "Import Checklists", rows: [], selection: .constant([]),
+            confirmTitle: "Import", onConfirm: {}, onCancel: {},
+            rowAccessibilityID: "importSelectionRow",
+            confirmAccessibilityID: "confirmImportButton")
+
+        #expect(none.allRowsSelected == false)
+        #expect(none.canSelectAll == true)
+        #expect(all.allRowsSelected == true)
+        #expect(all.canSelectAll == false)
+        #expect(noRows.allRowsSelected == false)
+        #expect(noRows.canSelectAll == false)
+    }
+
     /// Renders `view` offscreen and reports whether a frame was produced.
     private func renders(_ view: some View) -> Bool {
         #if os(macOS)
