@@ -548,8 +548,12 @@ struct ContentView: View {
                 createRemindersButton(for: checklist)
             }
         }
+        .frame(height: CardPlate.checklistRowHeight)
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        // 1pt top/bottom keeps the row's outer height at 46pt — the same as
+        // the text-driven row before the Run square grew, so the larger glyph
+        // does not stretch the list.
+        .padding(.vertical, 1)
 
         if isEditing {
             row
@@ -737,7 +741,7 @@ struct ContentView: View {
                 }
             }
             .font(.title2)
-            .frame(width: 44, height: 44)
+            .frame(width: CardPlate.checklistRowHeight, height: CardPlate.checklistRowHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
