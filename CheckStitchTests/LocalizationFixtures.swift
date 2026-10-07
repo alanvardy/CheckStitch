@@ -94,6 +94,7 @@ enum LocalizationFixtures {
             "Small",
             "System",
             "Text Size",
+            "The Reminders list where the new reminders will be added.",
             "This removes the checklist and all its items.",
             "This removes the folder. Its checklists become loose.",
             "Export",

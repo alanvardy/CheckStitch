@@ -3527,6 +3527,47 @@
         }
       }
     },
+    "The Reminders list where the new reminders will be added." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Erinnerungen-Liste, in der die neuen Erinnerungen hinzugefügt werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Reminders list where the new reminders will be added."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La lista de Recordatorios en la que se añadirán los nuevos recordatorios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La liste de rappels dans laquelle seront ajoutés les nouveaux rappels."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいリマインダーが追加されるリマインダーリスト。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新的提醒事项将被添加到的提醒事项列表。"
+          }
+        }
+      }
+    },
     "Number Reminders" : {
       "extractionState" : "manual",
       "localizations" : {
