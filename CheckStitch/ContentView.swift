@@ -441,6 +441,16 @@ struct ContentView: View {
                             if isEditing {
                                 Button("New Folder") { folderNameInput = ""; isCreatingFolder = true }
                                     .accessibilityIdentifier("newFolderButton")
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 6)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                                            .fill(CardPlate.iconPlateFill(for: colorScheme))
+                                    }
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
+                                            .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
+                                    )
                             }
                             Spacer()
                             editToggleButton
