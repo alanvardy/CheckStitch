@@ -271,7 +271,7 @@ public final class ChecklistStore {
     /// `destinationListIdentifier` is carried over so the user's chosen Reminders
     /// list survives; if that list is missing on this device the run path's
     /// existing `.destinationMissing` net reports it before creating anything.
-    private func freshCopy(of checklist: Checklist) -> Checklist {
+    private func freshCopy(of checklist: Checklist, folderID: UUID? = nil) -> Checklist {
         Checklist(
             name: checklist.name,
             items: checklist.items.map {
@@ -283,6 +283,7 @@ public final class ChecklistStore {
             prefixesReminderNumbers: checklist.prefixesReminderNumbers,
             showsOnWatch: checklist.showsOnWatch,
             multiple: checklist.multiple,
+            folderID: folderID,
             isArchived: false,
             archivedAt: nil,
             modifiedAt: now(),
@@ -295,8 +296,8 @@ public final class ChecklistStore {
     /// non-destructive "Keep Both" path; pass `name` to force one. Never re-enters
     /// the LWW merge. Returns the new id.
     @discardableResult
-    public func importInsert(_ checklist: Checklist, as name: String? = nil) -> UUID {
-        var copy = freshCopy(of: checklist)
+    public func importInsert(_ checklist: Checklist, as name: String? = nil, folderID: UUID? = nil) -> UUID {
+        var copy = freshCopy(of: checklist, folderID: folderID)
         copy.name = name ?? Self.uniqueName(basedOn: copy.name, taken: activeNames)
         checklists.append(copy)
         save()
@@ -605,6 +606,23 @@ public final class ChecklistStore {
         folders.append(folder)
         save()
         return folder
+    }
+
+    /// Resolves a file folder name to a local folder: an existing folder whose name
+    /// matches (`sameName`: trimmed, case-insensitive) is reused; otherwise a fresh
+    /// folder is minted in memory with a `uniqueName`-disambiguated name. Does NOT
+    /// `save()` — the caller's checklist write shares the single save.
+    @discardableResult
+    public func resolveOrCreateFolder(named rawName: String) -> UUID {
+        let requested = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let existing = folders.first(where: { Self.sameName($0.name, requested) }) {
+            return existing.id
+        }
+        let name = Self.uniqueName(basedOn: requested.isEmpty ? "New Folder" : requested,
+                                   taken: folders.map(\.name))
+        let folder = Folder(name: name, modifiedAt: now(), revision: 1)
+        folders.append(folder)
+        return folder.id
     }
 
     /// Files a checklist into `folderID` (`nil` = loose). Bumps the checklist's

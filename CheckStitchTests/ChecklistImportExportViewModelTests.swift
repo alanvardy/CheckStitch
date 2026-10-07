@@ -80,7 +80,7 @@ struct ChecklistImportExportViewModelTests {
         let url = try writeTempFile(try ChecklistExport.data(checklists: [
             Checklist(name: "A"),
             Checklist(name: "B"),
-        ]))
+        ], from: []))
 
         viewModel.importFile(at: url)
 
@@ -97,7 +97,7 @@ struct ChecklistImportExportViewModelTests {
         let url = try writeTempFile(try ChecklistExport.data(checklists: [
             Checklist(name: "A"),
             Checklist(name: "B"),
-        ]))
+        ], from: []))
 
         viewModel.importFile(at: url)
         viewModel.importSelection = [viewModel.importCandidates[0].id]   // untick B
@@ -113,7 +113,7 @@ struct ChecklistImportExportViewModelTests {
         let viewModel = ChecklistImportExportViewModel(store: store)
         let exported = try ChecklistExport.data(checklists: [
             Checklist(name: "Groceries", destinationListIdentifier: "list-a"),
-        ])
+        ], from: [])
 
         viewModel.importFile(at: try writeTempFile(exported))
         viewModel.commitImport()
@@ -127,7 +127,7 @@ struct ChecklistImportExportViewModelTests {
         let viewModel = ChecklistImportExportViewModel(store: store)
         let url = try writeTempFile(try ChecklistExport.data(checklists: [
             Checklist(name: "A"),
-        ]))
+        ], from: []))
 
         viewModel.importFile(at: url)
         viewModel.cancelImport()
@@ -211,8 +211,8 @@ struct ChecklistImportExportViewModelTests {
     func receivingWhileSheetOpenReplacesStagedFile() throws {
         let store = makeStore(names: [])
         let viewModel = ChecklistImportExportViewModel(store: store)
-        let first = try writeTempFile(try ChecklistExport.data(checklists: [Checklist(name: "A")]))
-        let second = try writeTempFile(try ChecklistExport.data(checklists: [Checklist(name: "B")]))
+        let first = try writeTempFile(try ChecklistExport.data(checklists: [Checklist(name: "A")], from: []))
+        let second = try writeTempFile(try ChecklistExport.data(checklists: [Checklist(name: "B")], from: []))
 
         viewModel.importFile(at: first)
         viewModel.importFile(at: second)
@@ -228,7 +228,7 @@ struct ChecklistImportExportViewModelTests {
         let exported = try ChecklistExport.data(checklists: [
             Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")]),
             Checklist(name: "Groceries", items: [ChecklistItem(title: "Eggs")]),
-        ])
+        ], from: [])
         let store = makeStore(names: ["Groceries"])
         let viewModel = ChecklistImportExportViewModel(store: store)
 
@@ -347,5 +347,47 @@ struct ChecklistImportExportViewModelTests {
 
         #expect(viewModel.pendingShare != nil)
         #expect(viewModel.exportErrorMessage == nil)
+    }
+
+    /// `exportSelected()` builds a folder-bearing payload: the folder holding the
+    /// selected checklist rides along by name.
+    @Test
+    func exportSelectedWritesAFolderBearingPayload() throws {
+        let store = makeStore(names: ["Groceries"])
+        let folder = store.createFolder(name: "Groceries")
+        store.moveChecklist(id: store.checklists[0].id, toFolder: folder.id)
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = [store.checklists[0].id]
+
+        viewModel.exportSelected()
+
+        let data = try #require(viewModel.exportDocument).data
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            Issue.record("payload did not classify as loaded")
+            return
+        }
+        #expect(env.folders.map(\.name) == ["Groceries"])
+    }
+
+    /// `shareSelected()` records the same folder-bearing payload on the pending
+    /// share document.
+    @Test
+    func shareSelectedRecordsAFolderBearingPayload() throws {
+        let store = makeStore(names: ["Groceries"])
+        let folder = store.createFolder(name: "Groceries")
+        store.moveChecklist(id: store.checklists[0].id, toFolder: folder.id)
+        let viewModel = ChecklistImportExportViewModel(store: store)
+        viewModel.beginExport()
+        viewModel.exportSelection = [store.checklists[0].id]
+
+        viewModel.shareSelected()
+
+        let data = try #require(viewModel.pendingShare).data
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            Issue.record("payload did not classify as loaded")
+            return
+        }
+        #expect(env.folders.map(\.name) == ["Groceries"])
     }
 }

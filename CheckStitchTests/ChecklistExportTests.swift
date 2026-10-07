@@ -22,7 +22,7 @@ final class ChecklistExportTests: XCTestCase {
 
     func testExportOfSubsetRoundTripsThroughCodec() throws {
         let selected = selectedPair()
-        let data = try ChecklistExport.data(checklists: selected)
+        let data = try ChecklistExport.data(checklists: selected, from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
@@ -46,7 +46,7 @@ final class ChecklistExportTests: XCTestCase {
     /// priority and its priority clock riding the coarse revision.
     func testExportPreservesPriority() throws {
         let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk", priority: .high)])
-        let data = try ChecklistExport.data(checklists: [checklist])
+        let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
@@ -68,7 +68,7 @@ final class ChecklistExportTests: XCTestCase {
             ChecklistItem(title: "Milk", isEnabled: true),
             ChecklistItem(title: "Eggs", isEnabled: false),
         ])
-        let data = try ChecklistExport.data(checklists: [checklist])
+        let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
@@ -88,7 +88,7 @@ final class ChecklistExportTests: XCTestCase {
     /// encodes it; this pins the boundary).
     func testExportPreservesDestination() throws {
         let checklist = Checklist(name: "Groceries", destinationListIdentifier: "list-a")
-        let data = try ChecklistExport.data(checklists: [checklist])
+        let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
@@ -100,7 +100,7 @@ final class ChecklistExportTests: XCTestCase {
     /// Export → classify → decode keeps the template multiple.
     func testExportPreservesMultiple() throws {
         let checklist = Checklist(name: "Groceries", multiple: 7)
-        let data = try ChecklistExport.data(checklists: [checklist])
+        let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
@@ -115,7 +115,7 @@ final class ChecklistExportTests: XCTestCase {
     func testExportClampsOutOfRangeMultipleOnDecode() throws {
         for (raw, expected) in [(0, 1), (100, 99)] {
             let checklist = Checklist(name: "Groceries", multiple: raw)
-            let data = try ChecklistExport.data(checklists: [checklist])
+            let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
             guard case .loaded(let env) = ChecklistCodec.classify(data) else {
                 XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
@@ -127,7 +127,7 @@ final class ChecklistExportTests: XCTestCase {
     }
 
     func testExportEmptySelectionClassifiesLoadedWithNoChecklists() throws {
-        let data = try ChecklistExport.data(checklists: [])
+        let data = try ChecklistExport.data(checklists: [], from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
@@ -155,7 +155,7 @@ final class ChecklistExportTests: XCTestCase {
 
     func testFileWrapperCarriesEncodedBytes() throws {
         let selected = selectedPair()
-        let doc = try ChecklistExportDocument(checklists: selected)
+        let doc = try ChecklistExportDocument(checklists: selected, from: [])
         let contents = doc.data
 
         // Assert semantically rather than byte-for-byte: `fileWrapper` returns
@@ -170,5 +170,38 @@ final class ChecklistExportTests: XCTestCase {
         XCTAssertEqual(env.checklists, selected)
         XCTAssertEqual(env.deviceID, "")
         XCTAssertTrue(env.tombstones.isEmpty)
+    }
+
+    /// The referenced folder rides along (deduped by id); unreferenced folders are
+    /// dropped, and the export ships no tombstones and no device identity.
+    func testExportCarriesReferencedFoldersDedupedAndShipsNoTombstones() throws {
+        let groceries = Folder(name: "Groceries")
+        let folders: [Folder] = [groceries, Folder(name: "Unreferenced")]
+        let a = Checklist(name: "A", folderID: groceries.id)
+        let b = Checklist(name: "B", folderID: groceries.id)
+        let loose = Checklist(name: "Loose")
+
+        let data = try ChecklistExport.data(checklists: [a, b, loose], from: folders)
+
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(env.folders.map(\.name), ["Groceries"])
+        XCTAssertTrue(env.folderTombstones.isEmpty)
+        XCTAssertTrue(env.tombstones.isEmpty)
+        XCTAssertEqual(env.deviceID, "")
+    }
+
+    /// A selection with no folder membership exports no folders.
+    func testExportOmitsFoldersWhenSelectionHasNone() throws {
+        let data = try ChecklistExport.data(checklists: [Checklist(name: "Loose")],
+                                            from: [Folder(name: "Unreferenced")])
+
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertTrue(env.folders.isEmpty)
     }
 }

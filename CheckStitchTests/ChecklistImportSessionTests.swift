@@ -10,8 +10,14 @@ struct ChecklistImportSessionTests {
         return (ChecklistImportSession(store: store), store)
     }
 
-    private func payload(_ checklists: [Checklist], version: Int = ChecklistCodec.currentVersion) throws -> Data {
-        try ChecklistCodec.encode(ChecklistEnvelope(version: version, deviceID: "", checklists: checklists))
+    private func payload(_ checklists: [Checklist],
+                     folders: [Folder] = [],
+                     folderTombstones: [FolderTombstone] = [],
+                     version: Int = ChecklistCodec.currentVersion) throws -> Data {
+        try ChecklistCodec.encode(ChecklistEnvelope(version: version, deviceID: "",
+                                                    checklists: checklists,
+                                                    folders: folders,
+                                                    folderTombstones: folderTombstones))
     }
 
     private func allIDs(_ candidates: [ChecklistImportCandidate]) -> Set<UUID> {
@@ -356,5 +362,68 @@ struct ChecklistImportSessionTests {
         #expect(store.tombstones.isEmpty)
         #expect(session.summary.keptExisting == 1)
         #expect(session.pending.isEmpty)
+    }
+
+    /// A source store with one folder and a member checklist; returns the export
+    /// payload for just that member (the folder rides along).
+    private func folderBearingPayload() throws -> Data {
+        let source = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
+        let folder = source.createFolder(name: "Groceries")
+        let member = source.create(name: "Groceries")
+        source.moveChecklist(id: member.id, toFolder: folder.id)
+        guard let memberWithFolder = source.checklist(id: member.id) else {
+            fatalError("member checklist vanished")
+        }
+        return try ChecklistExport.data(checklists: [memberWithFolder], from: source.folders)
+    }
+
+    /// A folder-bearing export into an empty store recreates the folder by name
+    /// and reparents the imported checklist into it.
+    @Test
+    func exportedFolderIsRecreatedWhenImportingIntoEmptyStore() throws {
+        let (session, store) = makeSession()
+        let data = try folderBearingPayload()
+
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.folders.map(\.name) == ["Groceries"])
+        let localFolder = try #require(store.folders.first)
+        #expect(store.checklists.first?.folderID == localFolder.id)
+    }
+
+    /// Staging a folder-bearing file resolves nothing against the store: no
+    /// folder and no checklist are written until commit.
+    @Test
+    func stagingAFolderBearingFileWritesNothing() throws {
+        let (session, store) = makeSession()
+
+        _ = try session.stage(data: try folderBearingPayload())
+
+        #expect(store.folders.isEmpty)
+        #expect(store.checklists.isEmpty)
+    }
+
+    /// Re-importing a folder-bearing file into the same store, resolving the
+    /// resulting name conflict via Keep Both, must not mint a duplicate folder:
+    /// the second commit's `folderMap` resolves to the existing "Groceries". (Phase
+    /// 1 asserts folder non-duplication only; the Keep Both survivor's membership
+    /// in that folder is Phase 2 scope — plan wording adjusted.)
+    @Test
+    func reImportingTheSameFileDoesNotDuplicateFolder() throws {
+        let data = try folderBearingPayload()
+        let (session, store) = makeSession()
+
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(store.folders.count == 1)
+
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(session.pending.count == 1, "the same-name checklist now conflicts")
+        session.decide(.keepBoth, for: session.pending.first?.id ?? UUID())
+
+        #expect(store.folders.count == 1, "a re-import never mints a duplicate folder")
+        #expect(store.folders.map(\.name) == ["Groceries"])
     }
 }

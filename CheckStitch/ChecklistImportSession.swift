@@ -48,6 +48,9 @@ final class ChecklistImportSession {
     /// The staged checklists presented for selection, in file order.
     private(set) var candidates: [ChecklistImportCandidate] = []
     private(set) var summary = ImportSummary()
+    /// The file's folders, stashed at stage so commit can resolve file-folder
+    /// ids to local folder ids. Reading-only in `stage`; written on commit.
+    private var fileFolders: [Folder] = []
 
     init(store: ChecklistStore, now: @escaping () -> Date = Date.init) {
         self.store = store
@@ -63,8 +66,9 @@ final class ChecklistImportSession {
         pending = []
         summary = ImportSummary()
         candidates = []
-        let incoming = try decoded(data)
-        candidates = incoming.map { checklist in
+        let envelope = try decoded(data)
+        fileFolders = envelope.folders
+        candidates = envelope.checklists.map { checklist in
             ChecklistImportCandidate(
                 id: checklist.id,
                 checklist: checklist,
@@ -79,12 +83,22 @@ final class ChecklistImportSession {
     @discardableResult
     func commit(selectedIDs: Set<UUID>) -> ImportSummary {
         var result = ImportSummary()
-        for candidate in candidates where selectedIDs.contains(candidate.id) {
+        let selected = candidates.filter { selectedIDs.contains($0.id) }
+        var folderMap: [UUID: UUID] = [:]
+        for candidate in selected {
+            guard let fileFolderID = candidate.checklist.folderID,
+                  folderMap[fileFolderID] == nil,
+                  let localID = localFolderID(forFileFolderID: fileFolderID)
+            else { continue }
+            folderMap[fileFolderID] = localID
+        }
+        for candidate in selected {
             if let conflict = store.conflictingChecklist(named: candidate.checklist.name) {
                 pending.append(ChecklistImportCandidate(
                     id: candidate.id, checklist: candidate.checklist, conflicting: conflict))
             } else {
-                store.importInsert(candidate.checklist)
+                store.importInsert(candidate.checklist,
+                                   folderID: candidate.checklist.folderID.flatMap { folderMap[$0] })
                 result.inserted += 1
             }
         }
@@ -99,24 +113,41 @@ final class ChecklistImportSession {
         summary = ImportSummary()
     }
 
-    /// The decode+migrate half of the old `prepare`.
-    private func decoded(_ data: Data) throws -> [Checklist] {
+    /// The decode+migrate half of the old `prepare`. Returns the whole envelope
+    /// so folders/tombstones ride through migration, not just the checklists.
+    private func decoded(_ data: Data) throws -> ChecklistEnvelope {
         switch ChecklistCodec.classify(data) {
         case .loaded(let envelope):
-            return envelope.checklists
+            return envelope
         case .migratable(let from, let envelope):
-            return envelope.checklists.map { checklist in
+            let migrated = envelope.checklists.map { checklist in
                 switch from {
                 case 1: return checklist.migrated(at: now())
                 case 2: return checklist.seededOrder()
                 default: return checklist
                 }
             }
+            return ChecklistEnvelope(version: envelope.version,
+                                     deviceID: envelope.deviceID,
+                                     checklists: migrated,
+                                     tombstones: envelope.tombstones,
+                                     folders: envelope.folders,
+                                     folderTombstones: envelope.folderTombstones)
         case .unsupportedVersion:
             throw ChecklistImportError.unsupportedVersion
         case .unreadable:
             throw ChecklistImportError.unreadable
         }
+    }
+
+    /// File-folder id -> local folder id, minting a matching local folder when the
+    /// file folder is known. `nil` for an absent/nil file folder id (orphan) — the
+    /// checklist lands loose.
+    private func localFolderID(forFileFolderID fileFolderID: UUID?) -> UUID? {
+        guard let fileFolderID,
+              let fileFolder = fileFolders.first(where: { $0.id == fileFolderID })
+        else { return nil }
+        return store.resolveOrCreateFolder(named: fileFolder.name)
     }
 
     /// Applies one conflict decision and removes the candidate from the queue.
