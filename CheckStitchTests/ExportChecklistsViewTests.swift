@@ -31,6 +31,40 @@ struct ExportChecklistsViewTests {
         #expect(ExportChecklistsView.toggled(Set([id]), id: id) == Set<UUID>())
     }
 
+    @Test
+    func selectAllReturnsEveryActiveChecklist() {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
+        let a = store.create(name: "Groceries")
+        let b = store.create(name: "Home")
+
+        #expect(ExportChecklistsView.selectAll(store.activeChecklists) == Set([a.id, b.id]))
+    }
+
+    @Test
+    func exportSheetWithSelectAllStillRenders() {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
+        let view = ExportChecklistsView(selection: .constant([]), onExport: {}, onShare: {})
+
+        #expect(renders(view.environment(store)))
+    }
+
+    /// The import caller omits the optional select-all fields; when unset they
+    /// must be inert, so the shared sheet still renders exactly as before.
+    @Test
+    func sharedSheetWithoutSelectAllFieldsStillRenders() {
+        let view = ChecklistSelectionView(
+            title: "Import Checklists",
+            rows: [ChecklistSelectionRow(id: UUID(), name: "Groceries", detail: nil)],
+            selection: .constant([]),
+            confirmTitle: "Import",
+            onConfirm: {},
+            onCancel: {},
+            rowAccessibilityID: "importSelectionRow",
+            confirmAccessibilityID: "confirmImportButton")
+
+        #expect(renders(view))
+    }
+
     /// Renders `view` offscreen and reports whether a frame was produced.
     private func renders(_ view: some View) -> Bool {
         #if os(macOS)
