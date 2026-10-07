@@ -21,6 +21,12 @@ enum CardPlate {
     /// content area.
     nonisolated static let checklistTopMargin: CGFloat = 100
 
+    /// Fixed content height for a checklist row on the main screen. Pinning
+    /// the row to one height keeps the list's rhythm steady whether the row
+    /// is showing the full-height Run square (browse mode) or the edit
+    /// controls, and lets the Run glyph grow without stretching the row.
+    nonisolated static let checklistRowHeight: CGFloat = 44
+
     /// Small content-sized high-contrast plate behind the checklist rows:
     /// off-white in light, black in dark, so the rows stay readable over a
     /// photo or wallpaper.
