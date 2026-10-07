@@ -102,6 +102,7 @@ enum LocalizationFixtures {
             "Import Checklists",
             "Export Checklists",
             "Select All",
+            "Deselect All",
             "Select the checklists to include.",
             "A checklist with this name exists",
             "Couldn't import",

@@ -28,22 +28,27 @@ struct ChecklistSelectionView: View {
     var secondaryTitle: LocalizedStringKey?
     var secondaryAccessibilityID: String?
     var onSecondary: (() -> Void)?
-    /// Optional "Select All" affordance leading the action row (ahead of Export
-    /// and Share) — the export sheet's convenience so every active checklist is
-    /// chosen at once. The import sheet has only a confirm and leaves these nil.
+    /// Optional leading "Select All"/"Deselect All" toggle (ahead of Export and
+    /// Share) — the export sheet's convenience so every active checklist is chosen
+    /// at once, then cleared again. The import sheet has only a confirm and leaves
+    /// these nil.
     var selectAllTitle: LocalizedStringKey?
+    var deselectAllTitle: LocalizedStringKey?
     var selectAllAccessibilityID: String?
     var onSelectAll: (() -> Void)?
+    var onDeselectAll: (() -> Void)?
 
     /// Pure, so the disable state is unit-testable without a live hierarchy.
     var canConfirm: Bool { !selection.isEmpty }
 
-    /// Pure: every row is already selected, so the Select All button is inert.
+    /// Pure: every row is already selected, which flips the toggle's label to
+    /// "Deselect All" and its action to clearing the selection.
     var allRowsSelected: Bool { !rows.isEmpty && selection.count == rows.count }
 
-    /// Pure: there is something to select, so Select All may be enabled.
-    /// Disabled when there are no rows at all.
-    var canSelectAll: Bool { !rows.isEmpty && !allRowsSelected }
+    /// Pure: the toggle is enabled whenever there is at least one row to act on —
+    /// it offers Select All when not every row is chosen, and Deselect All once
+    /// they all are.
+    var canSelectAll: Bool { !rows.isEmpty }
 
     /// Pure toggle helper, exposed for tests.
     static func toggled(_ selection: Set<UUID>, id: UUID) -> Set<UUID> {
@@ -118,11 +123,12 @@ struct ChecklistSelectionView: View {
                 #if os(iOS)
                 // The share presenter is iOS-only, so macOS never draws the
                 // Select All or second actions (the export sheet there is unchanged).
-                // Select All leads the row, ahead of Export and Share.
-                if let selectAllTitle, let onSelectAll {
-                    actionButton(selectAllTitle,
+                // The leading toggle reads "Select All" until every row is chosen,
+                // then flips to "Deselect All".
+                if let selectAllTitle, let deselectAllTitle, let onSelectAll, let onDeselectAll {
+                    actionButton(allRowsSelected ? deselectAllTitle : selectAllTitle,
                                  identifier: selectAllAccessibilityID ?? "",
-                                 action: onSelectAll,
+                                 action: allRowsSelected ? onDeselectAll : onSelectAll,
                                  enabled: canSelectAll)
                 }
                 #endif
