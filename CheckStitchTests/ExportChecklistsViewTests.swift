@@ -66,7 +66,7 @@ struct ExportChecklistsViewTests {
     }
 
     @Test
-    func canSelectAllTracksWhetherEveryRowIsSelected() {
+    func canSelectAllTracksWhetherThereAreRowsToToggle() {
         let id = UUID()
         let rows = [ChecklistSelectionRow(id: id, name: "Groceries", detail: nil)]
         let none = ChecklistSelectionView(
@@ -89,9 +89,21 @@ struct ExportChecklistsViewTests {
         #expect(none.allRowsSelected == false)
         #expect(none.canSelectAll == true)
         #expect(all.allRowsSelected == true)
-        #expect(all.canSelectAll == false)
+        #expect(all.canSelectAll == true,
+                "the toggle stays enabled as Deselect All once every row is chosen")
         #expect(noRows.allRowsSelected == false)
-        #expect(noRows.canSelectAll == false)
+        #expect(noRows.canSelectAll == false, "nothing to toggle with no rows")
+    }
+
+    /// The export sheet supplies both toggle titles and both actions; the sheet
+    /// must render with the Select All/Deselect All affordance wired up.
+    @Test
+    func exportSheetWithSelectAndDeselectAllRenders() {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
+        _ = store.create(name: "Groceries")
+        let view = ExportChecklistsView(selection: .constant([]), onExport: {}, onShare: {})
+
+        #expect(renders(view.environment(store)))
     }
 
     /// Renders `view` offscreen and reports whether a frame was produced.

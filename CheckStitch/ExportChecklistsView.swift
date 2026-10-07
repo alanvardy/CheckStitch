@@ -39,7 +39,9 @@ struct ExportChecklistsView: View {
             secondaryAccessibilityID: "shareChecklistsButton",
             onSecondary: onShare,
             selectAllTitle: "Select All",
+            deselectAllTitle: "Deselect All",
             selectAllAccessibilityID: "selectAllChecklistsButton",
-            onSelectAll: { selection = Self.selectAll(store.activeChecklists) })
+            onSelectAll: { selection = Self.selectAll(store.activeChecklists) },
+            onDeselectAll: { selection = [] })
     }
 }
