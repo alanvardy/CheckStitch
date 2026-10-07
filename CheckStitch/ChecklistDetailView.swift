@@ -50,7 +50,7 @@ struct ChecklistDetailView: View {
                         TextField("Name", text: $draftName)
                             .accessibilityIdentifier("checklistNameField")
                     }
-                    Section("Destination list") {
+                    Section {
                         Picker("List", selection: destinationBinding(checklistID: checklistID)) {
                             Text("Default (Inbox)").tag(String?.none)
                             ForEach(listsSnapshot?.selectableOptions ?? []) { list in
@@ -58,18 +58,15 @@ struct ChecklistDetailView: View {
                             }
                         }
                         .accessibilityIdentifier("destinationListPicker")
+                    } header: {
+                        Text("Destination list")
+                    } footer: {
                         Text("The Reminders list where the new reminders will be added.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
 
                         if destinationUnavailable {
                             Text("Reminder lists aren't available, so a destination can't be chosen here.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
                         } else if destinationIsStale {
                             Text("The previously selected list no longer exists. Choose another list or Default (Inbox).")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
                         }
                     }
                     Section {
