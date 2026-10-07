@@ -23,14 +23,14 @@ struct ChecklistSelectionView: View {
     let onCancel: () -> Void
     let rowAccessibilityID: String
     let confirmAccessibilityID: String
-    /// Optional second action beside the confirm button — the export sheet's
+    /// Optional action drawn after the confirm button — the export sheet's
     /// "Share…". The import sheet has only a confirm and leaves these nil.
     var secondaryTitle: LocalizedStringKey?
     var secondaryAccessibilityID: String?
     var onSecondary: (() -> Void)?
-    /// Optional "Select All" affordance beside the secondary action — the export
-    /// sheet's convenience so every active checklist is chosen at once. The import
-    /// sheet has only a confirm and leaves these nil.
+    /// Optional "Select All" affordance leading the action row (ahead of Export
+    /// and Share) — the export sheet's convenience so every active checklist is
+    /// chosen at once. The import sheet has only a confirm and leaves these nil.
     var selectAllTitle: LocalizedStringKey?
     var selectAllAccessibilityID: String?
     var onSelectAll: (() -> Void)?
@@ -115,24 +115,27 @@ struct ChecklistSelectionView: View {
                 .accessibilityIdentifier(rowAccessibilityID)
             }
             HStack(spacing: 16) {
-                actionButton(confirmTitle,
-                             identifier: confirmAccessibilityID,
-                             action: onConfirm,
-                             enabled: canConfirm)
                 #if os(iOS)
                 // The share presenter is iOS-only, so macOS never draws the
-                // second or Select All actions (the export sheet there is unchanged).
-                if let secondaryTitle, let onSecondary {
-                    actionButton(secondaryTitle,
-                                 identifier: secondaryAccessibilityID ?? "",
-                                 action: onSecondary,
-                                 enabled: canConfirm)
-                }
+                // Select All or second actions (the export sheet there is unchanged).
+                // Select All leads the row, ahead of Export and Share.
                 if let selectAllTitle, let onSelectAll {
                     actionButton(selectAllTitle,
                                  identifier: selectAllAccessibilityID ?? "",
                                  action: onSelectAll,
                                  enabled: canSelectAll)
+                }
+                #endif
+                actionButton(confirmTitle,
+                             identifier: confirmAccessibilityID,
+                             action: onConfirm,
+                             enabled: canConfirm)
+                #if os(iOS)
+                if let secondaryTitle, let onSecondary {
+                    actionButton(secondaryTitle,
+                                 identifier: secondaryAccessibilityID ?? "",
+                                 action: onSecondary,
+                                 enabled: canConfirm)
                 }
                 #endif
             }
