@@ -204,4 +204,24 @@ final class ChecklistExportTests: XCTestCase {
         }
         XCTAssertTrue(env.folders.isEmpty)
     }
+
+    /// Regression pin for the export trio: a one-folder export carries exactly
+    /// that folder and ships no tombstones and no device identity. Deliberately
+    /// does not re-assert dedup (that lives in
+    /// `testExportCarriesReferencedFoldersDedupedAndShipsNoTombstones`).
+    func testExportFolderInvariants() throws {
+        let groceries = Folder(name: "Groceries")
+        let member = Checklist(name: "Groceries", folderID: groceries.id)
+        let data = try ChecklistExport.data(checklists: [member], from: [groceries])
+
+        guard case .loaded(let env) = ChecklistCodec.classify(data) else {
+            XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
+            return
+        }
+        XCTAssertEqual(env.folders.count, 1)
+        XCTAssertEqual(env.folders.first?.name, "Groceries")
+        XCTAssertTrue(env.folderTombstones.isEmpty)
+        XCTAssertTrue(env.tombstones.isEmpty)
+        XCTAssertEqual(env.deviceID, "")
+    }
 }

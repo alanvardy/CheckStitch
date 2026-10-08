@@ -613,14 +613,14 @@ public final class ChecklistStore {
     /// folder is minted in memory with a `uniqueName`-disambiguated name. Does NOT
     /// `save()` — the caller's checklist write shares the single save.
     @discardableResult
-    public func resolveOrCreateFolder(named rawName: String) -> UUID {
+    public func resolveOrCreateFolder(named rawName: String, isCollapsed: Bool = false) -> UUID {
         let requested = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         if let existing = folders.first(where: { Self.sameName($0.name, requested) }) {
-            return existing.id
+            return existing.id          // reuse keeps the local folder's own isCollapsed
         }
         let name = Self.uniqueName(basedOn: requested.isEmpty ? "New Folder" : requested,
                                    taken: folders.map(\.name))
-        let folder = Folder(name: name, modifiedAt: now(), revision: 1)
+        let folder = Folder(name: name, isCollapsed: isCollapsed, modifiedAt: now(), revision: 1)
         folders.append(folder)
         return folder.id
     }

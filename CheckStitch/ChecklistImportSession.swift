@@ -147,7 +147,7 @@ final class ChecklistImportSession {
         guard let fileFolderID,
               let fileFolder = fileFolders.first(where: { $0.id == fileFolderID })
         else { return nil }
-        return store.resolveOrCreateFolder(named: fileFolder.name)
+        return store.resolveOrCreateFolder(named: fileFolder.name, isCollapsed: fileFolder.isCollapsed)
     }
 
     /// Applies one conflict decision and removes the candidate from the queue.
