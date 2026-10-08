@@ -310,12 +310,12 @@ public final class ChecklistStore {
     /// replace is one push. Returns the new id, or `nil` when the local checklist
     /// no longer exists (silent no-op, mirroring `delete`).
     @discardableResult
-    public func importReplace(id: UUID, with checklist: Checklist) -> UUID? {
+    public func importReplace(id: UUID, with checklist: Checklist, folderID: UUID? = nil) -> UUID? {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return nil }
         let removed = checklists.remove(at: index)
         tombstones.append(ChecklistTombstone(
             checklistID: id, itemID: nil, deletedAt: now(), revision: removed.revision + 1))
-        let copy = freshCopy(of: checklist)
+        let copy = freshCopy(of: checklist, folderID: folderID)
         checklists.append(copy)
         save()
         return copy.id

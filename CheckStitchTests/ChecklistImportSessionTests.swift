@@ -20,6 +20,33 @@ struct ChecklistImportSessionTests {
                                                     folderTombstones: folderTombstones))
     }
 
+    /// A payload whose single checklist belongs to a folder with `folderName`.
+    /// The folder rides along by name (export carries referenced folders).
+    private func payloadWithFolder(_ folderName: String, checklistName: String) throws -> Data {
+        let source = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
+        let folder = source.createFolder(name: folderName)
+        let member = source.create(name: checklistName)
+        source.moveChecklist(id: member.id, toFolder: folder.id)
+        guard let memberWithFolder = source.checklist(id: member.id) else {
+            fatalError("member checklist vanished")
+        }
+        return try ChecklistExport.data(checklists: [memberWithFolder], from: source.folders)
+    }
+
+    /// A payload whose single checklist carries a `folderID` that names no folder
+    /// in the file (the folder was dropped from the export). Used to exercise an
+    /// unresolved file-folder id.
+    private func payloadWithOrphanFolderID(checklistName: String) throws -> Data {
+        let source = ChecklistStore(defaults: makeIsolatedDefaults(), textEditDelay: nil)
+        let folder = source.createFolder(name: "Unreferenced")
+        let member = source.create(name: checklistName)
+        source.moveChecklist(id: member.id, toFolder: folder.id)
+        guard let memberWithFolder = source.checklist(id: member.id) else {
+            fatalError("member checklist vanished")
+        }
+        return try ChecklistExport.data(checklists: [memberWithFolder], from: [])
+    }
+
     private func allIDs(_ candidates: [ChecklistImportCandidate]) -> Set<UUID> {
         Set(candidates.map(\.id))
     }
@@ -425,5 +452,85 @@ struct ChecklistImportSessionTests {
 
         #expect(store.folders.count == 1, "a re-import never mints a duplicate folder")
         #expect(store.folders.map(\.name) == ["Groceries"])
+
+        let folder = try #require(store.folders.first)
+        let survivor = try #require(store.checklists.first { $0.name != "Groceries" })
+        #expect(survivor.folderID == folder.id, "Keep Both survivor carries the folder membership")
+    }
+
+    /// Replacing a conflicting loose checklist re-parents the survivor into the
+    /// folder the file's checklist belonged to (resolved by name).
+    @Test
+    func replaceReparentsTheSurvivorIntoTheImportedFolder() throws {
+        let data = try payloadWithFolder("Work", checklistName: "Groceries")
+        let (session, store) = makeSession()
+        store.create(name: "Groceries")   // loose local conflict
+
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(session.pending.count == 1)
+        session.decide(.replace, for: session.pending.first?.id ?? UUID())
+
+        let workFolder = try #require(store.folders.first { $0.name == "Work" })
+        #expect(store.checklists.count == 1, "replace removes the local original")
+        #expect(store.checklists.first?.folderID == workFolder.id, "survivor is in the imported folder")
+    }
+
+    /// A file checklist whose `folderID` names no folder in the payload resolves
+    /// to `nil`; the `.replace` survivor lands loose.
+    @Test
+    func replaceWithUnresolvedFileFolderLandsLoose() throws {
+        let data = try payloadWithOrphanFolderID(checklistName: "Groceries")
+        let (session, store) = makeSession()
+        store.create(name: "Groceries")
+
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        #expect(session.pending.count == 1)
+        session.decide(.replace, for: session.pending.first?.id ?? UUID())
+
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.first?.folderID == nil, "unresolved folder id lands the survivor loose")
+        #expect(store.folders.isEmpty)
+    }
+
+    /// Keep Both imports a copy that joins the file's folder (resolved by name)
+    /// while the local original keeps its own membership (none).
+    @Test
+    func keepBothCopyLandsInTheImportedFolder() throws {
+        let data = try payloadWithFolder("Groceries", checklistName: "Groceries")
+        let (session, store) = makeSession()
+        let original = store.create(name: "Groceries")
+
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        session.decide(.keepBoth, for: session.pending.first?.id ?? UUID())
+
+        let folder = try #require(store.folders.first)
+        #expect(store.checklists.count == 2)
+        let localOriginal = try #require(store.checklist(id: original.id))
+        #expect(localOriginal.folderID == nil, "local original unchanged")
+        let keptBoth = try #require(store.checklists.first { $0.name != "Groceries" })
+        #expect(keptBoth.folderID == folder.id, "kept-both copy joins the imported folder")
+    }
+
+    /// Keep Existing writes nothing: no folder is minted for the file's folder
+    /// and the local member keeps its membership.
+    @Test
+    func keepExistingLeavesLocalFoldersUntouched() throws {
+        let data = try payloadWithFolder("Work", checklistName: "Groceries")
+        let (session, store) = makeSession()
+        let homeFolder = store.createFolder(name: "Home")
+        let localMember = store.create(name: "Groceries")
+        store.moveChecklist(id: localMember.id, toFolder: homeFolder.id)
+
+        _ = try session.stage(data: data)
+        session.commit(selectedIDs: allIDs(session.candidates))
+        session.decide(.keepExisting, for: session.pending.first?.id ?? UUID())
+
+        #expect(store.folders.map(\.name) == ["Home"], "keepExisting mints no folders")
+        let localMemberNow = try #require(store.checklist(id: localMember.id))
+        #expect(localMemberNow.folderID == homeFolder.id, "local member unchanged")
+        #expect(session.summary.keptExisting == 1)
     }
 }

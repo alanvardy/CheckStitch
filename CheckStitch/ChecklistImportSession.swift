@@ -85,7 +85,7 @@ final class ChecklistImportSession {
         var result = ImportSummary()
         let selected = candidates.filter { selectedIDs.contains($0.id) }
         var folderMap: [UUID: UUID] = [:]
-        for candidate in selected {
+        for candidate in selected where store.conflictingChecklist(named: candidate.checklist.name) == nil {
             guard let fileFolderID = candidate.checklist.folderID,
                   folderMap[fileFolderID] == nil,
                   let localID = localFolderID(forFileFolderID: fileFolderID)
@@ -158,11 +158,13 @@ final class ChecklistImportSession {
         switch decision {
         case .replace:
             if let conflict = candidate.conflicting,
-               store.importReplace(id: conflict.id, with: candidate.checklist) != nil {
+               store.importReplace(id: conflict.id, with: candidate.checklist,
+                                   folderID: localFolderID(forFileFolderID: candidate.checklist.folderID)) != nil {
                 summary.replaced += 1
             }
         case .keepBoth:
-            store.importInsert(candidate.checklist)   // auto-disambiguates via uniqueName
+            store.importInsert(candidate.checklist,
+                               folderID: localFolderID(forFileFolderID: candidate.checklist.folderID))
             summary.keptBoth += 1
         case .keepExisting:
             summary.keptExisting += 1
