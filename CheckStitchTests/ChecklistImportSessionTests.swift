@@ -533,4 +533,103 @@ struct ChecklistImportSessionTests {
         #expect(localMemberNow.folderID == homeFolder.id, "local member unchanged")
         #expect(session.summary.keptExisting == 1)
     }
+
+    /// A file checklist whose `folderID` names no folder in the payload lands
+    /// loose: the folder is never minted and nothing crashes.
+    @Test
+    func checklistWithOrphanFolderIDLandsLoose() throws {
+        let (session, store) = makeSession()
+        let orphanFile = Checklist(name: "Loose", folderID: UUID())
+
+        _ = try session.stage(data: payload([orphanFile]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.folders.isEmpty)
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.first?.folderID == nil, "orphan folder id resolves loose")
+    }
+
+    /// A freshly minted folder adopts the file's collapse state.
+    @Test
+    func importedCollapseStateIsAdoptedOnFolderCreate() throws {
+        let fileFolder = Folder(name: "Work", isCollapsed: true)
+        let member = Checklist(name: "Meeting", folderID: fileFolder.id)
+        let (session, store) = makeSession()
+
+        _ = try session.stage(data: payload([member], folders: [fileFolder]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.folders.count == 1)
+        #expect(store.folders.first?.name == "Work")
+        #expect(store.folders.first?.isCollapsed == true, "file collapse state adopted on create")
+    }
+
+    /// Reusing an existing same-name folder keeps THAT folder's local collapse
+    /// state; the file's isCollapsed is ignored for a reuse.
+    @Test
+    func existingFolderKeepsItsLocalCollapseState() throws {
+        let fileFolder = Folder(name: "Work", isCollapsed: true)
+        let member = Checklist(name: "Meeting", folderID: fileFolder.id)
+        let (session, store) = makeSession()
+        store.createFolder(name: "Work")   // local, isCollapsed: false
+
+        _ = try session.stage(data: payload([member], folders: [fileFolder]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.folders.count == 1, "reuse never mints a duplicate")
+        #expect(store.folders.first?.isCollapsed == false, "reuse keeps the local collapse state")
+    }
+
+    /// The file's `folderTombstones` are never read by the import flow: a
+    /// tombstoned file folder does not delete the local same-name folder.
+    @Test
+    func fileFolderTombstoneIsIgnored() throws {
+        let fileWork = Folder(name: "Work")
+        let unrelated = Checklist(name: "Unrelated", folderID: fileWork.id)
+        let tombstone = FolderTombstone(folderID: fileWork.id, deletedAt: Date(), revision: 9)
+        let (session, store) = makeSession()
+        store.createFolder(name: "Work")
+
+        _ = try session.stage(data: payload([unrelated], folders: [fileWork],
+                                            folderTombstones: [tombstone]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.folders.map(\.name) == ["Work"], "file folder tombstone is never applied")
+        #expect(store.folderTombstones.isEmpty)
+    }
+
+    /// Two same-named file folders collapse to a single local folder; both
+    /// member checklists point at it.
+    @Test
+    func twoSameNamedFoldersInOneFileCollapseToOne() throws {
+        let fileA = Folder(name: "Work")
+        let fileB = Folder(name: "Work")
+        let memberA = Checklist(name: "A", folderID: fileA.id)
+        let memberB = Checklist(name: "B", folderID: fileB.id)
+        let (session, store) = makeSession()
+
+        _ = try session.stage(data: payload([memberA, memberB], folders: [fileA, fileB]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.folders.count == 1)
+        #expect(store.folders.map(\.name) == ["Work"], "duplicate-named file folders collapse to one")
+        let folder = try #require(store.folders.first)
+        #expect(store.checklists.count == 2)
+        #expect(Set(store.checklists.compactMap(\.folderID)) == [folder.id], "both members share the single folder")
+    }
+
+    /// Import matches by name only: a locally renamed folder (no sameName match)
+    /// coexists with the imported folder of that name. Documented consequence.
+    @Test
+    func renamedLocalFolderGetsANewFolderOnImport() throws {
+        let fileFolder = Folder(name: "Groceries")
+        let member = Checklist(name: "Groceries", folderID: fileFolder.id)
+        let (session, store) = makeSession()
+        store.createFolder(name: "Food")   // local renamed folder, not a sameName match
+
+        _ = try session.stage(data: payload([member], folders: [fileFolder]))
+        session.commit(selectedIDs: allIDs(session.candidates))
+
+        #expect(store.folders.map(\.name) == ["Food", "Groceries"], "a renamed local folder coexists with the imported one")
+    }
 }
