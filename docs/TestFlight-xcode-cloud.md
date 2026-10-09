@@ -29,15 +29,22 @@ Connect distributes. The only local surface this touches is the shared
 
 ## Version policy
 
-- **Humans own `MARKETING_VERSION`** (currently `1.0`). It is the App Store
-  Connect join key: uploading `1.0` matches the `1.0` train.
-- **Xcode Cloud owns the build number.** Each build gets a per-app, monotonic
-  `CI_BUILD_NUMBER` (starting at 1) and App Store Connect records *that* number —
-  `CURRENT_PROJECT_VERSION` in `project.pbxproj` is ignored at upload time.
-  Do not try to stamp it or run `agvtool`.
-- To start a new user-facing version, bump `MARKETING_VERSION` only. To adjust
-  the starting build number, use App Store Connect → CheckStitch → Xcode Cloud →
-  Settings → Build Number, not the repository.
+- **Humans own `MARKETING_VERSION`** — the App Store Connect join key: an
+  upload of `1.1` matches the `1.1` train.
+- **Humans also own `CURRENT_PROJECT_VERSION`, and it moves on every release.**
+  Bump it by one in the same commit as `MARKETING_VERSION` — never reset it.
+  Every target (app, watch app, widget) carries the same value, so an embedded
+  extension never trips App Store validation with a `CFBundleVersion` mismatch,
+  and macOS — whose build numbers must increase monotonically across all
+  versions — starts out on the right footing. `VERSIONING_SYSTEM` is not set, so
+  this is a hand-edit over every occurrence in
+  `CheckStitch.xcodeproj/project.pbxproj`; do not run `agvtool`.
+- **Xcode Cloud still numbers its own uploads.** Each build gets a per-app,
+  monotonic `CI_BUILD_NUMBER` (starting at 1) and App Store Connect records
+  *that* number for the archive, so the stamped `CURRENT_PROJECT_VERSION` is
+  repository bookkeeping (and the macOS source of truth) rather than what an
+  Xcode Cloud upload reports. To adjust the starting upload number, use App
+  Store Connect → CheckStitch → Xcode Cloud → Settings → Build Number.
 - If a `1.0` train was ever opened and closed in App Store Connect, the next
   upload is rejected until `MARKETING_VERSION` is bumped.
 
@@ -64,6 +71,9 @@ The watch app (`CheckStitchWatch`) is embedded in the iOS archive via
 a separate watch workflow.
 
 ## Running a release
+
+Bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` together on `main`
+first (see *Version policy*) and let that land before starting the build.
 
 1. Xcode → **Cloud** tab → `TestFlight – iOS` → **Start Build** (or App Store
    Connect → Xcode Cloud → the workflow → Start Build), or the terminal
