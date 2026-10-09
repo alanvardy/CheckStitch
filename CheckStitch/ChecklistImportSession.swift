@@ -157,7 +157,11 @@ final class ChecklistImportSession {
         let candidate = pending.remove(at: index)
         switch decision {
         case .replace:
+            // Resolve the folder only once the replace target is known to still
+            // exist: `localFolderID` mints on miss, and a target that vanished
+            // mid-dialog must not leave an empty folder behind.
             if let conflict = candidate.conflicting,
+               store.checklist(id: conflict.id) != nil,
                store.importReplace(id: conflict.id, with: candidate.checklist,
                                    folderID: localFolderID(forFileFolderID: candidate.checklist.folderID)) != nil {
                 summary.replaced += 1
