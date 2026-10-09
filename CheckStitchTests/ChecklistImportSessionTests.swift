@@ -632,4 +632,23 @@ struct ChecklistImportSessionTests {
 
         #expect(store.folders.map(\.name) == ["Food", "Groceries"], "a renamed local folder coexists with the imported one")
     }
+
+    /// The commit pre-resolution covers SELECTED candidates only: an unticked
+    /// candidate's referenced folder is never minted.
+    @Test
+    func unselectedCandidatesFolderIsNotMinted() throws {
+        let workFile = Folder(name: "Work")
+        let homeFile = Folder(name: "Home")
+        let picked = Checklist(name: "Picked", folderID: workFile.id)
+        let skipped = Checklist(name: "Skipped", folderID: homeFile.id)
+        let (session, store) = makeSession()
+
+        _ = try session.stage(data: payload([picked, skipped], folders: [workFile, homeFile]))
+        let pickedID = try #require(session.candidates.first { $0.checklist.name == "Picked" }?.id)
+        session.commit(selectedIDs: [pickedID])
+
+        #expect(store.folders.map(\.name) == ["Work"], "only the selected candidate's folder is minted")
+        #expect(store.checklists.count == 1)
+        #expect(store.checklists.first?.folderID == store.folders.first?.id)
+    }
 }
