@@ -140,7 +140,7 @@ public enum ChecklistMerge {
                 merged.destination = remoteChecklist.destination
                 merged.prefixesReminderNumbers = remoteChecklist.prefixesReminderNumbers
                 merged.showsOnWatch = remoteChecklist.showsOnWatch
-                merged.multiple = remoteChecklist.multiple
+                merged.scaling = remoteChecklist.scaling
                 merged.folderID = remoteChecklist.folderID
                 merged.isArchived = remoteChecklist.isArchived
                 merged.archivedAt = remoteChecklist.archivedAt

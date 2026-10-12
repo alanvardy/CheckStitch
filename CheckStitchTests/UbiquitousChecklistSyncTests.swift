@@ -31,7 +31,7 @@ struct UbiquitousChecklistSyncTests {
         var remoteChecklist = Checklist(
             id: id, name: "Groceries",
             modifiedAt: Date(timeIntervalSince1970: 100), revision: 2)
-        remoteChecklist.multiple = 7
+        remoteChecklist.scaling = .fixed(7)
         let remote = ChecklistEnvelope(
             version: ChecklistCodec.currentVersion, deviceID: "device-b",
             checklists: [remoteChecklist])

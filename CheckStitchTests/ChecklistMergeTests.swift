@@ -1057,9 +1057,9 @@ struct ChecklistMergeTests {
     func remoteWinningMultipleIsAdopted() {
         let id = UUID()
         var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
-        newer.multiple = 7
+        newer.scaling = .fixed(7)
         var older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
-        older.multiple = 1
+        older.scaling = .fixed(1)
 
         let merged = ChecklistMerge.merge(
             local: envelope(device: "device-a", checklists: [older]),
@@ -1073,9 +1073,9 @@ struct ChecklistMergeTests {
     func localWinningMultipleIsPreserved() {
         let id = UUID()
         var newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2))
-        newer.multiple = 7
+        newer.scaling = .fixed(7)
         var older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1))
-        older.multiple = 1
+        older.scaling = .fixed(1)
 
         let merged = ChecklistMerge.merge(
             local: envelope(device: "device-a", checklists: [newer]),
