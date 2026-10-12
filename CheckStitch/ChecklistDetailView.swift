@@ -1,6 +1,11 @@
 import CheckStitchCore
 import SwiftUI
 
+/// The two scaling modes as a `Hashable` picker selection. `Scaling` carries an
+/// associated number, so the `Picker` tags on this value instead, mapping to and
+/// from `Scaling` through `Scaling.toggled()`.
+private enum ScalingMode: Hashable { case fixed, prompt }
+
 /// Detail screen for one checklist, keyed by id rather than a `@Binding` into a
 /// parent view's `@State`, so mutations go through `ChecklistStore`.
 struct ChecklistDetailView: View {
@@ -79,7 +84,15 @@ struct ChecklistDetailView: View {
                         Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
                     }
                     Section {
-                        scalingField(checklistID: checklistID)
+                        Picker("Scaling", selection: scalingModeBinding(checklistID: checklistID)) {
+                            Text("Fixed").tag(ScalingMode.fixed)
+                            Text("Prompt").tag(ScalingMode.prompt)
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("checklistScalingModePicker")
+                        if store.checklist(id: checklistID)?.scaling.isPrompt != true {
+                            scalingField(checklistID: checklistID)
+                        }
                     } footer: {
                         Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
                     }
@@ -305,13 +318,28 @@ struct ChecklistDetailView: View {
         )
     }
 
-    /// Per-selection write through the store for the scaling factor. The getter
-    /// reads the store so a value that arrives over sync updates the number
-    /// field; `.notFound` (deleted while this screen was open) is ignored,
-    /// matching `numberingBinding`.
+    /// Per-selection write through the store for the scaling mode. Switching
+    /// modes keeps the current number (`Scaling.toggled()`); the getter reads
+    /// the store so a mode arriving over sync updates the picker. `.notFound`
+    /// (deleted while this screen was open) is ignored, matching
+    /// `numberingBinding`.
+    private func scalingModeBinding(checklistID: UUID) -> Binding<ScalingMode> {
+        Binding(
+            get: { (store.checklist(id: checklistID)?.scaling.isPrompt ?? false) ? .prompt : .fixed },
+            set: { mode in
+                guard let current = store.checklist(id: checklistID)?.scaling else { return }
+                let wantsPrompt = (mode == .prompt)
+                guard wantsPrompt != current.isPrompt else { return }
+                store.setScaling(current.toggled(), for: checklistID)
+            }
+        )
+    }
+
+    /// The fixed factor, read/written through the store. Only rendered for
+    /// `.fixed`.
     private func multipleBinding(checklistID: UUID) -> Binding<Int> {
         Binding(
-            get: { store.checklist(id: checklistID)?.multiple ?? 1 },
+            get: { store.checklist(id: checklistID)?.scaling.number ?? 1 },
             set: { store.setScaling(.fixed($0), for: checklistID) }
         )
     }

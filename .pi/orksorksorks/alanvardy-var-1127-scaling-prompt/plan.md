@@ -691,8 +691,8 @@ func overrideScalesThisRunOnly() async {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `make build` passes (iOS leg compiles the new view)
+- [x] `make test-unit` passes
+- [x] `make build` passes (iOS leg compiles the new view)
 
 #### Manual
 - [ ] `make run`: open a checklist → Scaling shows a Fixed/Prompt segmented picker; pick Prompt → the number field disappears; pick Fixed → the previous number returns
