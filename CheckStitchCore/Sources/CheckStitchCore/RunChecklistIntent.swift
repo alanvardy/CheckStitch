@@ -29,17 +29,24 @@ public struct RunChecklistIntent: AppIntent {
     @Parameter(title: "Multiple")
     public var multiple: Int?
 
+    @Parameter(title: "List")
+    public var destination: ReminderListEntity?
+
     // test seam; nil → fresh production collaborators
     private let injectedStore: ChecklistStore?
     private let injectedTargeting: (any ReminderDestinationTargeting)?
     private let injectedGate: RunGate?
     private let injectedRunState: WidgetRunStateStore?
+    /// test seam; nil → ask the system parameter prompt via `$destination`.
+    /// Injected so tests can drive the prompt/no-value path without a host.
+    var destinationRequester: (@MainActor () async -> ReminderListEntity?)?
 
     public init() {
         self.injectedStore = nil
         self.injectedTargeting = nil
         self.injectedGate = nil
         self.injectedRunState = nil
+        self.destinationRequester = nil
     }
 
     @MainActor
@@ -49,6 +56,7 @@ public struct RunChecklistIntent: AppIntent {
         self.injectedTargeting = targeting
         self.injectedGate = gate
         self.injectedRunState = runState
+        self.destinationRequester = nil
     }
 
     public static var parameterSummary: some ParameterSummary {
@@ -84,6 +92,22 @@ public struct RunChecklistIntent: AppIntent {
             return .result(dialog: IntentDialog(RunChecklistDialogue.denied))
         }
 
+        // A `.prompt` checklist resolves at run time through the system parameter
+        // prompt; a headless call with no presenter reports instead of defaulting.
+        var resolvedDestination: ChecklistDestination? = nil
+        if stored.destination == .prompt {
+            if let entity = await requestedDestination() {
+                resolvedDestination = entity.id == ReminderListEntity.defaultID
+                    ? .systemDefault
+                    : .list(entity.id)
+            } else {
+                // No presenter (headless automation); report rather than silently default.
+                return .result(dialog: IntentDialog(RunChecklistDialogue.destinationRequired))
+            }
+        } else {
+            resolvedDestination = stored.destination
+        }
+
         let gate = await resolveGate()
         // The widget button's feedback lives here: a run recorded as `.running`
         // (plus the reload the store fires) lets a timeline reload render the
@@ -98,7 +122,8 @@ public struct RunChecklistIntent: AppIntent {
             from: stored,
             targeting: targeting,
             gate: gate,
-            multipleOverride: multiple)
+            multipleOverride: multiple,
+            destination: resolvedDestination)
         try? await minimumSpinner
         runState.finishRun(id: uuid, didCreate: outcome.didCreateAllItems, at: Date())
         return .result(dialog: IntentDialog(
@@ -111,6 +136,16 @@ public struct RunChecklistIntent: AppIntent {
         if let injectedGate { return injectedGate }
         return await ChecklistReminders.productionGate()
     }
+
+    /// The destination the user picked. Prefers the already-present `destination`
+    /// parameter; otherwise asks the system (root parameter prompt) for it. A
+    /// cancelled/silent ask yields `nil` — the caller reports `.destinationRequired`.
+    @MainActor
+    private func requestedDestination() async -> ReminderListEntity? {
+        if let destination { return destination }
+        if let destinationRequester { return await destinationRequester() }
+        return try? await $destination.requestValue()
+    }
 }
 
 /// Outcome→speech mapping. Lives here (not in the intent body) so exact text is
@@ -121,6 +156,9 @@ enum RunChecklistDialogue {
         table: "Localizable", bundle: .main)
     static let denied = LocalizedStringResource(
         "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again.",
+        table: "Localizable", bundle: .main)
+    static let destinationRequired = LocalizedStringResource(
+        "Open CheckStitch to choose a list, then run this checklist again.",
         table: "Localizable", bundle: .main)
 
     @MainActor
@@ -150,10 +188,10 @@ enum RunChecklistDialogue {
         case .failed(let reason):
             return LocalizedStringResource(
                 "Couldn't create reminders for \(checklistName): \(reason)", table: "Localizable", bundle: .main)
-        // Phase 1 compile bridge: Phase 2 adds a dedicated `.destinationRequired`
-        // dialogue and wires the prompt to present it from an intent.
+        // The funnel can still return this if the override never arrived (e.g. a
+        // headless call between the Siri/Shortcuts picker and Run resolves nothing).
         case .destinationRequired:
-            return denied
+            return destinationRequired
         }
     }
 }

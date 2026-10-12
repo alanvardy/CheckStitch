@@ -138,6 +138,8 @@ enum LocalizationFixtures {
             "Default (Inbox)",
             "Choose a list",
             "Run",
+            "Open CheckStitch to choose a list, then run this checklist again.",
+            "Reminder List",
             "Reminders",
             "Checklists & Sync",
             "Background Image",

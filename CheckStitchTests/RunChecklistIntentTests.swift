@@ -314,4 +314,93 @@ struct RunChecklistIntentTests {
         }
         #expect(spy.createdTitles.isEmpty)
     }
+
+    /// A `.prompt` checklist uses the already-present parameter value and passes
+    /// it through to the funnel as `.list(id)` — reminders land in that list.
+    @Test
+    func promptIntentPassesPresentedListToTheFunnel() async throws {
+        let (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        store.setDestination(.prompt, for: checklistID)
+        store.addItem(to: checklistID, title: "Milk")
+        intent.destination = ReminderListEntity(id: "list-1", name: "Reminders")
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles == ["Milk"])
+        #expect(spy.createdListIDs == ["list-1"])
+    }
+
+    /// With no pre-set parameter, the launch asks the system parameter prompt
+    /// (the seam stands in for `$destination.requestValue()`) for the list.
+    @Test
+    func promptIntentRequestsTheValueFromTheParameterPrompt() async throws {
+        var (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        store.setDestination(.prompt, for: checklistID)
+        store.addItem(to: checklistID, title: "Milk")
+        intent.destinationRequester = { ReminderListEntity(id: "list-1", name: "Reminders") }
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles == ["Milk"])
+        #expect(spy.createdListIDs == ["list-1"])
+    }
+
+    /// The synthetic `"default"` id maps to the system default, not a concrete list.
+    @Test
+    func syntheticDefaultSelectionMapsToSystemDefault() async throws {
+        let (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        store.setDestination(.prompt, for: checklistID)
+        store.addItem(to: checklistID, title: "Milk")
+        intent.destination = ReminderListEntity(id: ReminderListEntity.defaultID, name: "Default (Inbox)")
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles == ["Milk"])
+        #expect(spy.createdListIDs == ["list-1"])
+    }
+
+    /// A headless launch with no presenter yields no value → the intent reports
+    /// `.destinationRequired` and creates nothing, rather than silently defaulting.
+    @Test
+    func headlessPromptWithoutAValueReportsDestinationRequired() async throws {
+        var (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        store.setDestination(.prompt, for: checklistID)
+        store.addItem(to: checklistID, title: "Milk")
+        intent.destinationRequester = { nil }
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles.isEmpty)
+        #expect(spy.createdListIDs.isEmpty)
+    }
+
+    /// A non-`.prompt` run never consults the destination value: the parameter
+    /// (and the request seam) are ignored entirely and the stored destination rules.
+    @Test
+    func nonPromptRunIgnoresTheDestinationParameter() async throws {
+        var (intent, spy, store) = makeIntent()
+        store.addItem(to: store.checklists[0].id, title: "Milk")
+        var requesterCalled = false
+        intent.destinationRequester = { requesterCalled = true; return nil }
+
+        _ = try await intent.perform()
+
+        #expect(requesterCalled == false)
+        #expect(spy.createdTitles == ["Milk"])
+        #expect(spy.createdListIDs == ["list-1"])
+    }
+
+    /// The exact destination-required dialogue is pinned so headless automation
+    /// speaks the app-catalog copy, distinct from the `.denied` message.
+    @Test
+    func destinationRequiredSpeaksItsOwnDialogue() async throws {
+        #expect(RunChecklistDialogue.destinationRequired.resolved()
+            == "Open CheckStitch to choose a list, then run this checklist again.")
+        #expect(RunChecklistDialogue.message(for: .destinationRequired, checklistName: "Groceries")
+            .resolved() == "Open CheckStitch to choose a list, then run this checklist again.")
+    }
 }
