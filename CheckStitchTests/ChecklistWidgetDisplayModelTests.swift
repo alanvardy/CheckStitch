@@ -184,4 +184,33 @@ struct ChecklistWidgetDisplayModelTests {
         #expect(model.rows.first?.isRunnable == false)
         #expect(model.rows.first?.needsAccess == true)
     }
+
+    /// The prompt flag is carried onto the row only for `.prompt` checklists;
+    /// system-default and concrete-list destinations keep it off.
+    @Test
+    func isPromptIsSetOnlyForPromptChecklists() {
+        let prompt = Checklist(name: "Ask me", items: [ChecklistItem(title: "Milk")],
+                               destination: .prompt)
+        let promptModel = ChecklistWidgetDisplayModel(
+            checklists: [prompt],
+            configuration: [ChecklistEntity(prompt)],
+            access: .ready)
+        #expect(promptModel.rows.first?.isPrompt == true)
+
+        let systemDefault = Checklist(name: "Inbox", items: [ChecklistItem(title: "Bread")],
+                                      destination: .systemDefault)
+        let defaultModel = ChecklistWidgetDisplayModel(
+            checklists: [systemDefault],
+            configuration: [ChecklistEntity(systemDefault)],
+            access: .ready)
+        #expect(defaultModel.rows.first?.isPrompt == false)
+
+        let inList = Checklist(name: "List", items: [ChecklistItem(title: "Eggs")],
+                               destination: .list("list-a"))
+        let listModel = ChecklistWidgetDisplayModel(
+            checklists: [inList],
+            configuration: [ChecklistEntity(inList)],
+            access: .ready)
+        #expect(listModel.rows.first?.isPrompt == false)
+    }
 }

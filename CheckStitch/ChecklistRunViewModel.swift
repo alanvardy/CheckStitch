@@ -72,6 +72,18 @@ final class ChecklistRunViewModel {
         destinationPrompt = nil
     }
 
+    /// Parses a widget deep link (`checkstitch://run?checklist=<id>`) into its
+    /// checklist id, or `nil` for any other URL — including a malformed
+    /// `checkstitch://run` (no `checklist` query, non-UUID value, wrong scheme
+    /// or host). Kept as a pure static so the deep-link routing is unit-testable.
+    static func destinationPromptChecklistID(from url: URL) -> UUID? {
+        guard url.scheme == "checkstitch", url.host == "run",
+              let raw = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                  .queryItems?.first(where: { $0.name == "checklist" })?.value
+        else { return nil }
+        return UUID(uuidString: raw)
+    }
+
     /// Runs one checklist through the seam. `destination` is the one-shot prompt
     /// override, or `nil` for the normal (non-prompt) path; a `.prompt` checklist
     /// with no override gets `.destinationRequired` and opens the chooser.

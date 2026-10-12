@@ -120,13 +120,17 @@ struct SingleChecklistWidgetView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(row.name).font(.headline).lineLimit(2)
                 if row.isRunnable {
-                    Button(intent: runIntent(for: row)) {
-                        runIcon(for: row.indicator)
+                    if row.isPrompt {
+                        runIcon(for: .play).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    } else {
+                        Button(intent: runIntent(for: row)) {
+                            runIcon(for: row.indicator)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(row.indicator == .spinner)
+                        .accessibilityLabel("Create reminders")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(row.indicator == .spinner)
-                    .accessibilityLabel("Create reminders")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else if row.needsPurchase {
                     Label("Open CheckStitch to buy a license", systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -136,7 +140,7 @@ struct SingleChecklistWidgetView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .widgetURL(row.needsAccess ? URL(string: "checkstitch://") : nil)
+            .widgetURL(widgetURL(for: row))
         } else {
             Text(entry.model.hasChecklists
                  ? "Edit this widget to pick a checklist"
@@ -144,6 +148,15 @@ struct SingleChecklistWidgetView: View {
                 .font(.caption)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+    }
+
+    /// The widget's tap destination. A `.prompt` row is a hand-off: it opens
+    /// the app to that checklist's destination chooser via a deep link, exactly
+    /// like the `.needsAccess` row opens the app for the access prompt.
+    private func widgetURL(for row: ChecklistWidgetRow) -> URL? {
+        if row.needsAccess { return URL(string: "checkstitch://") }
+        if row.isPrompt { return URL(string: "checkstitch://run?checklist=\(row.entityID)") }
+        return nil
     }
 
     /// The button's icon, mirroring the app's run button: spinner while the run

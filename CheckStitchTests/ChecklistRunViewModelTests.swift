@@ -273,6 +273,63 @@ struct ChecklistRunViewModelTests {
         #expect(viewModel.destinationPrompt == nil)
         #expect(viewModel.runErrorMessage == ReminderRunOutcome.permissionDenied.errorMessage)
     }
+
+    /// Widget deep-link entry point: a `.prompt`, runnable, non-archived id
+    /// opens the destination chooser.
+    @Test
+    func deepLinkPresentsTheChooserForAPromptChecklist() async {
+        let (store, id) = makeStore(items: ["one"])
+        store.setDestination(.prompt, for: id)
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-inbox", title: "Inbox")],
+            defaultIdentifier: "list-inbox")
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.presentDestinationPrompt(forChecklistID: id)
+
+        #expect(viewModel.destinationPrompt?.id == id)
+        #expect(viewModel.runErrorMessage == nil)
+    }
+
+    /// A non-prompt id must be a no-op: only `.prompt` checklists open the sheet.
+    @Test
+    func deepLinkIgnoresANonPromptChecklist() async {
+        let (store, id) = makeStore(items: ["one"])
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-inbox", title: "Inbox")],
+            defaultIdentifier: "list-inbox")
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.presentDestinationPrompt(forChecklistID: id)
+
+        #expect(viewModel.destinationPrompt == nil)
+        #expect(viewModel.destinationOptions.isEmpty)
+        #expect(viewModel.runErrorMessage == nil)
+    }
+
+    /// The deep-link parser resolves the checklist id from a well-formed
+    /// `checkstitch://run?checklist=<uuid>` URL and nothing else.
+    @Test(arguments: [
+        "file:///tmp/a.json",
+        "checkstitch://",
+        "checkstitch://run",
+        "checkstitch://run?checklist=",
+        "checkstitch://run?other=1&checklist=not-a-uuid",
+        "https://run?checklist=00000000-0000-0000-0000-000000000000",
+    ])
+    func deepLinkParserRejectsNonRunURLs(_ urlString: String) {
+        #expect(ChecklistRunViewModel.destinationPromptChecklistID(
+            from: URL(string: urlString)!) == nil)
+    }
+
+    @Test
+    func deepLinkParserResolvesAValidRunURL() {
+        let id = UUID()
+        let url = URL(string: "checkstitch://run?checklist=\(id.uuidString)")!
+        #expect(ChecklistRunViewModel.destinationPromptChecklistID(from: url) == id)
+    }
 }
 
 /// Test double for `ReminderDestinationTargeting` whose `reminderLists()` throws,

@@ -6,6 +6,9 @@ public struct ChecklistWidgetRow: Identifiable, Equatable, Sendable {
     public let name: String
     public let entityID: String        // ChecklistEntity.ID == checklist.id.uuidString
     public let isRunnable: Bool
+    /// True when the checklist is `.prompt`: tapping the row opens the app to
+    /// the destination chooser instead of running headlessly.
+    public let isPrompt: Bool
     /// True for any non-`.ready` state: the row opens the app on tap.
     public let needsAccess: Bool
     /// True only when the free-run limit was reached without a license, so the
@@ -16,12 +19,14 @@ public struct ChecklistWidgetRow: Identifiable, Equatable, Sendable {
     public let indicator: WidgetRunIndicator
 
     public init(id: Checklist.ID, name: String, entityID: String,
-                isRunnable: Bool, needsAccess: Bool, needsPurchase: Bool,
+                isRunnable: Bool, isPrompt: Bool = false,
+                needsAccess: Bool, needsPurchase: Bool,
                 indicator: WidgetRunIndicator = .play) {
         self.id = id
         self.name = name
         self.entityID = entityID
         self.isRunnable = isRunnable
+        self.isPrompt = isPrompt
         self.needsAccess = needsAccess
         self.needsPurchase = needsPurchase
         self.indicator = indicator
@@ -53,6 +58,7 @@ public struct ChecklistWidgetDisplayModel: Equatable, Sendable {
                 name: checklist.name,
                 entityID: entity.id,
                 isRunnable: access == .ready && checklist.hasRunnableItems,
+                isPrompt: checklist.destination == .prompt,
                 needsAccess: access != .ready,
                 needsPurchase: access == .needsPurchase,
                 indicator: runIndicators[checklist.id] ?? .play)
