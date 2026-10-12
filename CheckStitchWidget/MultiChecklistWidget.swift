@@ -62,11 +62,15 @@ struct MultiChecklistWidgetView: View {
                         Text(row.name).font(.title3).lineLimit(1)
                         Spacer()
                         if row.isRunnable {
-                            Button(intent: runIntent(for: row)) {
-                                runIcon(for: row.indicator)
+                            if row.isPrompt {
+                                runIcon(for: .play)
+                            } else {
+                                Button(intent: runIntent(for: row)) {
+                                    runIcon(for: row.indicator)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(row.indicator == .spinner)
                             }
-                            .buttonStyle(.plain)
-                            .disabled(row.indicator == .spinner)
                         } else if row.needsPurchase {
                             Label("Open CheckStitch to buy a license", systemImage: "exclamationmark.triangle")
                                 .font(.caption)
@@ -75,11 +79,20 @@ struct MultiChecklistWidgetView: View {
                                 .font(.caption)
                         }
                     }
-                    .widgetURL(row.needsAccess ? URL(string: "checkstitch://") : nil)
+                    .widgetURL(widgetURL(for: row))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+    }
+
+    /// The widget's tap destination. A `.prompt` row is a hand-off: it opens
+    /// the app to that checklist's destination chooser via a deep link, exactly
+    /// like the `.needsAccess` row opens the app for the access prompt.
+    private func widgetURL(for row: ChecklistWidgetRow) -> URL? {
+        if row.needsAccess { return URL(string: "checkstitch://") }
+        if row.isPrompt { return URL(string: "checkstitch://run?checklist=\(row.entityID)") }
+        return nil
     }
 
     /// Per-row run icon, mirroring the app: spinner while in flight, green check

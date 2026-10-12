@@ -165,6 +165,14 @@ struct ContentView: View {
             await backgroundVM.task(pinned: backgroundPinned)
         }
         .onOpenURL { url in
+            // A widget's `.prompt` tile deep-links here (`checkstitch://run?checklist=<id>`);
+            // route it to the destination chooser and do NOT let it fall through to the
+            // importer. Every other URL (incl. a malformed `checkstitch://run`) keeps its
+            // existing import path, which ignores non-file URLs exactly like today.
+            if let id = ChecklistRunViewModel.destinationPromptChecklistID(from: url) {
+                Task { await runVM.presentDestinationPrompt(forChecklistID: id) }
+                return
+            }
             SharedImportInbox.shared.receive(url: url)
             consumePendingSharedImport()
         }
