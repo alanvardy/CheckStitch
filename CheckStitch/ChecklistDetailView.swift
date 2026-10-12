@@ -111,7 +111,7 @@ struct ChecklistDetailView: View {
                                 itemID: item.id,
                                 title: item.title,
                                 description: item.description,
-                                multiple: checklist.multiple,
+                                scaling: checklist.scaling,
                                 relativeDate: item.relativeDate,
                                 priority: item.priority,
                                 isEnabled: item.isEnabled,
@@ -417,7 +417,7 @@ struct ItemRow: View {
     let itemID: UUID
     let title: String
     let description: String
-    let multiple: Int
+    let scaling: Scaling
     let relativeDate: Int?
     let priority: ChecklistItemPriority
     let isEnabled: Bool
@@ -451,16 +451,16 @@ struct ItemRow: View {
                                 .accessibilityLabel(Text(priority.label))
                                 .accessibilityIdentifier("priorityMarker")
                         }
-                        Text(Self.displayTitle(ChecklistScaling.resolve(title, multiple: multiple)))
+                        Text(Self.displayTitle(ChecklistScaling.resolve(title, multiple: scaling.number)))
                         Spacer(minLength: 0)
-                        if Self.showsScalingFactor(multiple) {
+                        if Self.showsScalingFactor(scaling) {
                             // The `×`-leading key cannot be a string-symbol source
                             // (Xcode's GenerateStringSymbols can't derive a Swift
                             // identifier from `×%lld`), so resolve it at runtime
                             // against the App catalog and format the factor in.
                             Text(verbatim: String(
                                 format: Bundle.main.localizedString(forKey: "×%lld", value: "×%lld", table: "Localizable"),
-                                multiple))
+                                scaling.number))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .accessibilityIdentifier("scalingFactorBadge")
@@ -470,7 +470,7 @@ struct ItemRow: View {
                             .foregroundStyle(.secondary)
                     }
                     if !description.isEmpty {
-                        Text(ChecklistScaling.resolve(description, multiple: multiple))
+                        Text(ChecklistScaling.resolve(description, multiple: scaling.number))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -495,9 +495,12 @@ struct ItemRow: View {
         }
     }
 
-    /// The `×N` factor badge is only meaningful when scaling actually changes
-    /// marker text, so it is hidden at the neutral value.
-    static func showsScalingFactor(_ multiple: Int) -> Bool { multiple > 1 }
+    /// The `×N` factor badge is only meaningful when scaling actually changes marker
+    /// text, so it is hidden at the neutral value and in Prompt mode.
+    static func showsScalingFactor(_ scaling: Scaling) -> Bool {
+        if case .fixed(let value) = scaling { return value > 1 }
+        return false
+    }
 
     /// The row's title. An empty title (the user cleared it on the edit screen)
     /// would otherwise leave the row rendering blank, so it falls back to the

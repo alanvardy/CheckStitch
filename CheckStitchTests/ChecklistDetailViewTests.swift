@@ -160,7 +160,7 @@ struct ChecklistDetailViewTests {
     func itemRowRendersItsDescriptionAndDate() {
         let row = ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", multiple: 1, relativeDate: 3, priority: .high,
+            description: "2 litres", scaling: .fixed(1), relativeDate: 3, priority: .high,
             isEnabled: true, onToggleEnabled: {})
         #if os(macOS)
         #expect(ImageRenderer(content: row).nsImage != nil)
@@ -176,7 +176,7 @@ struct ChecklistDetailViewTests {
     func itemRowRendersForEveryPriority(_ priority: ChecklistItemPriority) {
         let row = ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", multiple: 1, relativeDate: 3, priority: priority,
+            description: "2 litres", scaling: .fixed(1), relativeDate: 3, priority: priority,
             isEnabled: true, onToggleEnabled: {})
         #if os(macOS)
         #expect(ImageRenderer(content: row).nsImage != nil)
@@ -186,10 +186,16 @@ struct ChecklistDetailViewTests {
     }
 
     /// The `×N` factor badge only shows when scaling actually changes marker
-    /// text, so it is hidden at the neutral value (multiple == 1).
-    @Test(arguments: [(1, false), (2, true), (99, true)])
-    func scalingBadgeHiddenOnlyAtNeutral(_ multiple: Int, _ visible: Bool) {
-        #expect(ItemRow.showsScalingFactor(multiple) == visible)
+    /// text, so it is hidden at the neutral value (`.fixed(1)`) and in Prompt
+    /// mode.
+    @Test(arguments: [
+        (Scaling.fixed(1), false),
+        (Scaling.fixed(2), true),
+        (Scaling.fixed(99), true),
+        (Scaling.prompt(lastFixed: 3), false),
+    ])
+    func scalingBadgeHiddenOnlyForNeutralOrPrompt(_ scaling: Scaling, _ visible: Bool) {
+        #expect(ItemRow.showsScalingFactor(scaling) == visible)
     }
 
     /// A scaled detail view stays renderable: the rows resolve their marker
@@ -254,7 +260,7 @@ struct ChecklistDetailViewTests {
     func itemRowCarriesItsChecklistForTheEditLink() {
         let described = String(describing: ItemRow(
             checklistID: UUID(), itemID: UUID(), title: "Milk",
-            description: "2 litres", multiple: 1, relativeDate: 1, priority: .high,
+            description: "2 litres", scaling: .fixed(1), relativeDate: 1, priority: .high,
             isEnabled: true, onToggleEnabled: {}))
         #expect(described.contains("checklistID"))
         #expect(described.contains("itemID"))
