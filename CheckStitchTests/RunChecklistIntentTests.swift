@@ -394,6 +394,37 @@ struct RunChecklistIntentTests {
         #expect(spy.createdListIDs == ["list-1"])
     }
 
+    /// Access-ordering hardening: even for a `.prompt` checklist, the
+    /// `.notDetermined`/`.denied` dialogs short-circuit *before* the system
+    /// parameter prompt is consulted — the request seam is never called while
+    /// access is not granted, so the picker is permission-gated.
+    @Test
+    func promptDoesNotRequestTheListBeforeAccessIsGranted() async throws {
+        var (intent, spy, store) = makeIntent()
+        let checklistID = store.checklists[0].id
+        store.setDestination(.prompt, for: checklistID)
+        store.addItem(to: checklistID, title: "Milk")
+        var requesterCalled = false
+        intent.destinationRequester = {
+            requesterCalled = true
+            return ReminderListEntity(id: "list-1", name: "Reminders")
+        }
+
+        spy.accessStatusValue = .notDetermined
+        _ = try await intent.perform()
+        #expect(!requesterCalled, "the notDetermined dialog precedes any list request")
+        #expect(RunChecklistDialogue.notDetermined.resolved()
+            == "Open CheckStitch and allow Reminders access, then ask again.")
+        #expect(spy.createdTitles.isEmpty)
+
+        spy.accessStatusValue = .denied
+        _ = try await intent.perform()
+        #expect(!requesterCalled, "the denied dialog precedes any list request")
+        #expect(RunChecklistDialogue.denied.resolved()
+            == "CheckStitch doesn't have permission to access Reminders. Turn it on in Settings, then ask again.")
+        #expect(spy.createdTitles.isEmpty)
+    }
+
     /// The exact destination-required dialogue is pinned so headless automation
     /// speaks the app-catalog copy, distinct from the `.denied` message.
     @Test

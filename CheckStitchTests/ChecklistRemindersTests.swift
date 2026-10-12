@@ -630,6 +630,24 @@ struct ChecklistRemindersTests {
         #expect(spy.createdListIDs.isEmpty)
     }
 
+    /// Hardening: even a fully-resolved prompt override cannot create against an
+    /// empty snapshot (no lists, no default) — the chosen list simply no longer
+    /// exists, so the run fails closed with a zero-create `.destinationMissing`.
+    @Test
+    func promptOverrideResolvingAgainstEmptySnapshotIsDestinationMissing() async {
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(options: [], defaultIdentifier: nil)
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .prompt)
+        let gate = RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true)
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, gate: gate, destination: .list("list-gone"))
+
+        #expect(outcome == .destinationMissing)
+        #expect(spy.createdTitles.isEmpty)
+        #expect(spy.createdListIDs.isEmpty)
+    }
+
     /// Phase 1: the one-shot override only applies to a `.prompt` checklist; a
     /// non-prompt checklist keeps its stored destination no matter what is passed.
     @Test

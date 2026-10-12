@@ -274,6 +274,24 @@ struct ChecklistRunViewModelTests {
         #expect(viewModel.runErrorMessage == ReminderRunOutcome.permissionDenied.errorMessage)
     }
 
+    /// Sad path: enumerating lists for the prompt yields nothing at all, so the
+    /// chooser is never shown with an empty selection — the VM routes to the
+    /// missing-destination text instead of raising a bare sheet.
+    @Test
+    func promptRunWithNoListsRoutesToMissingDestinationText() async {
+        let (store, id) = makeStore(items: ["one"])
+        store.setDestination(.prompt, for: id)
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(options: [], defaultIdentifier: nil)
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.createReminders(for: id)
+
+        #expect(viewModel.destinationPrompt == nil, "no sheet with nothing to choose")
+        #expect(viewModel.destinationOptions.isEmpty)
+        #expect(viewModel.runErrorMessage == ReminderRunOutcome.destinationMissing.errorMessage)
+    }
+
     /// Widget deep-link entry point: a `.prompt`, runnable, non-archived id
     /// opens the destination chooser.
     @Test
