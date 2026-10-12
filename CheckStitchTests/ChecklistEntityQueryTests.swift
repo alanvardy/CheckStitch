@@ -122,4 +122,68 @@ struct ChecklistEntityQueryTests {
 
         #expect(entities.map(\.name) == ["Groceries"])
     }
+
+    // MARK: ReminderListEntityQuery
+
+    /// Full-access enumeration offers the synthetic default plus every selectable
+    /// Reminders list (non-default lists, matching `ReminderListsSnapshot`).
+    @Test
+    func reminderListSuggestedEntitiesEnumeratesSelectableListsPlusDefault() async throws {
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Groceries")],
+            defaultIdentifier: nil)
+        let query = ReminderListEntityQuery(targeting: spy)
+
+        let entities = try await query.suggestedEntities()
+
+        #expect(entities.map(\.id) == [ReminderListEntity.defaultID, "list-1"])
+        #expect(entities.first?.name == "Default (Inbox)")
+        #expect(entities[1].name == "Groceries")
+    }
+
+    @Test
+    func reminderListQueryFiltersByIdentifiers() async throws {
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Groceries")],
+            defaultIdentifier: nil)
+        let query = ReminderListEntityQuery(targeting: spy)
+
+        let entities = try await query.entities(for: ["list-1", "ghost"])
+
+        #expect(entities.map(\.id) == ["list-1"])
+    }
+
+    /// A denied/notDetermined read degrades to the synthetic default only — the
+    /// query never prompts from inside a Siri/Shortcuts context.
+    @Test(arguments: [ReminderAccessStatus.notDetermined, ReminderAccessStatus.denied])
+    func unauthorizedReminderListQueryReturnsOnlySyntheticDefault(_ status: ReminderAccessStatus) async throws {
+        let spy = SpyReminderDestination()
+        spy.accessStatusValue = status
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Groceries")],
+            defaultIdentifier: nil)
+        let query = ReminderListEntityQuery(targeting: spy)
+
+        let entities = try await query.suggestedEntities()
+
+        #expect(entities.map(\.id) == [ReminderListEntity.defaultID])
+    }
+
+    /// The system default list is represented once by the synthetic default; the
+    /// concrete default calendar is filtered out of the selectable options.
+    @Test
+    func reminderListQueryOmitsTheConcreteDefaultFromSelectableOptions() async throws {
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "default-cal", title: "Reminders"),
+                      ReminderListOption(id: "list-1", title: "Groceries")],
+            defaultIdentifier: "default-cal")
+        let query = ReminderListEntityQuery(targeting: spy)
+
+        let entities = try await query.suggestedEntities()
+
+        #expect(entities.map(\.id) == [ReminderListEntity.defaultID, "list-1"])
+    }
 }
