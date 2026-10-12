@@ -669,4 +669,24 @@ struct ChecklistRemindersTests {
         #expect(ReminderRunOutcome.destinationRequired.errorMessage == "Choose a list before running this checklist.")
         #expect(ReminderRunOutcome.destinationRequired.errorMessage != ReminderRunOutcome.destinationMissing.errorMessage)
     }
+
+    /// An override scales this run only and never touches the stored checklist.
+    @Test
+    func overrideScalesThisRunOnly() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("milk ((2))")],
+            destination: .list("list-a"),
+            scaling: .fixed(2))
+        let gate = RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()),
+                           isUnlocked: true)
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, gate: gate, multipleOverride: 5)
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdTitles == ["milk 10"])
+        #expect(checklist.scaling == .fixed(2), "the override never persists")
+    }
 }

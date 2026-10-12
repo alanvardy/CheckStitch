@@ -347,6 +347,63 @@ struct ChecklistRunViewModelTests {
         let url = URL(string: "checkstitch://run?checklist=\(id.uuidString)")!
         #expect(ChecklistRunViewModel.destinationPromptChecklistID(from: url) == id)
     }
+
+    @Test
+    func fixedModeRunsImmediatelyWithoutPrompting() async {
+        let (store, id) = makeStore(items: ["milk ((2))"])
+        store.setScaling(.fixed(3), for: id)
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        viewModel.startRun(for: id)
+        #expect(viewModel.promptingRunID == nil)
+    }
+
+    @Test
+    func promptModeParksTheRunUntilConfirmed() async {
+        let (store, id) = makeStore(items: ["milk ((2))"])
+        store.setScaling(.prompt(lastFixed: 3), for: id)
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        viewModel.startRun(for: id)
+        #expect(viewModel.promptingRunID == id)
+        #expect(spy.createdTitles.isEmpty, "nothing is created before confirming")
+
+        let task = viewModel.confirmPrompt(multiple: 5)
+        #expect(task != nil, "confirmPrompt spawns the parked run")
+        await task?.value
+
+        #expect(spy.createdTitles == ["milk 10"], "the entered factor scales the run")
+        #expect(store.checklist(id: id)?.scaling == .prompt(lastFixed: 3),
+                "the entered number is never persisted")
+        #expect(store.checklist(id: id)?.multiple == 3)
+    }
+
+    @Test
+    func cancelPromptDismissesWithoutRunning() async {
+        let (store, id) = makeStore(items: ["milk ((2))"])
+        store.setScaling(.prompt(lastFixed: 3), for: id)
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        viewModel.startRun(for: id)
+        viewModel.cancelPrompt()
+        #expect(viewModel.promptingRunID == nil)
+        #expect(spy.createdTitles.isEmpty)
+    }
+
+    @Test
+    func createRemindersForwardsTheOverrideWithoutPersisting() async {
+        let (store, id) = makeStore(items: ["milk ((2))"])
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.createReminders(for: id, multipleOverride: 5)
+
+        #expect(spy.createdTitles == ["milk 10"])
+        #expect(store.checklist(id: id)?.scaling == .fixed(1))
+    }
 }
 
 /// Test double for `ReminderDestinationTargeting` whose `reminderLists()` throws,

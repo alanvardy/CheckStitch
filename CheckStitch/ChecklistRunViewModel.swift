@@ -39,9 +39,52 @@ final class ChecklistRunViewModel {
     /// so the system default is absent — the sheet's default row stands for it).
     private(set) var destinationOptions: [ReminderListOption] = []
 
+    /// The checklist whose run is waiting for a Prompt-mode number; `nil` hides
+    /// the sheet. Never persisted.
+    private(set) var promptingRunID: UUID?
+
+    /// The checklist waiting for a Prompt-mode number, or `nil`. Drives the sheet.
+    var promptingChecklist: Checklist? {
+        guard let promptingRunID else { return nil }
+        return store.checklist(id: promptingRunID)
+    }
+
+    /// Starts a run: `.fixed` runs immediately, `.prompt` parks the run behind
+    /// the scaling sheet. Never writes the mode or number back. Returns the
+    /// spawned run task for a `.fixed` run so suites can await it; `nil` when
+    /// nothing runs (guard miss or parked prompt).
+    @discardableResult
+    func startRun(for id: UUID) -> Task<Void, Never>? {
+        guard !creating.contains(id),
+              let checklist = store.checklist(id: id),
+              checklist.hasRunnableItems
+        else { return nil }
+        if checklist.scaling.isPrompt {
+            promptingRunID = id
+            return nil
+        } else {
+            return Task { await createReminders(for: id) }
+        }
+    }
+
+    /// Dismisses the scaling sheet without running.
+    func cancelPrompt() {
+        promptingRunID = nil
+    }
+
+    /// Runs the parked checklist with the entered factor as a per-run override.
+    /// Returns the spawned run task so suites can await it deterministically.
+    @discardableResult
+    func confirmPrompt(multiple: Int) -> Task<Void, Never>? {
+        guard let id = promptingRunID else { return nil }
+        promptingRunID = nil
+        return Task { await createReminders(for: id, multipleOverride: multiple) }
+    }
+
     /// Guards against duplicate taps synchronously (before the first `await`),
-    /// then runs one checklist.
-    func createReminders(for id: UUID) async {
+    /// then runs one checklist. `multipleOverride` is per-run only and never
+    /// persisted.
+    func createReminders(for id: UUID, multipleOverride: Int? = nil) async {
         guard !creating.contains(id),
               let checklist = store.checklist(id: id),
               checklist.hasRunnableItems
@@ -95,7 +138,8 @@ final class ChecklistRunViewModel {
         await purchases.start()
         let gate = RunGate(counter: counter, isUnlocked: purchases.isUnlocked)
         let outcome = await ChecklistReminders.create(
-            from: checklist, targeting: targeting, gate: gate, destination: destination)
+            from: checklist, targeting: targeting, gate: gate,
+            multipleOverride: multipleOverride, destination: destination)
         try? await minimumSpinner
         creating.remove(checklist.id)
         switch outcome {

@@ -202,6 +202,9 @@ struct ContentView: View {
         // root modifier chain past the type-checker's limit, and so the sheet
         // presents off the real content (a zero-size background, not the list).
         .background { DestinationPromptSheetHost() }
+        .sheet(item: promptingScalingBinding) { checklist in
+            promptingScalingSheet(for: checklist)
+        }
         .sheet(isPresented: Binding(get: { importExportVM.isShowingExport },
                                     set: { if !$0 { importExportVM.dismissExportSelection() } }),
                onDismiss: { importExportVM.presentPendingShare() }) {
@@ -736,11 +739,28 @@ struct ContentView: View {
         }
     }
 
+    /// The item binding that drives the Prompt-mode scaling sheet. `nil` hides
+    /// it, and dismissing from the sheet cancels the parked run.
+    private var promptingScalingBinding: Binding<Checklist?> {
+        Binding(
+            get: { runVM.promptingChecklist },
+            set: { if $0 == nil { runVM.cancelPrompt() } })
+    }
+
+    /// The content of the Prompt-mode scaling sheet. Extracted so the modifier
+    /// chain stays small enough for the type-checker.
+    private func promptingScalingSheet(for checklist: Checklist) -> PromptScalingSheet {
+        PromptScalingSheet(
+            lastFixed: checklist.scaling.number,
+            onConfirm: { runVM.confirmPrompt(multiple: $0) },
+            onCancel: { runVM.cancelPrompt() })
+    }
+
     @ViewBuilder
     private func createRemindersButton(for checklist: Checklist) -> some View {
         let id = checklist.id
         Button {
-            Task { await runVM.createReminders(for: id) }
+            runVM.startRun(for: id)
         } label: {
             Group {
                 if runVM.creating.contains(id) {
