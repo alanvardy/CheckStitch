@@ -51,6 +51,12 @@ struct ChecklistSyncMessageTests {
     }
 
     @Test
+    func destinationRequiredRunResultRoundTripsThroughUserInfo() {
+        let result = RunResult(runID: UUID(), checklistID: UUID(), kind: .destinationRequired)
+        #expect(ChecklistSyncMessage(userInfo: ChecklistSyncMessage.runResult(result).userInfo) == .runResult(result))
+    }
+
+    @Test
     func runResultWithAMalformedKindIsRejected() {
         #expect(ChecklistSyncMessage(userInfo: [
             ChecklistSyncKey.runResult: [

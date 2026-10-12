@@ -144,7 +144,7 @@ struct ChecklistSyncCoordinatorTests {
         #expect(transport.sentContexts.count == 1)
     }
 
-    @Test(arguments: [ReminderRunOutcome.permissionDenied, .failed("boom"), .destinationMissing, .purchaseRequired])
+    @Test(arguments: [ReminderRunOutcome.permissionDenied, .failed("boom"), .destinationMissing, .purchaseRequired, .destinationRequired])
     func aSadOutcomeStillReachesTheRunClosure(outcome: ReminderRunOutcome) async {
         let transport = FakeChecklistSyncTransport()
         let runner = SpyChecklistRunner()
@@ -166,6 +166,7 @@ struct ChecklistSyncCoordinatorTests {
         (.destinationMissing, .destinationMissing),
         (.purchaseRequired, .purchaseRequired),
         (.failed("boom"), .failed),
+        (.destinationRequired, .destinationRequired),
     ])
     func everyOutcomeIsAnsweredOnTheWatchChannel(outcome: ReminderRunOutcome, kind: RunResultKind) async {
         let transport = FakeChecklistSyncTransport()
