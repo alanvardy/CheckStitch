@@ -1,4 +1,4 @@
-import CheckStitchCore
+@testable import CheckStitchCore
 import EventKit
 import Foundation
 
@@ -142,6 +142,18 @@ final class InMemoryChecklistSync: ChecklistSyncing {
 final class InMemoryObservation: ChecklistSyncObservation {
     private(set) var isCancelled = false
     func cancel() { isCancelled = true }
+}
+
+/// Records Prompt-mode requests instead of touching the system request machinery.
+@MainActor
+final class FakeScalingPrompter: ScalingPrompting {
+    var requestedPrompts: [LocalizedStringResource] = []
+    var result: Result<Int, any Error> = .success(3)
+
+    func requestMultiple(prompt: LocalizedStringResource) async throws -> Int {
+        requestedPrompts.append(prompt)
+        return try result.get()
+    }
 }
 
 /// Deterministic error for failure-path assertions.

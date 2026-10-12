@@ -1,5 +1,27 @@
 import AppIntents
 
+/// Test seam for resolving a Prompt-mode scaling number. The production
+/// implementation asks through the intent's own optional `@Parameter`; suites
+/// inject a fake so no system request machinery is needed.
+@MainActor
+protocol ScalingPrompting: Sendable {
+    func requestMultiple(prompt: LocalizedStringResource) async throws -> Int
+}
+
+/// Production prompter: asks the system for the `multiple` parameter's value.
+@MainActor
+struct AppIntentScalingPrompter: ScalingPrompting {
+    let parameter: IntentParameter<Int?>
+
+    func requestMultiple(prompt: LocalizedStringResource) async throws -> Int {
+        // `requestValue` returns the unwrapped `Int` because `Value.ValueType` is
+        // the non-optional `Wrapped.ValueType` for an `Int?` parameter, and it
+        // presents the dialog it is handed; a cancelled or headless request
+        // surfaces as an error (e.g. `CancellationError`) instead of a value.
+        return try await parameter.requestValue(IntentDialog(prompt))
+    }
+}
+
 /// Thrown when the entity id no longer resolves (checklist deleted between the
 /// user's pick and `perform()`).
 enum RunChecklistIntentError: LocalizedError {
@@ -40,6 +62,7 @@ public struct RunChecklistIntent: AppIntent {
     /// test seam; nil → ask the system parameter prompt via `$destination`.
     /// Injected so tests can drive the prompt/no-value path without a host.
     var destinationRequester: (@MainActor () async -> ReminderListEntity?)?
+    private let injectedPrompter: (any ScalingPrompting)?
 
     public init() {
         self.injectedStore = nil
@@ -47,16 +70,18 @@ public struct RunChecklistIntent: AppIntent {
         self.injectedGate = nil
         self.injectedRunState = nil
         self.destinationRequester = nil
+        self.injectedPrompter = nil
     }
 
     @MainActor
-    public init(store: ChecklistStore, targeting: ReminderDestinationTargeting, gate: RunGate,
-                runState: WidgetRunStateStore? = nil) {
+    init(store: ChecklistStore, targeting: ReminderDestinationTargeting, gate: RunGate,
+         prompter: (any ScalingPrompting)? = nil, runState: WidgetRunStateStore? = nil) {
         self.injectedStore = store
         self.injectedTargeting = targeting
         self.injectedGate = gate
         self.injectedRunState = runState
         self.destinationRequester = nil
+        self.injectedPrompter = prompter
     }
 
     public static var parameterSummary: some ParameterSummary {
@@ -108,6 +133,27 @@ public struct RunChecklistIntent: AppIntent {
             resolvedDestination = stored.destination
         }
 
+        // Prompt mode with no explicit argument asks the system for a number. An
+        // explicit `multiple` always wins, preserving existing automations. A
+        // failure (headless automation, widget button, cancelled request) falls
+        // back to the existing dialog path and creates nothing.
+        var resolvedMultiple = multiple
+        if resolvedMultiple == nil, stored.scaling.isPrompt {
+            let prompter: any ScalingPrompting =
+                injectedPrompter ?? AppIntentScalingPrompter(parameter: $multiple)
+            do {
+                let requested = try await prompter.requestMultiple(prompt: RunChecklistDialogue.scalingPrompt)
+                guard Checklist.multipleRange.contains(requested) else {
+                    throw RunChecklistIntentError.invalidMultiple
+                }
+                resolvedMultiple = requested
+            } catch let error as RunChecklistIntentError {
+                throw error
+            } catch {
+                return .result(dialog: IntentDialog(RunChecklistDialogue.scalingPromptUnavailable))
+            }
+        }
+
         let gate = await resolveGate()
         // The widget button's feedback lives here: a run recorded as `.running`
         // (plus the reload the store fires) lets a timeline reload render the
@@ -122,7 +168,7 @@ public struct RunChecklistIntent: AppIntent {
             from: stored,
             targeting: targeting,
             gate: gate,
-            multipleOverride: multiple,
+            multipleOverride: resolvedMultiple,
             destination: resolvedDestination)
         try? await minimumSpinner
         runState.finishRun(id: uuid, didCreate: outcome.didCreateAllItems, at: Date())
@@ -159,6 +205,11 @@ enum RunChecklistDialogue {
         table: "Localizable", bundle: .main)
     static let destinationRequired = LocalizedStringResource(
         "Open CheckStitch to choose a list, then run this checklist again.",
+        table: "Localizable", bundle: .main)
+    static let scalingPrompt = LocalizedStringResource(
+        "How many times should this scale?", table: "Localizable", bundle: .main)
+    static let scalingPromptUnavailable = LocalizedStringResource(
+        "CheckStitch couldn't ask for a scaling number. Run the checklist in the app, or pass a Multiple value.",
         table: "Localizable", bundle: .main)
 
     @MainActor

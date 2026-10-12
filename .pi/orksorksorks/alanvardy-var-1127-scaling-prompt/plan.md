@@ -906,9 +906,9 @@ func outOfRangePromptedValueThrowsInvalidMultiple() async throws {
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes with the injected prompter
-- [ ] `make build` and `make watch-build` pass
-- [ ] `bash scripts/l10n-check.sh` prints `l10n-check: ok`
+- [x] `make test-unit` passes with the injected prompter
+- [x] `make build` and `make watch-build` pass
+- [x] `bash scripts/l10n-check.sh` prints `l10n-check: ok`
 
 #### Manual
 - [ ] In Shortcuts, run a Prompt checklist with no `Multiple` → Siri/Shortcuts asks for a number; the created reminders use it

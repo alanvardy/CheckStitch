@@ -2502,6 +2502,47 @@
         }
       }
     },
+    "How many times should this scale?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How many times should this scale?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um wie viel soll dies skaliert werden?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cuántas veces debe escalarse esto?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De combien faut-il mettre à l'échelle ?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "何倍に拡大しますか？"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应缩放多少倍？"
+          }
+        }
+      }
+    },
     "How much the wallpaper fades for readability." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5163,6 +5204,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请打开 CheckStitch 并允许访问提醒事项，然后再问一次。"
+          }
+        }
+      }
+    },
+    "CheckStitch couldn't ask for a scaling number. Run the checklist in the app, or pass a Multiple value." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch couldn't ask for a scaling number. Run the checklist in the app, or pass a Multiple value."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch konnte keine Skalierungszahl abfragen. Führe die Checkliste in der App aus oder übergib einen Wert für Mehrfaches."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch no pudo pedir un número de escalado. Ejecuta la lista en la app o pasa un valor de Múltiplo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch n'a pas pu demander un nombre de mise à l'échelle. Lance la checklist dans l'app ou indique une valeur Multiple."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch は拡大倍数を確認できませんでした。アプリでチェックリストを実行するか、倍数の値を指定してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CheckStitch 无法请求缩放倍数。请在 App 中运行清单，或传入倍数数值。"
           }
         }
       }
