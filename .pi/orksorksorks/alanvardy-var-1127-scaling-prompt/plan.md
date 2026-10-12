@@ -1002,9 +1002,9 @@ appear only in the App and intent surfaces).
 ### Verification
 
 #### Automated
-- [ ] `bash scripts/l10n-check.sh` prints `l10n-check: ok`
-- [ ] `make test-unit` passes (`ChecklistDetailViewTests`, `ScalingTests`, `LocalizationTests`)
-- [ ] `make build` passes
+- [x] `bash scripts/l10n-check.sh` prints `l10n-check: ok`
+- [x] `make test-unit` passes (`ChecklistDetailViewTests`, `ScalingTests`, `LocalizationTests`)
+- [x] `make build` passes
 - [ ] `./scripts/test.sh` prints `gate: ok` (sim build → sim test → `build-mac` → `watch-build` → `scripts/tests/run.sh` → shellcheck)
 
 #### Manual
