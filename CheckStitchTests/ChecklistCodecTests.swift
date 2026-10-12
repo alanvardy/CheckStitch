@@ -500,6 +500,25 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(ChecklistCodec.classify(payload), .migratable(from: 4, envelope: ChecklistEnvelope(version: 4, deviceID: "d", checklists: [])))
     }
 
+    /// Cross-version hardening: a v5 payload is a known older format on this v6
+    /// build, so a v5 remote migrates on a v6 device — the renamed destination
+    /// key is recovered by `Checklist.init(from:)`'s legacy fallback, and the
+    /// store's `default:` migration branch folds it verbatim.
+    func testV5PayloadIsClassifiedMigratable() throws {
+        let id = UUID().uuidString
+        let payload = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","revision":1,"modifiedAt":100}]}]}"#.utf8)
+
+        guard case .migratable(from: let version, envelope: let envelope) = ChecklistCodec.classify(payload) else {
+            XCTFail("expected migratable outcome, got \(ChecklistCodec.classify(payload))")
+            return
+        }
+        XCTAssertEqual(version, 5)
+        XCTAssertEqual(envelope.checklists.first?.name, "Groceries")
+        let item = try XCTUnwrap(envelope.checklists.first?.items.first)
+        XCTAssertEqual(item.title, "Milk")
+        XCTAssertEqual(item.revision, 1, "a migrating v5 payload loads verbatim, never restamped")
+    }
+
     /// A v4 payload lacks the folder keys: they must decode to the empty
     /// defaults and every checklist's `folderID` to nil, never a trap.
     func testV4PayloadWithoutFolderKeysDecodesWithDefaults() {
