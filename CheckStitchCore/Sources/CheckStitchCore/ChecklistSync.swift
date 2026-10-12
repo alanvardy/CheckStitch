@@ -30,6 +30,9 @@ public enum RunResultKind: Equatable, Sendable {
     case purchaseRequired
     /// The phone no longer has this checklist; it is re-pushing its context.
     case notFound
+    /// The checklist asks for a destination at run time; only the phone can
+    /// choose it, so the watch defers to the app's sheet.
+    case destinationRequired
     case failed
 
     public init(_ outcome: ReminderRunOutcome) {
@@ -41,9 +44,7 @@ public enum RunResultKind: Equatable, Sendable {
         case .destinationMissing: self = .destinationMissing
         case .purchaseRequired: self = .purchaseRequired
         case .failed: self = .failed
-        // Phase 1 compile bridge: Phase 4 replaces this with a dedicated
-        // `.destinationRequired` wire kind + message/wireName/runResultDict mapping.
-        case .destinationRequired: self = .failed
+        case .destinationRequired: self = .destinationRequired
         }
     }
 
@@ -56,6 +57,7 @@ public enum RunResultKind: Equatable, Sendable {
         case .partiallyCreated(let created, let total): "Created \(created) of \(total) reminders."
         case .permissionDenied: "CheckStitch doesn't have permission to access Reminders."
         case .destinationMissing: "That list no longer exists."
+        case .destinationRequired: "Choose a list on iPhone."
         case .purchaseRequired: "CheckStitch needs a license to keep creating reminders."
         case .notFound: "Not found — refreshing."
         case .failed: "Couldn't create reminders."
@@ -68,6 +70,7 @@ public enum RunResultKind: Equatable, Sendable {
         case .partiallyCreated: "partiallyCreated"
         case .permissionDenied: "permissionDenied"
         case .destinationMissing: "destinationMissing"
+        case .destinationRequired: "destinationRequired"
         case .purchaseRequired: "purchaseRequired"
         case .notFound: "notFound"
         case .failed: "failed"
@@ -84,6 +87,7 @@ public enum RunResultKind: Equatable, Sendable {
             self = .partiallyCreated(created: count, total: total)
         case "permissionDenied": self = .permissionDenied
         case "destinationMissing": self = .destinationMissing
+        case "destinationRequired": self = .destinationRequired
         case "purchaseRequired": self = .purchaseRequired
         case "notFound": self = .notFound
         case "failed": self = .failed
@@ -185,7 +189,7 @@ public enum ChecklistSyncMessage: Equatable, Sendable {
         case .partiallyCreated(let created, let total):
             dict[ChecklistSyncKey.runResultCount] = created
             dict[ChecklistSyncKey.runResultTotal] = total
-        case .permissionDenied, .destinationMissing, .purchaseRequired, .notFound, .failed:
+        case .permissionDenied, .destinationMissing, .destinationRequired, .purchaseRequired, .notFound, .failed:
             break
         }
         return dict
@@ -368,7 +372,7 @@ public final class WatchChecklistStore {
             let phase: RunPhase = switch result.kind {
             case .created(let count): .created(count)
             case .partiallyCreated(let created, let total): .partiallyCreated(created: created, total: total)
-            case .permissionDenied, .destinationMissing, .purchaseRequired, .notFound, .failed: .failed(result.kind.message)
+            case .permissionDenied, .destinationMissing, .destinationRequired, .purchaseRequired, .notFound, .failed: .failed(result.kind.message)
             }
             setPhase(phase, for: result.runID)
         case .language(let raw):

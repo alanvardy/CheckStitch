@@ -257,6 +257,7 @@ struct WatchChecklistStoreTests {
         (.partiallyCreated(created: 2, total: 5), .partiallyCreated(created: 2, total: 5)),
         (.permissionDenied, .failed(RunResultKind.permissionDenied.message)),
         (.destinationMissing, .failed(RunResultKind.destinationMissing.message)),
+        (.destinationRequired, .failed(RunResultKind.destinationRequired.message)),
         (.purchaseRequired, .failed(RunResultKind.purchaseRequired.message)),
         (.notFound, .failed(RunResultKind.notFound.message)),
         (.failed, .failed(RunResultKind.failed.message)),
