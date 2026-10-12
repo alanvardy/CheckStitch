@@ -23,7 +23,8 @@ import os
     public static func create(from checklist: Checklist,
                               targeting: ReminderDestinationTargeting,
                               gate: RunGate,
-                              multipleOverride: Int? = nil) async -> ReminderRunOutcome {
+                              multipleOverride: Int? = nil,
+                              destination: ChecklistDestination? = nil) async -> ReminderRunOutcome {
         // Gate first: reserve the slot (atomically) before any EventKit work, so
         // a refused run writes nothing and concurrent runs cannot both pass at
         // the limit. The slot is released again unless the run creates a reminder.
@@ -38,12 +39,19 @@ import os
                 gate.releaseRun()
                 return .permissionDenied
             }
-            let snapshot = try await targeting.reminderLists()
-            let identifier: String? = switch checklist.destination {
-            case .systemDefault: nil
-            case .list(let id): id
-            case .prompt: nil  // Phase 1 makes this unreachable
+            // Prompt resolves at run time; a missing override is a refusal (the
+            // UI opens the one-shot chooser), never a silent default.
+            let chosen: ChecklistDestination
+            switch (checklist.destination, destination) {
+            case (.prompt, .some(let override)): chosen = override
+            case (.prompt, .none):
+                gate.releaseRun()
+                return .destinationRequired
+            default:
+                chosen = checklist.destination
             }
+            let snapshot = try await targeting.reminderLists()
+            let identifier: String? = { if case .list(let id) = chosen { return id }; return nil }()
             guard let destination = snapshot.resolve(identifier) else {
                 // All-or-nothing: validate existence before the first create.
                 gate.releaseRun()

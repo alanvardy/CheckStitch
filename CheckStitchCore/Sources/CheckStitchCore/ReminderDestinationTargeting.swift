@@ -57,6 +57,10 @@ public struct ReminderListsSnapshot: Equatable, Sendable {
 /// so the UI can explain the missing-list case specifically.
 public enum ReminderRunOutcome: Equatable, Sendable {
     case created(count: Int)
+    /// The checklist is `.prompt` (ask at run time) and no override was given —
+    /// the caller must surface a one-shot destination chooser. Distinct from
+    /// `.destinationMissing`, which is a stored list that has since vanished.
+    case destinationRequired
     case destinationMissing
     case permissionDenied
     /// The free-run limit was reached and no license is held. Refused before
@@ -72,6 +76,7 @@ public enum ReminderRunOutcome: Equatable, Sendable {
     public var errorMessage: String? {
         switch self {
         case .created: return nil
+        case .destinationRequired: return "Choose a list before running this checklist."
         case .destinationMissing: return "That list no longer exists; no reminders were created."
         case .permissionDenied: return "CheckStitch doesn't have permission to access Reminders; no reminders were created."
         case .purchaseRequired: return "CheckStitch needs a license to keep creating reminders."

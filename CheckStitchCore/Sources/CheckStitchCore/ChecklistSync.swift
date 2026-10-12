@@ -41,6 +41,9 @@ public enum RunResultKind: Equatable, Sendable {
         case .destinationMissing: self = .destinationMissing
         case .purchaseRequired: self = .purchaseRequired
         case .failed: self = .failed
+        // Phase 1 compile bridge: Phase 4 replaces this with a dedicated
+        // `.destinationRequired` wire kind + message/wireName/runResultDict mapping.
+        case .destinationRequired: self = .failed
         }
     }
 

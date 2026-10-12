@@ -596,4 +596,59 @@ struct ChecklistRemindersTests {
         #expect(checklist.items[0].title == "milk ((3))")
         #expect(checklist.items[0].description == "((4)) boxes")
     }
+
+    /// Phase 1: a `.prompt` checklist given the sheet's one-shot override creates
+    /// credentials in that chosen list, exactly once, without persisting.
+    @Test
+    func promptWithOverrideCreatesInChosenList() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .prompt)
+        let gate = RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true)
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, gate: gate, destination: .list("list-a"))
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdListIDs == ["list-a"])
+    }
+
+    /// Phase 1: a `.prompt` checklist with no override is a refusal, not a silent
+    /// default to the system list — zero reminders are created.
+    @Test
+    func promptWithoutOverrideReturnsDestinationRequiredAndCreatesNothing() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .prompt)
+        let gate = RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true)
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, gate: gate, destination: nil)
+
+        #expect(outcome == .destinationRequired)
+        #expect(spy.createdTitles.isEmpty)
+        #expect(spy.createdListIDs.isEmpty)
+    }
+
+    /// Phase 1: the one-shot override only applies to a `.prompt` checklist; a
+    /// non-prompt checklist keeps its stored destination no matter what is passed.
+    @Test
+    func nonPromptIgnoresOverrideDestination() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(items: [makeItem("Milk")])  // .systemDefault
+        let gate = RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true)
+
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: spy, gate: gate, destination: .list("list-a"))
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdListIDs == ["list-default"], "a non-prompt checklist ignores the override and keeps its stored destination")
+    }
+
+    @Test
+    func destinationRequiredHasItsOwnErrorMessage() {
+        #expect(ReminderRunOutcome.destinationRequired.errorMessage == "Choose a list before running this checklist.")
+        #expect(ReminderRunOutcome.destinationRequired.errorMessage != ReminderRunOutcome.destinationMissing.errorMessage)
+    }
 }
