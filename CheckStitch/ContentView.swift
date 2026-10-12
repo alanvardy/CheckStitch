@@ -189,6 +189,11 @@ struct ContentView: View {
                                     set: { if !$0 { runVM.dismissPaywall() } })) {
             PaywallView()
         }
+        // The one-shot destination chooser for a `.prompt` checklist. Isolated in
+        // its own host view so its `.sheet(item:)` doesn't widen the already-long
+        // root modifier chain past the type-checker's limit, and so the sheet
+        // presents off the real content (a zero-size background, not the list).
+        .background { DestinationPromptSheetHost() }
         .sheet(isPresented: Binding(get: { importExportVM.isShowingExport },
                                     set: { if !$0 { importExportVM.dismissExportSelection() } }),
                onDismiss: { importExportVM.presentPendingShare() }) {
@@ -896,4 +901,28 @@ struct SyncStatusView: View {
         // Construction only: the preview never triggers read/write/synchronize.
         .environment(ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store))
         .environment(PurchaseEnvironment.service)
+}
+
+/// Presents `DestinationPromptSheet` for a `.prompt` checklist. Lives in its own
+/// view so the `.sheet(item:)` binding doesn't widen `ContentView`'s long
+/// modifier chain past the type-checker's limit. The `Color.clear` is the source
+/// view the sheet attaches to; sheets present modally regardless of its size.
+private struct DestinationPromptSheetHost: View {
+    @Environment(ChecklistRunViewModel.self) private var runVM
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .sheet(item: Binding(get: { runVM.destinationPrompt },
+                                 set: { if $0 == nil { runVM.dismissDestinationPrompt() } })) { checklist in
+                DestinationPromptSheet(
+                    checklistName: checklist.name,
+                    options: runVM.destinationOptions,
+                    defaultIdentifier: runVM.destinationDefaultIdentifier,
+                    onRun: { destination in
+                        Task { await runVM.run(checklist, in: destination) }
+                    },
+                    onCancel: { runVM.dismissDestinationPrompt() })
+            }
+    }
 }

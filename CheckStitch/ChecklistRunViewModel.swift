@@ -32,6 +32,14 @@ final class ChecklistRunViewModel {
     private(set) var runErrorMessage: String?
     /// Present when a run was refused at the free limit.
     private(set) var isShowingPaywall = false
+    /// The checklist whose `.prompt` run is waiting for a one-shot destination
+    /// choice. Never persisted. `nil` hides the chooser sheet.
+    private(set) var destinationPrompt: Checklist?
+    /// The lists a `.prompt` run offers as explicit choices (`selectableOptions`,
+    /// so the system default is absent — the sheet's default row stands for it).
+    private(set) var destinationOptions: [ReminderListOption] = []
+    /// The system default list's identifier, if any; the sheet's default row.
+    private(set) var destinationDefaultIdentifier: String?
 
     /// Guards against duplicate taps synchronously (before the first `await`),
     /// then runs one checklist.
@@ -40,7 +48,35 @@ final class ChecklistRunViewModel {
               let checklist = store.checklist(id: id),
               checklist.hasRunnableItems
         else { return }
-        creating.insert(id)
+        await perform(checklist: checklist, destination: nil)
+    }
+
+    /// Runs again with the sheet's one-shot choice; never written back to the store.
+    func run(_ checklist: Checklist, in destination: ChecklistDestination) async {
+        destinationPrompt = nil
+        await perform(checklist: checklist, destination: destination)
+    }
+
+    /// Widget deep-link entry point (`checkstitch://run?checklist=<id>`, wired in
+    /// a later phase): presents the prompt chooser for a runnable, non-archived
+    /// `.prompt` checklist. A no-op for any other checklist.
+    func presentDestinationPrompt(forChecklistID id: UUID) async {
+        guard let checklist = store.checklist(id: id),
+              !checklist.isArchived, checklist.destination == .prompt,
+              checklist.hasRunnableItems
+        else { return }
+        await presentPrompt(for: checklist)
+    }
+
+    func dismissDestinationPrompt() {
+        destinationPrompt = nil
+    }
+
+    /// Runs one checklist through the seam. `destination` is the one-shot prompt
+    /// override, or `nil` for the normal (non-prompt) path; a `.prompt` checklist
+    /// with no override gets `.destinationRequired` and opens the chooser.
+    private func perform(checklist: Checklist, destination: ChecklistDestination?) async {
+        creating.insert(checklist.id)
         // Hold the spinner for at least `spinnerDuration` so saving quickly
         // doesn't flash the progress feedback past the user.
         async let minimumSpinner: Void = Task.sleep(for: spinnerDuration)
@@ -48,19 +84,39 @@ final class ChecklistRunViewModel {
         // the gate against a stale `.unknown` (the intent path does the same).
         await purchases.start()
         let gate = RunGate(counter: counter, isUnlocked: purchases.isUnlocked)
-        let outcome = await ChecklistReminders.create(from: checklist, targeting: targeting, gate: gate)
+        let outcome = await ChecklistReminders.create(
+            from: checklist, targeting: targeting, gate: gate, destination: destination)
         try? await minimumSpinner
-        creating.remove(id)
+        creating.remove(checklist.id)
         switch outcome {
         case .created:
-            created.insert(id)
+            created.insert(checklist.id)
             try? await Task.sleep(for: .seconds(1))
-            created.remove(id)
+            created.remove(checklist.id)
         case .purchaseRequired:
             isShowingPaywall = true
+        case .destinationRequired:
+            await presentPrompt(for: checklist)
         case .destinationMissing, .permissionDenied, .partiallyCreated, .failed:
             // Never flash success: nothing (or only part) was created.
             runErrorMessage = outcome.errorMessage
+        }
+    }
+
+    /// Enumerates lists for the one-shot chooser. With no lists at all, routes to
+    /// the missing-destination text instead of showing an empty sheet.
+    private func presentPrompt(for checklist: Checklist) async {
+        do {
+            let snapshot = try await targeting.reminderLists()
+            guard !snapshot.options.isEmpty || snapshot.defaultIdentifier != nil else {
+                runErrorMessage = ReminderRunOutcome.destinationMissing.errorMessage
+                return
+            }
+            destinationOptions = snapshot.selectableOptions
+            destinationDefaultIdentifier = snapshot.defaultIdentifier
+            destinationPrompt = checklist
+        } catch {
+            runErrorMessage = ReminderRunOutcome.permissionDenied.errorMessage
         }
     }
 

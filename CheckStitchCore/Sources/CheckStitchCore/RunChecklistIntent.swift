@@ -150,6 +150,10 @@ enum RunChecklistDialogue {
         case .failed(let reason):
             return LocalizedStringResource(
                 "Couldn't create reminders for \(checklistName): \(reason)", table: "Localizable", bundle: .main)
+        // Phase 1 compile bridge: Phase 2 adds a dedicated `.destinationRequired`
+        // dialogue and wires the prompt to present it from an intent.
+        case .destinationRequired:
+            return denied
         }
     }
 }

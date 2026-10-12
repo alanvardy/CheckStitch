@@ -36,7 +36,7 @@ struct ChecklistRunViewModelTests {
     }
 
     private func makeViewModel(store: ChecklistStore,
-                               targeting: SpyReminderDestination,
+                               targeting: any ReminderDestinationTargeting,
                                counter: RunCounter = RunCounter(defaults: makeIsolatedDefaults()),
                                purchases: PurchaseService? = nil) -> ChecklistRunViewModel {
         ChecklistRunViewModel(store: store,
@@ -86,6 +86,7 @@ struct ChecklistRunViewModelTests {
             spy.createError = TestError.boom
         case .created: break
         case .purchaseRequired: break  // paywall path covered by refusalAtTheLimitPresentsThePaywall
+        case .destinationRequired: break  // opens the sheet, not an alert (covered by the prompt-presentation tests)
         }
         let viewModel = makeViewModel(store: store, targeting: spy)
 
@@ -212,4 +213,75 @@ struct ChecklistRunViewModelTests {
         #expect(viewModel.created.isEmpty)
         #expect(viewModel.runErrorMessage == nil)
     }
+
+    /// A prompt checklist with no override offers its explicit lists and opens
+    /// the sheet rather than showing an error.
+    @Test
+    func promptRunPresentsDestinationChooser() async {
+        let (store, id) = makeStore(items: ["one"])
+        store.setDestination(.prompt, for: id)
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [
+                ReminderListOption(id: "list-inbox", title: "Inbox"),
+                ReminderListOption(id: "list-groceries", title: "Groceries"),
+            ],
+            defaultIdentifier: "list-inbox")
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        await viewModel.createReminders(for: id)
+
+        #expect(viewModel.destinationPrompt?.id == id)
+        #expect(viewModel.destinationPrompt?.destination == .prompt)
+        #expect(viewModel.destinationOptions.map(\.id) == ["list-groceries"])
+        #expect(viewModel.destinationDefaultIdentifier == "list-inbox")
+        #expect(viewModel.runErrorMessage == nil, "a successful prompt presentation opens the sheet, not an alert")
+    }
+
+    /// The sheet's confirm button runs the checklist once in the chosen list and
+    /// clears the pending prompt, without writing the choice back to the store.
+    @Test
+    func runInDestinationCreatesInChosenListAndClearsThePrompt() async {
+        let (store, id) = makeStore(items: ["one"])
+        store.setDestination(.prompt, for: id)
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-a", title: "A"), ReminderListOption(id: "list-b", title: "B")],
+            defaultIdentifier: "list-a")
+        let viewModel = makeViewModel(store: store, targeting: spy)
+        let checklist = store.checklist(id: id)!
+
+        await viewModel.run(checklist, in: .list("list-b"))
+
+        #expect(spy.createdTitles == ["one"])
+        #expect(spy.createdListIDs == ["list-b"])
+        #expect(viewModel.destinationPrompt == nil, "the one-shot choice clears the pending prompt")
+        #expect(store.checklist(id: id)?.destination == .prompt, "the choice is never written back to the store")
+    }
+
+    /// Sad path: enumerating lists for the prompt throws, so the sheet is never
+    /// shown and the permission-denied message appears instead.
+    @Test
+    func promptRunEnumerationFailureSetsTheErrorMessage() async {
+        let (store, id) = makeStore(items: ["one"])
+        store.setDestination(.prompt, for: id)
+        let targeting = ThrowingListsDestination()
+        let viewModel = makeViewModel(store: store, targeting: targeting)
+
+        await viewModel.createReminders(for: id)
+
+        #expect(viewModel.destinationPrompt == nil)
+        #expect(viewModel.runErrorMessage == ReminderRunOutcome.permissionDenied.errorMessage)
+    }
+}
+
+/// Test double for `ReminderDestinationTargeting` whose `reminderLists()` throws,
+/// so the prompt-presentation enumeration failure path is exercised.
+@MainActor
+private final class ThrowingListsDestination: ReminderDestinationTargeting {
+    func requestAccess() async throws -> Bool { true }
+    func accessStatus() -> ReminderAccessStatus { .fullAccess }
+    func reminderLists() async throws -> ReminderListsSnapshot { throw TestError.boom }
+    func create(title: String, notes: String?, priority: ChecklistItemPriority,
+                in list: ReminderListOption, dueDateComponents: DateComponents?) async throws {}
 }

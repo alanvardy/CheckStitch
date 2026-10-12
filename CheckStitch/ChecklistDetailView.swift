@@ -53,6 +53,7 @@ struct ChecklistDetailView: View {
                     Section {
                         Picker("List", selection: destinationBinding(checklistID: checklistID)) {
                             Text("Default (Inbox)").tag(ChecklistDestination.systemDefault)
+                            Text("Ask me each time").tag(ChecklistDestination.prompt)
                             ForEach(listsSnapshot?.selectableOptions ?? []) { list in
                                 Text(list.title).tag(ChecklistDestination.list(list.id))
                             }
