@@ -233,12 +233,12 @@ struct ChecklistImportSessionTests {
     /// plain insert and through a Replace decision. Both rebuild via `freshCopy`.
     @Test
     func destinationPreserved() throws {
-        let incoming = Checklist(name: "Groceries", destinationListIdentifier: "list-a")
+        let incoming = Checklist(name: "Groceries", destination: .list("list-a"))
 
         let (session, store) = makeSession()
         _ = try session.stage(data: payload([incoming]))
         session.commit(selectedIDs: allIDs(session.candidates))
-        #expect(store.checklists.first?.destinationListIdentifier == "list-a",
+        #expect(store.checklists.first?.destination == .list("list-a"),
                 "insert keeps the payload destination")
 
         let (replacing, replaceStore) = makeSession()
@@ -246,7 +246,7 @@ struct ChecklistImportSessionTests {
         _ = try replacing.stage(data: payload([incoming]))
         replacing.commit(selectedIDs: allIDs(replacing.candidates))
         replacing.decide(.replace, for: replacing.pending.first?.id ?? UUID())
-        #expect(replaceStore.checklists.first?.destinationListIdentifier == "list-a",
+        #expect(replaceStore.checklists.first?.destination == .list("list-a"),
                 "replace keeps the payload destination")
     }
 
@@ -275,12 +275,12 @@ struct ChecklistImportSessionTests {
         let (session, store) = makeSession()
         let incoming = Checklist(name: "Groceries",
                                  items: [ChecklistItem(title: "Milk")],
-                                 destinationListIdentifier: "list-deleted")
+                                 destination: .list("list-deleted"))
         _ = try session.stage(data: payload([incoming]))
         session.commit(selectedIDs: allIDs(session.candidates))
 
         let imported = try #require(store.checklists.first)
-        #expect(imported.destinationListIdentifier == "list-deleted",
+        #expect(imported.destination == .list("list-deleted"),
                 "the id is preserved, not silently reset")
 
         let spy = SpyReminderDestination()

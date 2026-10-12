@@ -656,7 +656,7 @@ final class ChecklistStoreTests: XCTestCase {
             XCTFail("expected the stored payload to classify as loaded")
             return
         }
-        XCTAssertEqual(stored.version, 5)
+        XCTAssertEqual(stored.version, ChecklistCodec.currentVersion)
     }
 
     /// A stored v2 payload has real sync state but no ordering state. It must
@@ -2331,19 +2331,19 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let incoming = makeImportedChecklist(destination: "list-a")
+        let incoming = makeImportedChecklist(destination: .list("list-a"))
 
         let inserted = store.importInsert(incoming)
-        XCTAssertEqual(store.checklist(id: inserted)?.destinationListIdentifier, "list-a")
-        XCTAssertEqual(makeStore(defaults: suite.defaults).checklist(id: inserted)?.destinationListIdentifier,
-                       "list-a", "the destination is persisted")
+        XCTAssertEqual(store.checklist(id: inserted)?.destination, .list("list-a"))
+        XCTAssertEqual(makeStore(defaults: suite.defaults).checklist(id: inserted)?.destination,
+                       .list("list-a"), "the destination is persisted")
 
         let local = store.create(name: "Trip")
         guard let replaced = store.importReplace(id: local.id, with: incoming) else {
             XCTFail("expected the replace to land")
             return
         }
-        XCTAssertEqual(store.checklist(id: replaced)?.destinationListIdentifier, "list-a")
+        XCTAssertEqual(store.checklist(id: replaced)?.destination, .list("list-a"))
     }
 
     /// Happy path: a duplicate keeps the source's chosen Reminders list.
@@ -2353,28 +2353,28 @@ final class ChecklistStoreTests: XCTestCase {
 
         let store = makeStore(defaults: suite.defaults)
         let source = store.create(name: "Groceries")
-        store.setDestination("list-a", for: source.id)
+        store.setDestination(.list("list-a"), for: source.id)
 
         guard let copy = store.duplicate(id: source.id, name: "Groceries copy") else {
             XCTFail("expected the duplicate to land")
             return
         }
-        XCTAssertEqual(store.checklist(id: copy.id)?.destinationListIdentifier, "list-a")
+        XCTAssertEqual(store.checklist(id: copy.id)?.destination, .list("list-a"))
 
         // Sad path: a source with no chosen destination yields a system-default copy.
         let plain = store.create(name: "Trip")
-        XCTAssertNil(store.duplicate(id: plain.id, name: "Trip copy")?.destinationListIdentifier)
+        XCTAssertEqual(store.duplicate(id: plain.id, name: "Trip copy")?.destination, .systemDefault)
     }
 
     /// Default/sad path: an import with no chosen destination stays system-default.
-    func testImportWithoutDestinationStaysNil() {
+    func testImportWithoutDestinationStaysSystemDefault() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
         let inserted = store.importInsert(makeImportedChecklist())
 
-        XCTAssertNil(store.checklist(id: inserted)?.destinationListIdentifier)
+        XCTAssertEqual(store.checklist(id: inserted)?.destination, .systemDefault)
     }
 
     func testSetDestinationUpdatesRevisionAndPersists() {
@@ -2385,10 +2385,10 @@ final class ChecklistStoreTests: XCTestCase {
         let created = store.create()
         clock.now = Date(timeIntervalSince1970: 5)
 
-        XCTAssertEqual(store.setDestination("list-a", for: created.id), .updated)
+        XCTAssertEqual(store.setDestination(.list("list-a"), for: created.id), .updated)
 
         let reloaded = makeStore(defaults: suite.defaults)
-        XCTAssertEqual(reloaded.checklist(id: created.id)?.destinationListIdentifier, "list-a")
+        XCTAssertEqual(reloaded.checklist(id: created.id)?.destination, .list("list-a"))
         XCTAssertEqual(reloaded.checklist(id: created.id)?.revision, 2)
         XCTAssertEqual(reloaded.checklist(id: created.id)?.modifiedAt, clock.now)
     }
@@ -2398,11 +2398,11 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
         let store = makeStore(defaults: suite.defaults)
         let created = store.create()
-        store.setDestination("list-a", for: created.id)
+        store.setDestination(.list("list-a"), for: created.id)
 
-        XCTAssertEqual(store.setDestination(nil, for: created.id), .updated)
+        XCTAssertEqual(store.setDestination(.systemDefault, for: created.id), .updated)
 
-        XCTAssertNil(makeStore(defaults: suite.defaults).checklist(id: created.id)?.destinationListIdentifier)
+        XCTAssertEqual(makeStore(defaults: suite.defaults).checklist(id: created.id)?.destination, .systemDefault)
     }
 
     /// Sad path: an id deleted while its edit screen was on the stack changes
@@ -2412,7 +2412,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
         let store = makeStore(defaults: suite.defaults)
 
-        XCTAssertEqual(store.setDestination("list-a", for: UUID()), .notFound)
+        XCTAssertEqual(store.setDestination(.list("list-a"), for: UUID()), .notFound)
         XCTAssertTrue(store.checklists.isEmpty)
     }
 
@@ -2546,10 +2546,10 @@ final class ChecklistStoreTests: XCTestCase {
     /// An "imported" checklist with non-default identity, so freshness is provable.
     private func makeImportedChecklist(name: String = "Groceries",
                                        items: [String] = ["Milk", "Eggs"],
-                                       destination: String? = nil) -> Checklist {
+                                       destination: ChecklistDestination = .systemDefault) -> Checklist {
         Checklist(name: name,
                   items: items.map { ChecklistItem(title: $0, description: "\($0) notes", relativeDate: 1) },
-                  destinationListIdentifier: destination,
+                  destination: destination,
                   modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
     }
 

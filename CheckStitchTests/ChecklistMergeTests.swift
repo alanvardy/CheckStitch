@@ -800,29 +800,48 @@ struct ChecklistMergeTests {
     @Test
     func winnerDestinationOverwritesLoser() {
         let id = UUID()
-        let newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2), destination: "list-b")
-        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1), destination: "list-a")
+        let newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2), destination: .list("list-b"))
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1), destination: .list("list-a"))
 
         let merged = ChecklistMerge.merge(
             local: envelope(device: "device-a", checklists: [older]),
             remote: envelope(device: "device-b", checklists: [newer])
         )
 
-        #expect(merged.checklists.first?.destinationListIdentifier == "list-b", "the newest editor controls the destination")
+        #expect(merged.checklists.first?.destination == .list("list-b"), "the newest editor controls the destination")
     }
 
     @Test
     func loserDestinationIsPreservedWhenNonWinning() {
         let id = UUID()
-        let newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2), destination: "list-b")
-        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1), destination: "list-a")
+        let newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2), destination: .list("list-b"))
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1), destination: .list("list-a"))
 
         let merged = ChecklistMerge.merge(
             local: envelope(device: "device-a", checklists: [newer]),
             remote: envelope(device: "device-b", checklists: [older])
         )
 
-        #expect(merged.checklists.first?.destinationListIdentifier == "list-b", "an older revision must not leak its destination in")
+        #expect(merged.checklists.first?.destination == .list("list-b"), "an older revision must not leak its destination in")
+    }
+
+    @Test
+    func promptDestinationWinsAndIsIdempotent() {
+        let id = UUID()
+        let newer = checklist(id: id, name: "newer", revision: 2, modifiedAt: Date(timeIntervalSince1970: 2), destination: .prompt)
+        let older = checklist(id: id, name: "older", revision: 1, modifiedAt: Date(timeIntervalSince1970: 1), destination: .list("list-a"))
+
+        let merged = ChecklistMerge.merge(
+            local: envelope(device: "device-a", checklists: [older]),
+            remote: envelope(device: "device-b", checklists: [newer])
+        )
+
+        #expect(merged.checklists.first?.destination == .prompt, "the newest editor's prompt choice wins wholesale")
+        #expect(merged.checklists.first?.destination != older.destination, "prompt supersedes the loser's list")
+
+        let reMerged = ChecklistMerge.merge(local: merged, remote: merged)
+        #expect(reMerged.checklists.first?.destination == .prompt, "re-merging the merged envelope keeps prompt")
+        #expect(reMerged == merged, "re-merging the merged envelope is a no-op")
     }
 
     @Test
@@ -1218,8 +1237,8 @@ func folder(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPa
 @MainActor
 func checklist(id: UUID, name: String, revision: Int, modifiedAt: Date = .distantPast,
     itemOrder: [UUID]? = nil, orderRevision: Int = 0, orderModifiedAt: Date = .distantPast,
-    items: [ChecklistItem] = [], destination: String? = nil) -> Checklist {
-    Checklist(id: id, name: name, items: items, destinationListIdentifier: destination,
+    items: [ChecklistItem] = [], destination: ChecklistDestination = .systemDefault) -> Checklist {
+    Checklist(id: id, name: name, items: items, destination: destination,
               modifiedAt: modifiedAt, revision: revision,
               itemOrder: itemOrder, orderRevision: orderRevision, orderModifiedAt: orderModifiedAt)
 }

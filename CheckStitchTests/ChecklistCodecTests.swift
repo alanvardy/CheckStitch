@@ -96,7 +96,7 @@ final class ChecklistCodecTests: XCTestCase {
     }
 
     func testFutureVersionIsUnsupported() {
-        let data = Data(#"{"version":6,"checklists":[]}"#.utf8)
+        let data = Data(#"{"version":\#(ChecklistCodec.currentVersion + 1),"checklists":[]}"#.utf8)
         XCTAssertEqual(ChecklistCodec.classify(data), .unsupportedVersion)
     }
 
@@ -138,27 +138,78 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertFalse(decoded.first?.items.first?.isBlank ?? true)
     }
 
-    /// A v2 payload written before the destination field existed: decodes as nil
-    /// rather than throwing, so every checklist already stored keeps working.
-    func testDecodesV2PayloadWithoutDestinationAsNil() {
+    /// A v2 payload written before the destination field existed: decodes as
+    /// `.systemDefault` rather than throwing, so every checklist already stored
+    /// keeps working.
+    func testDecodesV2PayloadWithoutDestinationAsSystemDefault() {
         let id = UUID().uuidString
         let data = Data(#"{"version":2,"deviceID":"device-a","checklists":[{"id":"\#(id)","name":"Groceries","items":[],"modifiedAt":0,"revision":1}]}"#.utf8)
 
         let decoded = ChecklistCodec.decode(data)
 
         XCTAssertEqual(decoded.count, 1)
-        XCTAssertNil(decoded.first?.destinationListIdentifier)
+        XCTAssertEqual(decoded.first?.destination, .systemDefault)
     }
 
     func testDestinationSurvivesEnvelopeRoundTrip() throws {
         let checklist = Checklist(name: "Groceries", items: [ChecklistItem(title: "Milk")],
-                                  destinationListIdentifier: "list-a")
+                                  destination: .list("list-a"))
         let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [checklist])
 
         let data = try ChecklistCodec.encode(envelope)
 
         XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
-        XCTAssertEqual(ChecklistCodec.decode(data).first?.destinationListIdentifier, "list-a")
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.destination, .list("list-a"))
+    }
+
+    /// A v5 payload written before the typed destination existed lacks both the
+    /// `destination` key and the legacy string: it decodes to `.systemDefault`,
+    /// preserving v5's behaviour for a nil destination.
+    func testV5PayloadWithoutDestinationDecodesToSystemDefault() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
+
+        let envelope = try XCTUnwrap(decodedEnvelope(data))
+        XCTAssertEqual(envelope.checklists.first?.destination, .systemDefault)
+    }
+
+    /// A v5 payload written before the typed destination existed carries the
+    /// legacy `destinationListIdentifier` string: the decode fallback lifts it
+    /// into `.list("list-a")`.
+    func testV5PayloadWithLegacyDestinationDecodesToList() throws {
+        let id = UUID().uuidString
+        let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[],"destinationListIdentifier":"list-a"}]}"#.utf8)
+
+        let envelope = try XCTUnwrap(decodedEnvelope(data))
+        XCTAssertEqual(envelope.checklists.first?.destination, .list("list-a"))
+    }
+
+    /// All three destination cases survive a current-version round trip.
+    func testDestinationRoundTripAllCases() throws {
+        let checklists = [
+            Checklist(name: "Default", destination: .systemDefault),
+            Checklist(name: "Picked", destination: .list("list-a")),
+            Checklist(name: "Ask", destination: .prompt),
+        ]
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: checklists)
+
+        let data = try ChecklistCodec.encode(envelope)
+
+        XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
+        XCTAssertEqual(ChecklistCodec.decode(data).map(\.destination), [.systemDefault, .list("list-a"), .prompt])
+    }
+
+    /// A v6 (current-version) payload written without the `destination` key
+    /// decodes to `.systemDefault`, matching the missing-key fallback.
+    func testV6PayloadWithoutDestinationKeyDecodesToSystemDefault() throws {
+        let envelope = ChecklistEnvelope(deviceID: "d", checklists: [Checklist(name: "Grocery")])
+        var object = try JSONSerialization.jsonObject(with: ChecklistCodec.encode(envelope)) as! [String: Any]
+        var checklists = object["checklists"] as! [[String: Any]]
+        checklists[0].removeValue(forKey: "destination")
+        object["checklists"] = checklists
+        let data = try JSONSerialization.data(withJSONObject: object)
+
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.destination, .systemDefault)
     }
 
     /// A current-version (v5) payload written without the per-checklist
@@ -168,8 +219,8 @@ final class ChecklistCodecTests: XCTestCase {
         let id = UUID().uuidString
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         XCTAssertFalse(envelope.checklists.first?.prefixesReminderNumbers ?? true)
@@ -193,8 +244,8 @@ final class ChecklistCodecTests: XCTestCase {
         let id = UUID().uuidString
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         XCTAssertTrue(envelope.checklists.first?.showsOnWatch ?? false)
@@ -218,8 +269,8 @@ final class ChecklistCodecTests: XCTestCase {
         let id = UUID().uuidString
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(id)","title":"Milk"}]}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         XCTAssertTrue(envelope.checklists.first?.items.first?.isEnabled ?? false)
@@ -234,7 +285,7 @@ final class ChecklistCodecTests: XCTestCase {
         let data = try ChecklistCodec.encode(envelope)
 
         XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
-        XCTAssertEqual(envelope.version, 5, "isEnabled must not bump the envelope version")
+        XCTAssertEqual(envelope.version, ChecklistCodec.currentVersion, "isEnabled must not bump the envelope version")
         let decoded = try XCTUnwrap(ChecklistCodec.decode(data).first?.items.first)
         XCTAssertFalse(decoded.isEnabled)
         XCTAssertEqual(decoded.enabledRevision, decoded.revision)
@@ -264,8 +315,8 @@ final class ChecklistCodecTests: XCTestCase {
         let id = UUID().uuidString
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         XCTAssertFalse(envelope.checklists.first?.isArchived ?? true)
@@ -292,8 +343,8 @@ final class ChecklistCodecTests: XCTestCase {
         let id = UUID().uuidString
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"futureField":"x","checklists":[{"id":"\#(id)","name":"Groceries","items":[],"showsOnWatch":false,"futureKey":7}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         XCTAssertEqual(envelope.checklists.first?.showsOnWatch, false)
@@ -307,8 +358,8 @@ final class ChecklistCodecTests: XCTestCase {
         let itemID = UUID().uuidString
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         XCTAssertEqual(envelope.checklists.first?.items.first?.description, "")
@@ -340,8 +391,8 @@ final class ChecklistCodecTests: XCTestCase {
         let itemID = UUID().uuidString
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(itemID)","title":"Milk"}]}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         let item = try XCTUnwrap(envelope.checklists.first?.items.first)
@@ -401,8 +452,8 @@ final class ChecklistCodecTests: XCTestCase {
     func testItemWithoutFieldClocksSeedsFromCoarseClock() throws {
         let data = Data(#"{"version":5,"deviceID":"device-a","tombstones":[],"checklists":[{"id":"\#(UUID().uuidString)","name":"Groceries","items":[{"id":"\#(UUID().uuidString)","title":"Milk","revision":3,"modifiedAt":100}]}]}"#.utf8)
 
-        guard case .loaded(let envelope) = ChecklistCodec.classify(data) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(data))")
+        guard let envelope = decodedEnvelope(data) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(data))")
             return
         }
         let item = try XCTUnwrap(envelope.checklists.first?.items.first)
@@ -481,8 +532,8 @@ final class ChecklistCodecTests: XCTestCase {
     func testFolderWithoutCollapseKeyDecodesToFalse() throws {
         let id = UUID().uuidString
         let payload = Data(#"{"version":5,"deviceID":"d","checklists":[],"tombstones":[],"folders":[{"id":"\#(id)","name":"Work","modifiedAt":0,"revision":1}],"folderTombstones":[]}"#.utf8)
-        guard case .loaded(let envelope) = ChecklistCodec.classify(payload) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(payload))")
+        guard let envelope = decodedEnvelope(payload) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(payload))")
             return
         }
         XCTAssertEqual(envelope.folders.first?.isCollapsed, false)
@@ -495,8 +546,8 @@ final class ChecklistCodecTests: XCTestCase {
     func testV5PayloadWithoutArchiveKeysStaysLoaded() throws {
         let id = UUID().uuidString
         let payload = Data(#"{"version":5,"deviceID":"d","tombstones":[],"folders":[],"folderTombstones":[],"checklists":[{"id":"\#(id)","name":"Groceries","items":[]}]}"#.utf8)
-        guard case .loaded(let envelope) = ChecklistCodec.classify(payload) else {
-            XCTFail("expected loaded, got \(ChecklistCodec.classify(payload))")
+        guard let envelope = decodedEnvelope(payload) else {
+            XCTFail("expected a readable envelope, got \(ChecklistCodec.classify(payload))")
             return
         }
         let checklist = try XCTUnwrap(envelope.checklists.first)
@@ -549,13 +600,33 @@ final class ChecklistCodecTests: XCTestCase {
         }
     }
 
-    /// The v5 build's `classify` switch only knows versions 1...5, so a v6
+    /// The v4 build's `classify` switch only knows versions 1...4, so a v6
     /// payload would fall to its `default` → `.unsupportedVersion`. This pins
-    /// the pre-folder v5 decoder: it must refuse a v5 payload written by the
-    /// live encoder, so a future bump cannot silently make v5 readable to old installs.
-    func testV5PayloadIsUnsupportedByAPinnedV4Decoder() throws {
+    /// the pre-folder v4 decoder: it must refuse a v6 payload written by the
+    /// live encoder, so a future bump cannot silently make v6 readable to old installs.
+    func testV6PayloadIsUnsupportedByAPinnedV4Decoder() throws {
         let payload = try ChecklistCodec.encode(ChecklistEnvelope(deviceID: "d", checklists: []))
         XCTAssertEqual(PinnedV4Codec.classify(payload), .unsupportedVersion)
+    }
+
+    /// The v5 build's `classify` switch only knows versions 1...5, so a v6
+    /// payload would fall to its `default` → `.unsupportedVersion`. This pins
+    /// the pre-destination-rename v5 decoder: it must refuse a v6 payload
+    /// written by the live encoder, so a future bump cannot silently make v6
+    /// readable to old installs.
+    func testV6PayloadIsUnsupportedByAPinnedV5Decoder() throws {
+        let payload = try ChecklistCodec.encode(ChecklistEnvelope(deviceID: "d", checklists: []))
+        XCTAssertEqual(PinnedV5Codec.classify(payload), .unsupportedVersion)
+    }
+
+    /// The envelope from either a current-version or a migrated payload, so
+    /// additive-field tests survive a version bump without rebinding the
+    /// classification outcome.
+    private func decodedEnvelope(_ data: Data) -> ChecklistEnvelope? {
+        switch ChecklistCodec.classify(data) {
+        case .loaded(let envelope), .migratable(_, let envelope): return envelope
+        case .unsupportedVersion, .unreadable: return nil
+        }
     }
 
     private enum PinnedV4Codec {
@@ -564,6 +635,17 @@ final class ChecklistCodecTests: XCTestCase {
             guard let probe = try? JSONDecoder().decode(Probe.self, from: data) else { return .unreadable }
             switch probe.version {
             case 1...4: return .loaded(try! JSONDecoder().decode(ChecklistEnvelope.self, from: data))
+            default: return .unsupportedVersion
+            }
+        }
+    }
+
+    private enum PinnedV5Codec {
+        private struct Probe: Decodable { let version: Int }
+        static func classify(_ data: Data) -> ChecklistCodec.Outcome {
+            guard let probe = try? JSONDecoder().decode(Probe.self, from: data) else { return .unreadable }
+            switch probe.version {
+            case 1...5: return .loaded(try! JSONDecoder().decode(ChecklistEnvelope.self, from: data))
             default: return .unsupportedVersion
             }
         }

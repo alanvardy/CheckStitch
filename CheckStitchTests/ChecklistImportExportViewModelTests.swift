@@ -112,13 +112,13 @@ struct ChecklistImportExportViewModelTests {
         let store = makeStore(names: [])
         let viewModel = ChecklistImportExportViewModel(store: store)
         let exported = try ChecklistExport.data(checklists: [
-            Checklist(name: "Groceries", destinationListIdentifier: "list-a"),
+            Checklist(name: "Groceries", destination: .list("list-a")),
         ], from: [])
 
         viewModel.importFile(at: try writeTempFile(exported))
         viewModel.commitImport()
 
-        #expect(store.checklists.first?.destinationListIdentifier == "list-a")
+        #expect(store.checklists.first?.destination == .list("list-a"))
     }
 
     @Test
