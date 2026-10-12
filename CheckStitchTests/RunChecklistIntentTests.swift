@@ -5,26 +5,6 @@ import Testing
 
 @MainActor
 struct RunChecklistIntentTests {
-    /// A "Groceries" checklist in an isolated store, a spy wired to resolve the
-    /// checklist's destination to list-1, and the intent ready to perform.
-    private func makeIntent() -> (intent: RunChecklistIntent, spy: SpyReminderDestination, store: ChecklistStore) {
-        let store = ChecklistStore(defaults: makeIsolatedDefaults())
-        store.create(name: "Groceries")
-        let spy = SpyReminderDestination()
-        spy.lists = ReminderListsSnapshot(
-            options: [ReminderListOption(id: "list-1", title: "Reminders")],
-            defaultIdentifier: "list-1")
-        let intent = RunChecklistIntent(
-            store: store,
-            targeting: spy,
-            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true),
-            runState: WidgetRunStateStore(defaults: makeIsolatedDefaults(),
-                                          minimumSpinner: 0,
-                                          onChange: {}))
-        intent.checklist = ChecklistEntity(id: store.checklists[0].id.uuidString, name: "Groceries")
-        return (intent: intent, spy: spy, store: store)
-    }
-
     @Test
     func runCreatesEveryNonBlankItemAndReportsCount() async throws {
         let (intent, spy, store) = makeIntent()
@@ -298,6 +278,27 @@ struct RunChecklistIntentTests {
         #expect(spy.createdTitles.isEmpty)
     }
 
+    /// A "Groceries" checklist in an isolated store, a spy wired to resolve the
+    /// checklist's destination to list-1, and the intent ready to perform.
+    private func makeIntent(prompter: (any ScalingPrompting)? = nil) -> (intent: RunChecklistIntent, spy: SpyReminderDestination, store: ChecklistStore) {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        store.create(name: "Groceries")
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Reminders")],
+            defaultIdentifier: "list-1")
+        let intent = RunChecklistIntent(
+            store: store,
+            targeting: spy,
+            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true),
+            prompter: prompter,
+            runState: WidgetRunStateStore(defaults: makeIsolatedDefaults(),
+                                          minimumSpinner: 0,
+                                          onChange: {}))
+        intent.checklist = ChecklistEntity(id: store.checklists[0].id.uuidString, name: "Groceries")
+        return (intent: intent, spy: spy, store: store)
+    }
+
     @Test
     func archivedChecklistThrowsNotFound() async throws {
         let (intent, spy, store) = makeIntent()
@@ -433,5 +434,143 @@ struct RunChecklistIntentTests {
             == "Open CheckStitch to choose a list, then run this checklist again.")
         #expect(RunChecklistDialogue.message(for: .destinationRequired, checklistName: "Groceries")
             .resolved() == "Open CheckStitch to choose a list, then run this checklist again.")
+    }
+
+    // MARK: - Prompt-mode scaling
+
+    /// Prompt mode with no explicit multiple asks the prompter for a number and
+    /// scales the run by it; the prompted number is never written back.
+    @Test
+    func promptModeAsksForANumberAndScalesByIt() async throws {
+        let prompter = FakeScalingPrompter()
+        prompter.result = .success(5)
+        let (intent, spy, store) = makeIntent(prompter: prompter)
+        let checklistID = store.checklists[0].id
+        store.setScaling(.prompt(lastFixed: 3), for: checklistID)
+        store.addItem(to: checklistID, title: "Milk ((2))")
+
+        _ = try await intent.perform()
+
+        #expect(prompter.requestedPrompts.count == 1)
+        #expect(spy.createdTitles == ["Milk 10"])
+        #expect(store.checklist(id: checklistID)?.scaling == .prompt(lastFixed: 3),
+                "the prompted number is never persisted")
+    }
+
+    /// An explicit `multiple` always wins, preserving existing automations: a
+    /// Prompt checklist with a passed value never asks the prompter.
+    @Test
+    func explicitMultipleSkipsThePrompt() async throws {
+        let prompter = FakeScalingPrompter()
+        let (intent, spy, store) = makeIntent(prompter: prompter)
+        let checklistID = store.checklists[0].id
+        store.setScaling(.prompt(lastFixed: 3), for: checklistID)
+        store.addItem(to: checklistID, title: "Milk ((2))")
+        intent.multiple = 4
+
+        _ = try await intent.perform()
+
+        #expect(prompter.requestedPrompts.isEmpty)
+        #expect(spy.createdTitles == ["Milk 8"])
+    }
+
+    /// A Fixed checklist never prompts, even with no explicit multiple.
+    @Test
+    func fixedModeNeverPrompts() async throws {
+        let prompter = FakeScalingPrompter()
+        let (intent, spy, store) = makeIntent(prompter: prompter)
+        let checklistID = store.checklists[0].id
+        store.setScaling(.fixed(3), for: checklistID)
+        store.addItem(to: checklistID, title: "Milk ((2))")
+
+        _ = try await intent.perform()
+
+        #expect(prompter.requestedPrompts.isEmpty)
+        #expect(spy.createdTitles == ["Milk 6"])
+    }
+
+    /// A promoter failure (e.g. headless widget) reports the fallback dialog and
+    /// creates nothing, leaving the run-state record untouched.
+    @Test
+    func failingPrompterReportsADialogAndCreatesNothing() async throws {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        store.create(name: "Groceries")
+        let checklistID = store.checklists[0].id
+        store.setScaling(.prompt(lastFixed: 3), for: checklistID)
+        store.addItem(to: checklistID, title: "Milk ((2))")
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Reminders")],
+            defaultIdentifier: "list-1")
+        let runState = WidgetRunStateStore(defaults: makeIsolatedDefaults(),
+                                           minimumSpinner: 0,
+                                           onChange: {})
+        let prompter = FakeScalingPrompter()
+        prompter.result = .failure(TestError.boom)
+        let intent = RunChecklistIntent(
+            store: store,
+            targeting: spy,
+            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true),
+            prompter: prompter,
+            runState: runState)
+        intent.checklist = ChecklistEntity(id: checklistID.uuidString, name: "Groceries")
+
+        _ = try await intent.perform()
+
+        #expect(RunChecklistDialogue.scalingPromptUnavailable.resolved()
+            == "CheckStitch couldn't ask for a scaling number. Run the checklist in the app, or pass a Multiple value.")
+        #expect(spy.createdTitles.isEmpty)
+        #expect(runState.records.isEmpty, "a failed prompt never begins a run")
+    }
+
+    /// A cancelled request takes the same fallback path as any other failure.
+    @Test
+    func cancelledPrompterReportsADialogAndCreatesNothing() async throws {
+        let store = ChecklistStore(defaults: makeIsolatedDefaults())
+        store.create(name: "Groceries")
+        let checklistID = store.checklists[0].id
+        store.setScaling(.prompt(lastFixed: 3), for: checklistID)
+        store.addItem(to: checklistID, title: "Milk ((2))")
+        let spy = SpyReminderDestination()
+        spy.lists = ReminderListsSnapshot(
+            options: [ReminderListOption(id: "list-1", title: "Reminders")],
+            defaultIdentifier: "list-1")
+        let runState = WidgetRunStateStore(defaults: makeIsolatedDefaults(),
+                                           minimumSpinner: 0,
+                                           onChange: {})
+        let prompter = FakeScalingPrompter()
+        prompter.result = .failure(CancellationError())
+        let intent = RunChecklistIntent(
+            store: store,
+            targeting: spy,
+            gate: RunGate(counter: RunCounter(defaults: makeIsolatedDefaults()), isUnlocked: true),
+            prompter: prompter,
+            runState: runState)
+        intent.checklist = ChecklistEntity(id: checklistID.uuidString, name: "Groceries")
+
+        _ = try await intent.perform()
+
+        #expect(spy.createdTitles.isEmpty)
+        #expect(runState.records.isEmpty, "a cancelled prompt never begins a run")
+    }
+
+    /// A prompted value outside the range is rejected exactly like an explicit
+    /// override, before any run-side effect.
+    @Test
+    func outOfRangePromptedValueThrowsInvalidMultiple() async throws {
+        let prompter = FakeScalingPrompter()
+        prompter.result = .success(100)
+        let (intent, spy, store) = makeIntent(prompter: prompter)
+        let checklistID = store.checklists[0].id
+        store.setScaling(.prompt(lastFixed: 3), for: checklistID)
+        store.addItem(to: checklistID, title: "Milk ((2))")
+
+        do {
+            _ = try await intent.perform()
+            Issue.record("an out-of-range prompted value should throw")
+        } catch let error as RunChecklistIntentError {
+            #expect(error.errorDescription == "Multiple must be between 1 and 99.")
+        }
+        #expect(spy.createdTitles.isEmpty)
     }
 }
