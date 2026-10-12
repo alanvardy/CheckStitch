@@ -257,7 +257,7 @@ public final class ChecklistStore {
             destination: source.destination,
             prefixesReminderNumbers: source.prefixesReminderNumbers,
             showsOnWatch: source.showsOnWatch,
-            multiple: source.multiple,
+            scaling: source.scaling,
             modifiedAt: now(),
             revision: 1
         )
@@ -282,7 +282,7 @@ public final class ChecklistStore {
             destination: checklist.destination,
             prefixesReminderNumbers: checklist.prefixesReminderNumbers,
             showsOnWatch: checklist.showsOnWatch,
-            multiple: checklist.multiple,
+            scaling: checklist.scaling,
             folderID: folderID,
             isArchived: false,
             archivedAt: nil,
@@ -384,17 +384,17 @@ public final class ChecklistStore {
         return .updated
     }
 
-    /// Sets a checklist's template scaling factor and reports whether it applied.
-    /// Clamps into `Checklist.multipleRange` first (defense in depth for
+    /// Sets a checklist's scaling mode and reports whether it applied. Clamps the
+    /// carried number into `Checklist.multipleRange` first (defense in depth for
     /// imported/hand-edited payloads), then follows the no-op-guard shape: an
-    /// unchanged value never manufactures a spurious LWW win. Shares the
-    /// checklist's coarse `revision`/`modifiedAt` clock.
+    /// unchanged mode never manufactures a spurious LWW win. Shares the checklist's
+    /// coarse `revision`/`modifiedAt` clock.
     @discardableResult
-    public func setMultiple(_ newValue: Int, for id: UUID) -> SetDestinationOutcome {
+    public func setScaling(_ newScaling: Scaling, for id: UUID) -> SetDestinationOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
-        let clamped = Checklist.clampedMultiple(newValue)
-        guard checklists[index].multiple != clamped else { return .updated }
-        checklists[index].multiple = clamped
+        let clamped = newScaling.clamped()
+        guard checklists[index].scaling != clamped else { return .updated }
+        checklists[index].scaling = clamped
         checklists[index].revision += 1
         checklists[index].modifiedAt = now()
         scheduleSave()

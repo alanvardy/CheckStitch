@@ -587,13 +587,58 @@ final class ChecklistCodecTests: XCTestCase {
     }
 
     func testMultipleSurvivesEnvelopeRoundTrip() throws {
-        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [Checklist(multiple: 7)])
+        let envelope = ChecklistEnvelope(deviceID: "device-a", checklists: [Checklist(scaling: .fixed(7))])
 
         let data = try ChecklistCodec.encode(envelope)
 
         XCTAssertEqual(ChecklistCodec.classify(data), .loaded(envelope))
-        XCTAssertEqual(ChecklistCodec.decode(data).first?.multiple, 7)
+        XCTAssertEqual(ChecklistCodec.decode(data).first?.scaling, .fixed(7))
         XCTAssertTrue(String(data: data, encoding: .utf8)?.contains(#""multiple""#) ?? false)
+    }
+
+    /// Encode writes both keys: `multiple` (the numeric shadow) and `scalingMode`.
+    func testEncodeWritesBothScalingKeys() throws {
+        let data = try ChecklistCodec.encode(ChecklistEnvelope(
+            deviceID: "d", checklists: [Checklist(scaling: .prompt(lastFixed: 4))]))
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let first = (json?["checklists"] as? [[String: Any]])?.first
+        XCTAssertEqual(first?["multiple"] as? Int, 4)
+        XCTAssertEqual(first?["scalingMode"] as? String, "prompt")
+    }
+
+    func testScalingRoundTripsBothModes() throws {
+        for scaling in [Scaling.fixed(7), .prompt(lastFixed: 4)] {
+            let data = try ChecklistCodec.encode(ChecklistEnvelope(
+                deviceID: "d", checklists: [Checklist(scaling: scaling)]))
+            XCTAssertEqual(ChecklistCodec.decode(data).first?.scaling, scaling)
+        }
+    }
+
+    /// A payload with no `scalingMode` (an older build) reads as `.fixed(multiple)`.
+    func testLegacyPayloadWithoutScalingModeDecodesAsFixed() throws {
+        let legacy = """
+        {"version":5,"deviceID":"d","folders":[],"folderTombstones":[],"tombstones":[],
+         "checklists":[{"id":"\(UUID().uuidString)","name":"A","items":[],"multiple":5,
+         "modifiedAt":0,"revision":0,"itemOrder":[],"orderRevision":0,"orderModifiedAt":0}]}
+        """
+        let checklist = try XCTUnwrap(ChecklistCodec.decode(Data(legacy.utf8)).first)
+        XCTAssertEqual(checklist.scaling, .fixed(5))
+    }
+
+    /// An unknown `scalingMode` token is forward-safe: it reads as `.fixed`.
+    func testUnknownScalingModeDecodesAsFixed() throws {
+        let legacy = """
+        {"version":5,"deviceID":"d","folders":[],"folderTombstones":[],"tombstones":[],
+         "checklists":[{"id":"\(UUID().uuidString)","name":"A","items":[],"multiple":5,
+         "modifiedAt":0,"revision":0,"itemOrder":[],"orderRevision":0,"orderModifiedAt":0,
+         "scalingMode":"teleport"}]}
+        """
+        let checklist = try XCTUnwrap(ChecklistCodec.decode(Data(legacy.utf8)).first)
+        XCTAssertEqual(checklist.scaling, .fixed(5))
+    }
+
+    func testCurrentVersionIsStillFive() {
+        XCTAssertEqual(ChecklistCodec.currentVersion, 5)
     }
 
     /// A payload written before the scaling factor existed lacks the key: it
@@ -613,9 +658,9 @@ final class ChecklistCodecTests: XCTestCase {
     /// hand-edited/imported payload is never trusted outside the bound.
     func testOutOfRangeMultipleClamps() throws {
         for (raw, expected) in [(0, 1), (100, 99), (-5, 1)] {
-            let envelope = ChecklistEnvelope(deviceID: "d", checklists: [Checklist(multiple: raw)])
+            let envelope = ChecklistEnvelope(deviceID: "d", checklists: [Checklist(scaling: .fixed(raw))])
             let decoded = try XCTUnwrap(ChecklistCodec.decode(ChecklistCodec.encode(envelope)).first)
-            XCTAssertEqual(decoded.multiple, expected, "raw \(raw) should clamp to \(expected)")
+            XCTAssertEqual(decoded.scaling, .fixed(expected), "raw \(raw) should clamp to \(expected)")
         }
     }
 

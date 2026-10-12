@@ -312,7 +312,7 @@ struct ChecklistDetailView: View {
     private func multipleBinding(checklistID: UUID) -> Binding<Int> {
         Binding(
             get: { store.checklist(id: checklistID)?.multiple ?? 1 },
-            set: { store.setMultiple($0, for: checklistID) }
+            set: { store.setScaling(.fixed($0), for: checklistID) }
         )
     }
 

@@ -255,14 +255,14 @@ struct ChecklistImportSessionTests {
     @Test
     func stagingClampsOutOfRangeMultiple() throws {
         let (session, store) = makeSession()
-        _ = try session.stage(data: payload([Checklist(name: "A", multiple: 100)]))
+        _ = try session.stage(data: payload([Checklist(name: "A", scaling: .fixed(100))]))
         session.commit(selectedIDs: allIDs(session.candidates))
 
         #expect(store.checklists.count == 1)
         #expect(store.checklists.first?.multiple == 99, "100 clamps to 99 on stage")
 
         let (other, otherStore) = makeSession()
-        _ = try other.stage(data: payload([Checklist(name: "B", multiple: 0)]))
+        _ = try other.stage(data: payload([Checklist(name: "B", scaling: .fixed(0))]))
         other.commit(selectedIDs: allIDs(other.candidates))
         #expect(otherStore.checklists.first?.multiple == 1, "0 clamps to 1 on stage")
     }

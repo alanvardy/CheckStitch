@@ -265,7 +265,7 @@ struct RunChecklistIntentTests {
     @Test
     func absentOverrideUsesStoredMultiple() async throws {
         let (intent, spy, store) = makeIntent()
-        store.setMultiple(3, for: store.checklists[0].id)
+        store.setScaling(.fixed(3), for: store.checklists[0].id)
         store.addItem(to: store.checklists[0].id, title: "Milk ((2))")
         _ = try await intent.perform()
         #expect(spy.createdTitles == ["Milk 6"])

@@ -570,7 +570,7 @@ struct ChecklistRemindersTests {
             items: [makeItem("milk ((3))", description: "((4)) boxes")],
             destination: .list("list-a"),
             prefixesReminderNumbers: true,
-            multiple: 2)
+            scaling: .fixed(2))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -589,7 +589,7 @@ struct ChecklistRemindersTests {
             items: [makeItem("milk ((3))", description: "((4)) boxes")],
             destination: .list("list-a"),
             prefixesReminderNumbers: true,
-            multiple: 2)
+            scaling: .fixed(2))
 
         _ = await create(checklist, targeting: spy)
 

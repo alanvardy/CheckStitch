@@ -199,6 +199,61 @@ public enum ChecklistDestination: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// How a checklist's `((n))` markers are scaled into reminder titles and
+/// descriptions. The legacy numeric view of this value is `Checklist.multiple`.
+public enum Scaling: Equatable, Hashable, Sendable {
+    /// Always multiply markers by this factor (clamped into `Checklist.multipleRange`).
+    case fixed(Int)
+    /// Ask for the factor at run time. `lastFixed` is the value restored when the
+    /// user switches back to `.fixed`, and is exactly the value the legacy
+    /// `multiple` key carries so an older build keeps working.
+    case prompt(lastFixed: Int)
+
+    /// The number this mode stands for — the fixed factor, or the prompt's
+    /// remembered default. Always clamped through the single clamp source.
+    public var number: Int {
+        switch self {
+        case .fixed(let value): return Checklist.clampedMultiple(value)
+        case .prompt(let lastFixed): return Checklist.clampedMultiple(lastFixed)
+        }
+    }
+
+    /// The multiplier a *display* surface uses when no number has been asked for:
+    /// a prompt's `lastFixed` is not the multiplier for this run, so previews
+    /// resolve at the neutral value.
+    public var displayNumber: Int {
+        switch self {
+        case .fixed(let value): return Checklist.clampedMultiple(value)
+        case .prompt: return 1
+        }
+    }
+
+    /// True for `.prompt`.
+    public var isPrompt: Bool {
+        if case .prompt = self { return true }
+        return false
+    }
+
+    /// This mode with its number clamped into `Checklist.multipleRange`, so the
+    /// store never persists an out-of-range value and the no-op guard compares
+    /// normalised values.
+    public func clamped() -> Scaling {
+        switch self {
+        case .fixed(let value): return .fixed(Checklist.clampedMultiple(value))
+        case .prompt(let lastFixed): return .prompt(lastFixed: Checklist.clampedMultiple(lastFixed))
+        }
+    }
+
+    /// The other mode, carrying this mode's number: to Prompt keeps it as
+    /// `lastFixed`; back to Fixed restores it. Drives the detail-view picker.
+    public func toggled() -> Scaling {
+        switch self {
+        case .fixed(let value): return .prompt(lastFixed: Checklist.clampedMultiple(value))
+        case .prompt(let lastFixed): return .fixed(Checklist.clampedMultiple(lastFixed))
+        }
+    }
+}
+
 /// A named collection of items that can be turned into reminders.
 ///
 /// `modifiedAt`/`revision` describe the checklist record itself, not its items:
@@ -212,7 +267,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         destination: ChecklistDestination = .systemDefault,
         prefixesReminderNumbers: Bool = false,
         showsOnWatch: Bool = true,
-        multiple: Int = 1,
+        scaling: Scaling = .fixed(1),
         folderID: UUID? = nil,
         isArchived: Bool = false,
         archivedAt: Date? = nil,
@@ -225,7 +280,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self.destination = destination
         self.prefixesReminderNumbers = prefixesReminderNumbers
         self.showsOnWatch = showsOnWatch
-        self.multiple = multiple
+        self.scaling = scaling
         self.folderID = folderID
         self.isArchived = isArchived
         self.archivedAt = archivedAt
@@ -262,13 +317,20 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     /// precedent). Shares the checklist's coarse `revision`/`modifiedAt` clock,
     /// so a toggle is decided by the same last-write-wins rule.
     public var showsOnWatch: Bool
-    /// The template scaling factor applied to `((n))` markers in item
-    /// titles/descriptions at reminder-creation time. Defaults to 1 (no scaling).
-    /// Shares the checklist's coarse `revision`/`modifiedAt` clock (like the
-    /// name/destination/toggles), so a change rides the same last-write-wins rule.
-    /// Additive optional key: absent in v5-and-earlier payloads decodes to 1 with
-    /// no version bump; out-of-range payloads clamp into `multipleRange`.
-    public var multiple: Int
+    /// The template scaling mode (`.fixed` / `.prompt`) applied to `((n))` markers
+    /// in item titles/descriptions at reminder-creation time. Defaults to `.fixed(1)`
+    /// (no scaling). Shares the checklist's coarse `revision`/`modifiedAt` clock
+    /// (like the name/destination/toggles), so a change rides the same
+    /// last-write-wins rule. The mode's carried number is clamped into
+    /// `multipleRange`; the numeric shadow is written as `multiple` plus a
+    /// `scalingMode` additively, with no version bump (an older build reads the
+    /// number and an absent/unknown mode reads as `.fixed`).
+    public var scaling: Scaling
+
+    /// The legacy numeric view of `scaling`: the fixed factor, or a prompt's
+    /// remembered default. Read-only compatibility accessor for the run funnel and
+    /// display surfaces; write through `scaling` / `ChecklistStore.setScaling`.
+    public var multiple: Int { scaling.number }
     /// The id of the folder this checklist is filed under, or `nil` for loose.
     /// A one-field relationship sharing the checklist's coarse clock with the
     /// name/destination, so a membership move is decided by the same
@@ -294,7 +356,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, destination, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, multiple, folderID, isArchived, archivedAt
+        case id, name, items, destination, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, multiple, scalingMode, folderID, isArchived, archivedAt
         case modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
@@ -321,11 +383,14 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // `prefixesReminderNumbers` precedent. This is the only default-`true`
         // stored field, so the `?? true` is deliberate, not an oversight.
         let showsOnWatch = try container.decodeIfPresent(Bool.self, forKey: .showsOnWatch) ?? true
-        // Additive optional field: absent in v5-and-earlier payloads decodes to 1
-        // (no scaling) with no version bump. Hand-edited/imported payloads outside
-        // `multipleRange` clamp into range rather than being trusted.
+        // Additive optional field: `multiple` stays the numeric shadow (a prompt's
+        // last fixed value) so an older build keeps reading it. `scalingMode` is
+        // additive too; absent or unknown reads as `.fixed(multiple)`. No version bump.
         let multiple = Checklist.clampedMultiple(
             try container.decodeIfPresent(Int.self, forKey: .multiple) ?? 1)
+        let scaling: Scaling = (try container.decodeIfPresent(String.self, forKey: .scalingMode)) == "prompt"
+            ? .prompt(lastFixed: multiple)
+            : .fixed(multiple)
         // Additive optional field: absent in v4-and-earlier payloads decodes to
         // nil, matching the `destinationListIdentifier` precedent — no restamp.
         let folderID = try container.decodeIfPresent(UUID.self, forKey: .folderID)
@@ -345,7 +410,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
                          destination: destination,
                          prefixesReminderNumbers: prefixesReminderNumbers,
                          showsOnWatch: showsOnWatch,
-                         multiple: multiple,
+                         scaling: scaling,
                          folderID: folderID,
                          isArchived: isArchived, archivedAt: archivedAt,
                          modifiedAt: modifiedAt, revision: revision,
@@ -361,7 +426,8 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         try container.encode(destination, forKey: .destination)
         try container.encode(prefixesReminderNumbers, forKey: .prefixesReminderNumbers)
         try container.encode(showsOnWatch, forKey: .showsOnWatch)
-        try container.encode(multiple, forKey: .multiple)
+        try container.encode(scaling.number, forKey: .multiple)
+        try container.encode(scaling.isPrompt ? "prompt" : "fixed", forKey: .scalingMode)
         // Write the key unconditionally, matching the "encoder writes every key"
         // invariant (the `relativeDate` shape).
         if let folderID {
@@ -391,7 +457,7 @@ extension Checklist {
     public static let multipleRange: ClosedRange<Int> = 1...99
 
     /// The nearest in-range scaling factor. Used at both ingress points (codec
-    /// decode and `ChecklistStore.setMultiple`).
+    /// decode and `ChecklistStore.setScaling`).
     public static func clampedMultiple(_ value: Int) -> Int {
         min(max(value, multipleRange.lowerBound), multipleRange.upperBound)
     }

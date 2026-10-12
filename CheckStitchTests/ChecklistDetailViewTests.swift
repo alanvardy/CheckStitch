@@ -200,7 +200,7 @@ struct ChecklistDetailViewTests {
         let defaults = makeIsolatedDefaults()
         let store = ChecklistStore(defaults: defaults, textEditDelay: nil)
         let checklist = store.create(name: "Groceries")
-        store.setMultiple(3, for: checklist.id)
+        store.setScaling(.fixed(3), for: checklist.id)
         store.addItem(to: checklist.id, title: "Milk ((2))")
 
         let view = ChecklistDetailView(checklistID: checklist.id).environment(store)

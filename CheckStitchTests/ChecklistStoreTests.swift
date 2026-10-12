@@ -2149,7 +2149,7 @@ final class ChecklistStoreTests: XCTestCase {
 
         let store = makeStore(defaults: suite.defaults)
         let source = store.create(name: "Groceries")
-        store.setMultiple(4, for: source.id)
+        store.setScaling(.fixed(4), for: source.id)
 
         let copy = store.duplicate(id: source.id, name: "Groceries copy")
 
@@ -2511,7 +2511,7 @@ final class ChecklistStoreTests: XCTestCase {
         let checklist = store.create(name: "Groceries")
         let before = store.checklist(id: checklist.id)?.revision
 
-        XCTAssertEqual(store.setMultiple(3, for: checklist.id), .updated)
+        XCTAssertEqual(store.setScaling(.fixed(3), for: checklist.id), .updated)
         XCTAssertEqual(store.checklist(id: checklist.id)?.multiple, 3)
         XCTAssertEqual(store.checklist(id: checklist.id)?.revision, (before ?? 0) + 1)
     }
@@ -2525,7 +2525,7 @@ final class ChecklistStoreTests: XCTestCase {
         let checklist = store.create(name: "Groceries")
         let before = store.checklist(id: checklist.id)?.revision
 
-        XCTAssertEqual(store.setMultiple(1, for: checklist.id), .updated)
+        XCTAssertEqual(store.setScaling(.fixed(1), for: checklist.id), .updated)
         XCTAssertEqual(store.checklist(id: checklist.id)?.revision, before, "already 1, so no bump")
     }
 
@@ -2536,7 +2536,7 @@ final class ChecklistStoreTests: XCTestCase {
         let checklist = store.create(name: "Groceries")
 
         for (raw, expected) in [(0, 1), (100, 99)] {
-            XCTAssertEqual(store.setMultiple(raw, for: checklist.id), .updated)
+            XCTAssertEqual(store.setScaling(.fixed(raw), for: checklist.id), .updated)
             XCTAssertEqual(store.checklist(id: checklist.id)?.multiple, expected)
         }
     }
@@ -2585,7 +2585,7 @@ final class ChecklistStoreTests: XCTestCase {
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
 
         let store = makeStore(defaults: suite.defaults)
-        let incoming = Checklist(name: "Packing", multiple: 4,
+        let incoming = Checklist(name: "Packing", scaling: .fixed(4),
                                  modifiedAt: Date(timeIntervalSince1970: 100), revision: 7)
         let inserted = store.importInsert(incoming)
 

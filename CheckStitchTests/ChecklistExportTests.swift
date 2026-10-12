@@ -99,7 +99,7 @@ final class ChecklistExportTests: XCTestCase {
 
     /// Export → classify → decode keeps the template multiple.
     func testExportPreservesMultiple() throws {
-        let checklist = Checklist(name: "Groceries", multiple: 7)
+        let checklist = Checklist(name: "Groceries", scaling: .fixed(7))
         let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
@@ -114,7 +114,7 @@ final class ChecklistExportTests: XCTestCase {
     /// factor off the wire.
     func testExportClampsOutOfRangeMultipleOnDecode() throws {
         for (raw, expected) in [(0, 1), (100, 99)] {
-            let checklist = Checklist(name: "Groceries", multiple: raw)
+            let checklist = Checklist(name: "Groceries", scaling: .fixed(raw))
             let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
             guard case .loaded(let env) = ChecklistCodec.classify(data) else {
