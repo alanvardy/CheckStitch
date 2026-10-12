@@ -32,7 +32,7 @@ import os
         guard gate.reserveRun() else { return .purchaseRequired }
 
         let prefixNumbers = checklist.prefixesReminderNumbers
-        let multiple = multipleOverride ?? checklist.multiple
+        let multiple = Checklist.clampedMultiple(multipleOverride ?? checklist.multiple)
         var created = 0
         do {
             guard try await targeting.requestAccess() else {

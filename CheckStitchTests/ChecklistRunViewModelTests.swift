@@ -355,8 +355,11 @@ struct ChecklistRunViewModelTests {
         let spy = resolvableDestination()
         let viewModel = makeViewModel(store: store, targeting: spy)
 
-        viewModel.startRun(for: id)
+        let task = viewModel.startRun(for: id)
         #expect(viewModel.promptingRunID == nil)
+        #expect(task != nil, "a fixed run starts immediately")
+        await task?.value
+        #expect(spy.createdTitles == ["milk 6"])
     }
 
     @Test
