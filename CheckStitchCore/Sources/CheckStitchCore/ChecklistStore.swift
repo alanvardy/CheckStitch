@@ -241,7 +241,7 @@ public final class ChecklistStore {
     /// Duplicates a checklist: every item is copied into a fresh `ChecklistItem`
     /// (new `UUID`, revision 1), under a name disambiguated by the same
     /// machinery `create` uses, so a duplicate always succeeds. The copy keeps
-    /// the source's `destinationListIdentifier`, mirroring `freshCopy`. Returns
+    /// the source's `destination`, mirroring `freshCopy`. Returns
     /// `nil` when the source no longer exists, mirroring `delete(id:)`'s silent
     /// no-op. A blank (whitespace- or newline-only) name falls back to the
     /// offered default.
@@ -254,7 +254,7 @@ public final class ChecklistStore {
         let copy = Checklist(
             name: Self.uniqueName(basedOn: requested, taken: activeNames),
             items: source.items.map { ChecklistItem(title: $0.title, description: $0.description, modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate, priority: $0.priority) },
-            destinationListIdentifier: source.destinationListIdentifier,
+            destination: source.destination,
             prefixesReminderNumbers: source.prefixesReminderNumbers,
             showsOnWatch: source.showsOnWatch,
             multiple: source.multiple,
@@ -268,7 +268,7 @@ public final class ChecklistStore {
 
     /// Fresh local identity for imported content: new checklist AND item UUIDs,
     /// `revision: 1`, stamped now. Mirrors `duplicate`'s semantics. The imported
-    /// `destinationListIdentifier` is carried over so the user's chosen Reminders
+    /// `destination` is carried over so the user's chosen Reminders
     /// list survives; if that list is missing on this device the run path's
     /// existing `.destinationMissing` net reports it before creating anything.
     private func freshCopy(of checklist: Checklist, folderID: UUID? = nil) -> Checklist {
@@ -279,7 +279,7 @@ public final class ChecklistStore {
                               modifiedAt: now(), revision: 1, relativeDate: $0.relativeDate,
                               priority: $0.priority)
             },
-            destinationListIdentifier: checklist.destinationListIdentifier,
+            destination: checklist.destination,
             prefixesReminderNumbers: checklist.prefixesReminderNumbers,
             showsOnWatch: checklist.showsOnWatch,
             multiple: checklist.multiple,
@@ -339,13 +339,13 @@ public final class ChecklistStore {
         return .renamed
     }
 
-    /// Points a checklist at a Reminders list (`nil` = system default) and reports
-    /// whether it applied. Follows `rename`: bump revision + `modifiedAt`, then
-    /// persist through the coalescing path.
+    /// Points a checklist at a Reminders list (`.systemDefault`, a concrete
+    /// `.list(id)`, or `.prompt`) and reports whether it applied. Follows `rename`:
+    /// bump revision + `modifiedAt`, then persist through the coalescing path.
     @discardableResult
-    public func setDestination(_ identifier: String?, for id: UUID) -> SetDestinationOutcome {
+    public func setDestination(_ destination: ChecklistDestination, for id: UUID) -> SetDestinationOutcome {
         guard let index = checklists.firstIndex(where: { $0.id == id }) else { return .notFound }
-        checklists[index].destinationListIdentifier = identifier
+        checklists[index].destination = destination
         checklists[index].revision += 1
         checklists[index].modifiedAt = now()
         scheduleSave()

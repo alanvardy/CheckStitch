@@ -28,7 +28,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
-                                  destinationListIdentifier: "list-a")
+                                  destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -55,7 +55,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
-                                  destinationListIdentifier: "list-deleted")
+                                  destination: .list("list-deleted"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -82,7 +82,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.accessGranted = false
         spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -95,7 +95,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("   "), makeItem("")],
-                                  destinationListIdentifier: "list-a")
+                                  destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -109,7 +109,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [makeItem("Milk"), makeItem("Eggs", isEnabled: false), makeItem("Bread")],
-            destinationListIdentifier: "list-a")
+            destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -123,7 +123,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [makeItem("one"), makeItem("skip", isEnabled: false), makeItem("two")],
-            destinationListIdentifier: "list-a",
+            destination: .list("list-a"),
             prefixesReminderNumbers: true)
 
         let outcome = await create(checklist, targeting: spy)
@@ -138,7 +138,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [makeItem("Milk", description: "2 litres"), makeItem("Eggs", description: "a dozen")],
-            destinationListIdentifier: "list-a")
+            destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -150,7 +150,7 @@ struct ChecklistRemindersTests {
     func blankDescriptionSendsNilNotes() async {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         _ = await create(checklist, targeting: spy)
 
@@ -161,7 +161,7 @@ struct ChecklistRemindersTests {
     func whitespaceOnlyDescriptionSendsNilNotes() async {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk", description: "   ")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk", description: "   ")], destination: .list("list-a"))
 
         _ = await create(checklist, targeting: spy)
 
@@ -175,7 +175,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.accessGranted = false
         spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk", description: "2 litres")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk", description: "2 litres")], destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -188,7 +188,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         spy.createError = TestError.boom
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -208,7 +208,7 @@ struct ChecklistRemindersTests {
         let checklist = Checklist(items: [
             makeItem("Milk"), makeItem("Eggs"), makeItem("Bread"),
             makeItem("Butter"), makeItem("Cheese"), makeItem("Yogurt"), makeItem("Juice"),
-        ], destinationListIdentifier: "list-a")
+        ], destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -226,7 +226,7 @@ struct ChecklistRemindersTests {
         spy.createFailureCount = 2
         let checklist = Checklist(items: [
             makeItem("Milk"), makeItem("   "), makeItem("Eggs"), makeItem("Bread"),
-        ], destinationListIdentifier: "list-a")
+        ], destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -243,7 +243,7 @@ struct ChecklistRemindersTests {
         spy.createFailureCount = 1
         let checklist = Checklist(items: [
             makeItem("Milk"), makeItem("Skip", isEnabled: false), makeItem("Eggs"),
-        ], destinationListIdentifier: "list-a")
+        ], destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -259,7 +259,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         spy.createFailureCount = 0
-        let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")], destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -285,7 +285,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [ChecklistItem(title: "Milk", priority: priority)],
-            destinationListIdentifier: "list-a")
+            destination: .list("list-a"))
 
         _ = await create(checklist, targeting: spy)
 
@@ -305,7 +305,7 @@ struct ChecklistRemindersTests {
     func defaultItemsSendNonePriority() async {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         _ = await create(checklist, targeting: spy)
 
@@ -326,7 +326,7 @@ struct ChecklistRemindersTests {
                 ChecklistItem(title: "Milk", relativeDate: 0),
                 makeItem("Eggs"),
             ],
-            destinationListIdentifier: "list-a")
+            destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -346,7 +346,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("one"), makeItem("two")],
-                                  destinationListIdentifier: "list-a")
+                                  destination: .list("list-a"))
 
         let outcome = await create(checklist, targeting: spy)
 
@@ -359,7 +359,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("one"), makeItem("two")],
-                                  destinationListIdentifier: "list-a",
+                                  destination: .list("list-a"),
                                   prefixesReminderNumbers: true)
 
         let outcome = await create(checklist, targeting: spy)
@@ -374,7 +374,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [makeItem("one"), makeItem(""), makeItem("two"), makeItem("   ")],
-            destinationListIdentifier: "list-a",
+            destination: .list("list-a"),
             prefixesReminderNumbers: true)
 
         let outcome = await create(checklist, targeting: spy)
@@ -389,7 +389,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: (1...10).map { makeItem("item \($0)") },
-            destinationListIdentifier: "list-a",
+            destination: .list("list-a"),
             prefixesReminderNumbers: true)
 
         let outcome = await create(checklist, targeting: spy)
@@ -406,7 +406,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: (1...9).map { makeItem("item \($0)") },
-            destinationListIdentifier: "list-a",
+            destination: .list("list-a"),
             prefixesReminderNumbers: true)
 
         let outcome = await create(checklist, targeting: spy)
@@ -423,7 +423,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination()
         spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("one")],
-                                  destinationListIdentifier: "list-deleted",
+                                  destination: .list("list-deleted"),
                                   prefixesReminderNumbers: true)
 
         let outcome = await create(checklist, targeting: spy)
@@ -439,7 +439,7 @@ struct ChecklistRemindersTests {
         for _ in 0..<19 { counter.increment() }
         let gate = RunGate(counter: counter, isUnlocked: false)
         let spy = SpyReminderDestination(); spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
@@ -453,7 +453,7 @@ struct ChecklistRemindersTests {
         for _ in 0..<20 { counter.increment() }
         let gate = RunGate(counter: counter, isUnlocked: false)
         let spy = SpyReminderDestination(); spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
@@ -469,7 +469,7 @@ struct ChecklistRemindersTests {
         let gate = RunGate(counter: counter, isUnlocked: false)
         let spy = SpyReminderDestination(); spy.lists = snapshot()
         spy.createError = TestError.boom
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
@@ -487,7 +487,7 @@ struct ChecklistRemindersTests {
         let spy = SpyReminderDestination(); spy.lists = snapshot()
         spy.createFailureCount = 1
         let checklist = Checklist(items: [makeItem("Milk"), makeItem("Eggs")],
-                                  destinationListIdentifier: "list-a")
+                                  destination: .list("list-a"))
 
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
@@ -502,7 +502,7 @@ struct ChecklistRemindersTests {
         for _ in 0..<20 { counter.increment() }
         let gate = RunGate(counter: counter, isUnlocked: true)
         let spy = SpyReminderDestination(); spy.lists = snapshot()
-        let checklist = Checklist(items: [makeItem("Milk")], destinationListIdentifier: "list-a")
+        let checklist = Checklist(items: [makeItem("Milk")], destination: .list("list-a"))
 
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
@@ -518,7 +518,7 @@ struct ChecklistRemindersTests {
         let gate = RunGate(counter: counter, isUnlocked: false)
         let spy = SpyReminderDestination(); spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("   "), makeItem("")],
-                                  destinationListIdentifier: "list-a")
+                                  destination: .list("list-a"))
 
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
@@ -535,7 +535,7 @@ struct ChecklistRemindersTests {
         let gate = RunGate(counter: counter, isUnlocked: false)
         let spy = SpyReminderDestination(); spy.lists = snapshot()
         let checklist = Checklist(items: [makeItem("a", isEnabled: false), makeItem("b", isEnabled: false)],
-                                  destinationListIdentifier: "list-a")
+                                  destination: .list("list-a"))
 
         let outcome = await ChecklistReminders.create(from: checklist, targeting: spy, gate: gate)
 
@@ -568,7 +568,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [makeItem("milk ((3))", description: "((4)) boxes")],
-            destinationListIdentifier: "list-a",
+            destination: .list("list-a"),
             prefixesReminderNumbers: true,
             multiple: 2)
 
@@ -587,7 +587,7 @@ struct ChecklistRemindersTests {
         spy.lists = snapshot()
         let checklist = Checklist(
             items: [makeItem("milk ((3))", description: "((4)) boxes")],
-            destinationListIdentifier: "list-a",
+            destination: .list("list-a"),
             prefixesReminderNumbers: true,
             multiple: 2)
 

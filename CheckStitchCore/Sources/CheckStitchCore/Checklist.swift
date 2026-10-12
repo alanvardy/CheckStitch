@@ -162,6 +162,43 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// A checklist's run destination: the system default list, one concrete
+/// Reminders list, or "ask at run time". `nil`/absent legacy payloads decode to
+/// `.systemDefault`, so a v5 checklist keeps today's behaviour.
+public enum ChecklistDestination: Codable, Equatable, Hashable, Sendable {
+    case systemDefault
+    case list(String)
+    case prompt
+
+    private enum CodingKeys: String, CodingKey { case list }
+
+    public init(from decoder: Decoder) throws {
+        // Single-value form: "systemDefault" / "prompt".
+        if let single = try? decoder.singleValueContainer(),
+           let raw = try? single.decode(String.self) {
+            switch raw {
+            case "systemDefault": self = .systemDefault; return
+            case "prompt": self = .prompt; return
+            default: break
+            }
+        }
+        // Keyed form: {"list":"<calendarIdentifier>"}.
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self = .list(try container.decode(String.self, forKey: .list))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .systemDefault, .prompt:
+            var single = encoder.singleValueContainer()
+            try single.encode(self == .systemDefault ? "systemDefault" : "prompt")
+        case .list(let identifier):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identifier, forKey: .list)
+        }
+    }
+}
+
 /// A named collection of items that can be turned into reminders.
 ///
 /// `modifiedAt`/`revision` describe the checklist record itself, not its items:
@@ -172,7 +209,7 @@ public struct ChecklistItem: Identifiable, Codable, Hashable, Sendable {
 public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public init(
         id: UUID = UUID(), name: String = "New checklist", items: [ChecklistItem] = [],
-        destinationListIdentifier: String? = nil,
+        destination: ChecklistDestination = .systemDefault,
         prefixesReminderNumbers: Bool = false,
         showsOnWatch: Bool = true,
         multiple: Int = 1,
@@ -185,7 +222,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         self.id = id
         self.name = name
         self.items = items
-        self.destinationListIdentifier = destinationListIdentifier
+        self.destination = destination
         self.prefixesReminderNumbers = prefixesReminderNumbers
         self.showsOnWatch = showsOnWatch
         self.multiple = multiple
@@ -207,9 +244,10 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
 
     /// True when at least one item would produce a reminder on a run.
     public var hasRunnableItems: Bool { items.contains(where: \.isRunnable) }
-    /// `EKCalendar.calendarIdentifier` of the chosen Reminders list. `nil` means
-    /// "system default list", so legacy payloads keep today's behaviour.
-    public var destinationListIdentifier: String?
+    /// Where a run creates its reminders. `.prompt` means "ask at run time" and is
+    /// deliberately distinct from `.systemDefault` (design decision 1). Shares the
+    /// checklist's coarse `revision`/`modifiedAt` clock (like the name).
+    public var destination: ChecklistDestination
     /// Whether this checklist's created reminder titles get a 1-based prefix.
     /// Per-checklist so two checklists can differ; it shares the checklist's
     /// coarse `revision`/`modifiedAt` clock (like the name and destination), so
@@ -256,7 +294,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
     public var orderModifiedAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, items, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, multiple, folderID, isArchived, archivedAt
+        case id, name, items, destination, destinationListIdentifier, prefixesReminderNumbers, showsOnWatch, multiple, folderID, isArchived, archivedAt
         case modifiedAt, revision, itemOrder, orderRevision, orderModifiedAt
     }
 
@@ -265,7 +303,16 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         let id = try container.decode(UUID.self, forKey: .id)
         let name = try container.decode(String.self, forKey: .name)
         let items = try container.decodeIfPresent([ChecklistItem].self, forKey: .items) ?? []
-        let destinationListIdentifier = try container.decodeIfPresent(String.self, forKey: .destinationListIdentifier)
+        // v6 key first; a v5 (or earlier) payload has no `destination`, so fall back
+        // to the legacy string: absent/null → `.systemDefault`, value → `.list(id)`.
+        let destination: ChecklistDestination
+        if let decoded = try container.decodeIfPresent(ChecklistDestination.self, forKey: .destination) {
+            destination = decoded
+        } else if let legacy = try container.decodeIfPresent(String.self, forKey: .destinationListIdentifier) {
+            destination = .list(legacy)
+        } else {
+            destination = .systemDefault
+        }
         // Additive optional field: absent key decodes to false, matching the
         // `description`/`relativeDate` precedent — no version bump.
         let prefixesReminderNumbers = try container.decodeIfPresent(Bool.self, forKey: .prefixesReminderNumbers) ?? false
@@ -295,7 +342,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         // (or omits an id) is canonicalised rather than trusted. Built through
         // the public init so the whole value is assigned at once.
         self = Checklist(id: id, name: name, items: items,
-                         destinationListIdentifier: destinationListIdentifier,
+                         destination: destination,
                          prefixesReminderNumbers: prefixesReminderNumbers,
                          showsOnWatch: showsOnWatch,
                          multiple: multiple,
@@ -311,7 +358,7 @@ public struct Checklist: Identifiable, Codable, Hashable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(items, forKey: .items)
-        try container.encode(destinationListIdentifier, forKey: .destinationListIdentifier)
+        try container.encode(destination, forKey: .destination)
         try container.encode(prefixesReminderNumbers, forKey: .prefixesReminderNumbers)
         try container.encode(showsOnWatch, forKey: .showsOnWatch)
         try container.encode(multiple, forKey: .multiple)
@@ -561,7 +608,7 @@ extension ChecklistEnvelope {
 }
 
 public enum ChecklistCodec {
-    public static let currentVersion = 5
+    public static let currentVersion = 6
 
     private static let logger = Logger(subsystem: "app.alanvardy.CheckStitch", category: "ChecklistCodec")
 
@@ -594,6 +641,11 @@ public enum ChecklistCodec {
             switch probe.version {
             case currentVersion:
                 return .loaded(try JSONDecoder().decode(ChecklistEnvelope.self, from: data))
+            case 5:
+                // v5 carries full sync/ordering/folder state; only the destination key was
+                // renamed and is recovered by `Checklist.init(from:)`'s legacy fallback.
+                let previous = try JSONDecoder().decode(ChecklistEnvelope.self, from: data)
+                return .migratable(from: 5, envelope: previous)
             case 4:
                 // v4 carries full sync and ordering state, but predates folders. Load
                 // verbatim, never restamp; absent folder keys decode to []/nil.

@@ -84,17 +84,17 @@ final class ChecklistExportTests: XCTestCase {
         XCTAssertEqual(eggs.enabledRevision, eggs.revision)
     }
 
-    /// Export → classify → decode keeps the chosen destination (codec v4 already
+    /// Export → classify → decode keeps the chosen destination (codec v6 already
     /// encodes it; this pins the boundary).
     func testExportPreservesDestination() throws {
-        let checklist = Checklist(name: "Groceries", destinationListIdentifier: "list-a")
+        let checklist = Checklist(name: "Groceries", destination: .list("list-a"))
         let data = try ChecklistExport.data(checklists: [checklist], from: [])
 
         guard case .loaded(let env) = ChecklistCodec.classify(data) else {
             XCTFail("expected loaded outcome, got \(ChecklistCodec.classify(data))")
             return
         }
-        XCTAssertEqual(env.checklists.first?.destinationListIdentifier, "list-a")
+        XCTAssertEqual(env.checklists.first?.destination, .list("list-a"))
     }
 
     /// Export → classify → decode keeps the template multiple.

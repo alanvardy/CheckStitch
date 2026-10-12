@@ -39,7 +39,12 @@ import os
                 return .permissionDenied
             }
             let snapshot = try await targeting.reminderLists()
-            guard let destination = snapshot.resolve(checklist.destinationListIdentifier) else {
+            let identifier: String? = switch checklist.destination {
+            case .systemDefault: nil
+            case .list(let id): id
+            case .prompt: nil  // Phase 1 makes this unreachable
+            }
+            guard let destination = snapshot.resolve(identifier) else {
                 // All-or-nothing: validate existence before the first create.
                 gate.releaseRun()
                 return .destinationMissing

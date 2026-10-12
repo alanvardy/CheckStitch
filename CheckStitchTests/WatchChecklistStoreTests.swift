@@ -210,10 +210,10 @@ struct WatchChecklistStoreTests {
         let store = WatchChecklistStore(transport: transport)
         store.start()
 
-        let expected = [Checklist(name: "Groceries", destinationListIdentifier: "list-a")]
+        let expected = [Checklist(name: "Groceries", destination: .list("list-a"))]
         transport.deliver(.context(try ChecklistCodec.encode(ChecklistEnvelope(version: ChecklistCodec.currentVersion, deviceID: "", checklists: expected))))
 
-        #expect(store.checklists.first?.destinationListIdentifier == "list-a")
+        #expect(store.checklists.first?.destination == .list("list-a"))
     }
 
     @Test

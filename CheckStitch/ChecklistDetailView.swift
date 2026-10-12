@@ -52,9 +52,9 @@ struct ChecklistDetailView: View {
                     }
                     Section {
                         Picker("List", selection: destinationBinding(checklistID: checklistID)) {
-                            Text("Default (Inbox)").tag(String?.none)
+                            Text("Default (Inbox)").tag(ChecklistDestination.systemDefault)
                             ForEach(listsSnapshot?.selectableOptions ?? []) { list in
-                                Text(list.title).tag(String?.some(list.id))
+                                Text(list.title).tag(ChecklistDestination.list(list.id))
                             }
                         }
                         .accessibilityIdentifier("destinationListPicker")
@@ -287,10 +287,10 @@ struct ChecklistDetailView: View {
     private var destinationIsStale: Bool {
         guard !destinationUnavailable,
               let listsSnapshot,
-              let destination = store.checklist(id: checklistID)?.destinationListIdentifier,
-              listsSnapshot.pickerSelection(for: destination) != nil
+              case .list(let id) = store.checklist(id: checklistID)?.destination,
+              listsSnapshot.pickerSelection(for: id) != nil
         else { return false }
-        return !listsSnapshot.selectableOptions.contains { $0.id == destination }
+        return !listsSnapshot.selectableOptions.contains { $0.id == id }
     }
 
     /// Per-selection write through the store for the numbering toggle. The
@@ -355,17 +355,19 @@ struct ChecklistDetailView: View {
         )
     }
 
-    /// Per-selection write through the store (Phase 2). `nil` is the "Default
+    /// Per-selection write through the store. `.systemDefault` is the "Default
     /// (Inbox)" row. `.notFound` (deleted while this screen was open) is ignored,
     /// matching `commitDraftIfChanged`.
-    private func destinationBinding(checklistID: UUID) -> Binding<String?> {
+    private func destinationBinding(checklistID: UUID) -> Binding<ChecklistDestination> {
         Binding(
             get: {
-                let stored = store.checklist(id: checklistID)?.destinationListIdentifier
-                // A destination that is the system default is shown by the
-                // default row, which is the only row now carrying that list.
-                guard let listsSnapshot else { return stored }
-                return listsSnapshot.pickerSelection(for: stored)
+                let stored = store.checklist(id: checklistID)?.destination ?? .systemDefault
+                // A stored id that *is* the system default renders as the default row.
+                if case .list(let id) = stored, let listsSnapshot,
+                   listsSnapshot.pickerSelection(for: id) == nil {
+                    return .systemDefault
+                }
+                return stored
             },
             set: { store.setDestination($0, for: checklistID) }
         )
