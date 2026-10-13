@@ -35,8 +35,6 @@ struct ChecklistOptionsView: View {
                         }
                     }
                     .accessibilityIdentifier("destinationListPicker")
-                } header: {
-                    Text("Destination list")
                 } footer: {
                     Text("The Reminders list where the new reminders will be added.")
 
@@ -72,8 +70,6 @@ struct ChecklistOptionsView: View {
                     if store.checklist(id: checklistID)?.scaling.isPrompt != true {
                         scalingField(checklistID: checklistID)
                     }
-                } header: {
-                    Text("Scaling")
                 } footer: {
                     Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
                 }
