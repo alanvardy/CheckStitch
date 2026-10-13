@@ -234,7 +234,6 @@ struct ChecklistRunViewModelTests {
         #expect(viewModel.destinationPrompt?.id == id)
         #expect(viewModel.destinationPrompt?.destination == .prompt)
         #expect(viewModel.destinationOptions.map(\.id) == ["list-groceries"])
-        #expect(viewModel.destinationDefaultIdentifier == "list-inbox")
         #expect(viewModel.runErrorMessage == nil, "a successful prompt presentation opens the sheet, not an alert")
     }
 

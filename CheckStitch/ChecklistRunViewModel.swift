@@ -38,8 +38,6 @@ final class ChecklistRunViewModel {
     /// The lists a `.prompt` run offers as explicit choices (`selectableOptions`,
     /// so the system default is absent — the sheet's default row stands for it).
     private(set) var destinationOptions: [ReminderListOption] = []
-    /// The system default list's identifier, if any; the sheet's default row.
-    private(set) var destinationDefaultIdentifier: String?
 
     /// Guards against duplicate taps synchronously (before the first `await`),
     /// then runs one checklist.
@@ -125,7 +123,6 @@ final class ChecklistRunViewModel {
                 return
             }
             destinationOptions = snapshot.selectableOptions
-            destinationDefaultIdentifier = snapshot.defaultIdentifier
             destinationPrompt = checklist
         } catch {
             runErrorMessage = ReminderRunOutcome.permissionDenied.errorMessage
