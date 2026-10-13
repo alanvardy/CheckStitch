@@ -93,6 +93,8 @@ struct ChecklistDetailView: View {
                         if store.checklist(id: checklistID)?.scaling.isPrompt != true {
                             scalingField(checklistID: checklistID)
                         }
+                    } header: {
+                        Text("Scaling")
                     } footer: {
                         Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
                     }
@@ -351,9 +353,9 @@ struct ChecklistDetailView: View {
     /// typed out-of-range value into `Checklist.multipleRange`.
     @ViewBuilder
     private func scalingField(checklistID: UUID) -> some View {
-        LabeledContent("Scaling") {
+        LabeledContent("Factor") {
             #if os(iOS)
-                TextField("Scaling", value: multipleBinding(checklistID: checklistID),
+                TextField("Factor", value: multipleBinding(checklistID: checklistID),
                           format: .number)
                     .labelsHidden()
                     .keyboardType(.numberPad)
@@ -362,7 +364,7 @@ struct ChecklistDetailView: View {
                         "Scale item markers by this factor when creating reminders."))
                     .accessibilityIdentifier("checklistScalingField")
             #else
-                TextField("Scaling", value: multipleBinding(checklistID: checklistID),
+                TextField("Factor", value: multipleBinding(checklistID: checklistID),
                           format: .number)
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
