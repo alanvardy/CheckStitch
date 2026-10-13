@@ -926,7 +926,6 @@ private struct DestinationPromptSheetHost: View {
                 DestinationPromptSheet(
                     checklistName: checklist.name,
                     options: runVM.destinationOptions,
-                    defaultIdentifier: runVM.destinationDefaultIdentifier,
                     onRun: { destination in
                         Task { await runVM.run(checklist, in: destination) }
                     },

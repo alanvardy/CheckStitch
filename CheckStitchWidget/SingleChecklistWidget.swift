@@ -155,7 +155,11 @@ struct SingleChecklistWidgetView: View {
     /// like the `.needsAccess` row opens the app for the access prompt.
     private func widgetURL(for row: ChecklistWidgetRow) -> URL? {
         if row.needsAccess { return URL(string: "checkstitch://") }
-        if row.isPrompt { return URL(string: "checkstitch://run?checklist=\(row.entityID)") }
+        // A paywalled row advertises "buy a license", so it must not deep-link
+        // to the run chooser; only an actually-runnable prompt row hands off.
+        if row.isPrompt, !row.needsPurchase {
+            return URL(string: "checkstitch://run?checklist=\(row.entityID)")
+        }
         return nil
     }
 

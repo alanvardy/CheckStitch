@@ -6,7 +6,6 @@ import SwiftUI
 struct DestinationPromptSheet: View {
     let checklistName: String
     let options: [ReminderListOption]
-    let defaultIdentifier: String?
     let onRun: (ChecklistDestination) -> Void
     let onCancel: () -> Void
 
