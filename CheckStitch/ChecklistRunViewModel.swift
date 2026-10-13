@@ -89,7 +89,7 @@ final class ChecklistRunViewModel {
               let checklist = store.checklist(id: id),
               checklist.hasRunnableItems
         else { return }
-        await perform(checklist: checklist, destination: nil)
+        await perform(checklist: checklist, multipleOverride: multipleOverride, destination: nil)
     }
 
     /// Runs again with the sheet's one-shot choice; never written back to the store.
@@ -128,7 +128,7 @@ final class ChecklistRunViewModel {
     /// Runs one checklist through the seam. `destination` is the one-shot prompt
     /// override, or `nil` for the normal (non-prompt) path; a `.prompt` checklist
     /// with no override gets `.destinationRequired` and opens the chooser.
-    private func perform(checklist: Checklist, destination: ChecklistDestination?) async {
+    private func perform(checklist: Checklist, multipleOverride: Int? = nil, destination: ChecklistDestination?) async {
         creating.insert(checklist.id)
         // Hold the spinner for at least `spinnerDuration` so saving quickly
         // doesn't flash the progress feedback past the user.

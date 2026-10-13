@@ -637,8 +637,8 @@ final class ChecklistCodecTests: XCTestCase {
         XCTAssertEqual(checklist.scaling, .fixed(5))
     }
 
-    func testCurrentVersionIsStillFive() {
-        XCTAssertEqual(ChecklistCodec.currentVersion, 5)
+    func testCurrentVersionIsStillSix() {
+        XCTAssertEqual(ChecklistCodec.currentVersion, 6)
     }
 
     /// A payload written before the scaling factor existed lacks the key: it
