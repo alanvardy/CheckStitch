@@ -56,6 +56,14 @@ struct ChecklistDetailView: View {
                             .accessibilityIdentifier("checklistNameField")
                     }
                     Section {
+                        NavigationLink {
+                            ChecklistOptionsView(checklistID: checklistID)
+                        } label: {
+                            Label("Checklist Options", systemImage: "slider.horizontal.3")
+                        }
+                        .accessibilityIdentifier("checklistOptionsLink")
+                    }
+                    Section {
                         Picker("List", selection: destinationBinding(checklistID: checklistID)) {
                             Text("Default (Inbox)").tag(ChecklistDestination.systemDefault)
                             Text("Ask me each time").tag(ChecklistDestination.prompt)
