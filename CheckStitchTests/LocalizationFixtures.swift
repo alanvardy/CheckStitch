@@ -52,6 +52,7 @@ enum LocalizationFixtures {
             "Edit checklist",
             "Edit item",
             "Extra Large",
+            "Factor",
             "Fixed",
             "Folder Name",
             "Hidden checklists stay on your iPhone but are not shown on the Apple Watch.",
@@ -221,6 +222,8 @@ enum LocalizationFixtures {
         ExclusionEntry(catalog: "App", key: "System"),
         // fr "Description" — same spelling as English
         ExclusionEntry(catalog: "App", key: "Description"),
+        // es "Factor" — same spelling as English
+        ExclusionEntry(catalog: "App", key: "Factor"),
         ExclusionEntry(catalog: "Core", key: "System"),
         // de "Name" — same spelling as English
         ExclusionEntry(catalog: "App", key: "Name"),
