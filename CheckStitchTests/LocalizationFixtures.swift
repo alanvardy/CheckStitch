@@ -30,6 +30,7 @@ enum LocalizationFixtures {
             "Cancel",
             "Checklist name",
             "Checklist not found",
+            "Checklist Options",
             "CheckStitch couldn't ask for a scaling number. Run the checklist in the app, or pass a Multiple value.",
             "Choose between system, light, and dark mode.",
             "Confirm",
