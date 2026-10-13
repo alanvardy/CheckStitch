@@ -3896,13 +3896,13 @@
         }
       }
     },
-    "Number Reminders" : {
+    "Number reminders" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Number Reminders"
+            "value" : "Number reminders"
           }
         },
         "de" : {

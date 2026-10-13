@@ -47,8 +47,16 @@ struct ChecklistOptionsView: View {
                     }
                 }
                 Section {
+                    Toggle(isOn: showOnWatchBinding(checklistID: checklistID)) {
+                        Label("Show on watch", systemImage: "applewatch")
+                    }
+                    .accessibilityIdentifier("checklistShowsOnWatchToggle")
+                } footer: {
+                    Text("Hidden checklists stay on your iPhone but are not shown on the Apple Watch.")
+                }
+                Section {
                     Toggle(isOn: numberingBinding(checklistID: checklistID)) {
-                        Label("Number Reminders", systemImage: "textformat.123")
+                        Label("Number reminders", systemImage: "textformat.123")
                     }
                     .accessibilityIdentifier("checklistPrefixNumbersToggle")
                 } footer: {
@@ -68,14 +76,6 @@ struct ChecklistOptionsView: View {
                     Text("Scaling")
                 } footer: {
                     Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
-                }
-                Section {
-                    Toggle(isOn: showOnWatchBinding(checklistID: checklistID)) {
-                        Label("Show on watch", systemImage: "applewatch")
-                    }
-                    .accessibilityIdentifier("checklistShowsOnWatchToggle")
-                } footer: {
-                    Text("Hidden checklists stay on your iPhone but are not shown on the Apple Watch.")
                 }
             }
             .navigationTitle("Checklist Options")

@@ -81,7 +81,7 @@ enum LocalizationFixtures {
             "New Folder",
             "No Archived Checklists",
             "No checklists",
-            "Number Reminders",
+            "Number reminders",
             "OK",
             "Photo by %@ on Unsplash",
             "Pin wallpaper",
