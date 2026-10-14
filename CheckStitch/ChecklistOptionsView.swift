@@ -61,12 +61,15 @@ struct ChecklistOptionsView: View {
                     Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
                 }
                 Section {
-                    Picker("Scaling", selection: scalingModeBinding(checklistID: checklistID)) {
-                        Text("Fixed").tag(ScalingMode.fixed)
-                        Text("Prompt").tag(ScalingMode.prompt)
+                    LabeledContent("Scaling") {
+                        Picker("Scaling", selection: scalingModeBinding(checklistID: checklistID)) {
+                            Text("Fixed").tag(ScalingMode.fixed)
+                            Text("Prompt").tag(ScalingMode.prompt)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .accessibilityIdentifier("checklistScalingModePicker")
                     }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("checklistScalingModePicker")
                     if store.checklist(id: checklistID)?.scaling.isPrompt != true {
                         scalingField(checklistID: checklistID)
                     }
