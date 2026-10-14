@@ -24,68 +24,71 @@ struct ChecklistOptionsView: View {
     @State private var destinationUnavailable = false
 
     var body: some View {
-        if store.checklist(id: checklistID) != nil {
-            Form {
-                Section {
-                    Picker("List", selection: destinationBinding(checklistID: checklistID)) {
-                        Text("Default (Inbox)").tag(ChecklistDestination.systemDefault)
-                        Text("Ask me each time").tag(ChecklistDestination.prompt)
-                        ForEach(listsSnapshot?.selectableOptions ?? []) { list in
-                            Text(list.title).tag(ChecklistDestination.list(list.id))
+        GeometryReader { geometry in
+            if store.checklist(id: checklistID) != nil {
+                Form {
+                    Section {
+                        Picker("List", selection: destinationBinding(checklistID: checklistID)) {
+                            Text("Default (Inbox)").tag(ChecklistDestination.systemDefault)
+                            Text("Ask me each time").tag(ChecklistDestination.prompt)
+                            ForEach(listsSnapshot?.selectableOptions ?? []) { list in
+                                Text(list.title).tag(ChecklistDestination.list(list.id))
+                            }
                         }
-                    }
-                    .accessibilityIdentifier("destinationListPicker")
-                } footer: {
-                    Text("The Reminders list where the new reminders will be added.")
+                        .accessibilityIdentifier("destinationListPicker")
+                    } footer: {
+                        Text("The Reminders list where the new reminders will be added.")
 
-                    if destinationUnavailable {
-                        Text("Reminder lists aren't available, so a destination can't be chosen here.")
-                    } else if destinationIsStale {
-                        Text("The previously selected list no longer exists. Choose another list or Default (Inbox).")
-                    }
-                }
-                Section {
-                    Toggle(isOn: showOnWatchBinding(checklistID: checklistID)) {
-                        Label("Show on watch", systemImage: "applewatch")
-                    }
-                    .accessibilityIdentifier("checklistShowsOnWatchToggle")
-                } footer: {
-                    Text("Hidden checklists stay on your iPhone but are not shown on the Apple Watch.")
-                }
-                Section {
-                    Toggle(isOn: numberingBinding(checklistID: checklistID)) {
-                        Label("Number reminders", systemImage: "textformat.123")
-                    }
-                    .accessibilityIdentifier("checklistPrefixNumbersToggle")
-                } footer: {
-                    Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
-                }
-                Section {
-                    LabeledContent("Scaling") {
-                        Picker("Scaling", selection: scalingModeBinding(checklistID: checklistID)) {
-                            Text("Fixed").tag(ScalingMode.fixed)
-                            Text("Prompt").tag(ScalingMode.prompt)
+                        if destinationUnavailable {
+                            Text("Reminder lists aren't available, so a destination can't be chosen here.")
+                        } else if destinationIsStale {
+                            Text("The previously selected list no longer exists. Choose another list or Default (Inbox).")
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .accessibilityIdentifier("checklistScalingModePicker")
                     }
-                    if store.checklist(id: checklistID)?.scaling.isPrompt != true {
-                        scalingField(checklistID: checklistID)
+                    Section {
+                        Toggle(isOn: showOnWatchBinding(checklistID: checklistID)) {
+                            Label("Show on watch", systemImage: "applewatch")
+                        }
+                        .accessibilityIdentifier("checklistShowsOnWatchToggle")
+                    } footer: {
+                        Text("Hidden checklists stay on your iPhone but are not shown on the Apple Watch.")
                     }
-                } footer: {
-                    Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
+                    Section {
+                        Toggle(isOn: numberingBinding(checklistID: checklistID)) {
+                            Label("Number reminders", systemImage: "textformat.123")
+                        }
+                        .accessibilityIdentifier("checklistPrefixNumbersToggle")
+                    } footer: {
+                        Text("Prefix each reminder title with its position, like \"1: Buy milk\".")
+                    }
+                    Section {
+                        LabeledContent("Scaling") {
+                            Picker("Scaling", selection: scalingModeBinding(checklistID: checklistID)) {
+                                Text("Fixed").tag(ScalingMode.fixed)
+                                Text("Prompt").tag(ScalingMode.prompt)
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .accessibilityIdentifier("checklistScalingModePicker")
+                        }
+                        if store.checklist(id: checklistID)?.scaling.isPrompt != true {
+                            scalingField(checklistID: checklistID)
+                        }
+                    } footer: {
+                        Text("Scaling multiplies any integer in double brackets — e.g. ((2)) becomes 6 at Scaling 3. The brackets are removed.")
+                    }
                 }
+                .navigationTitle("Checklist Options")
+                .toolbarTitleDisplayMode(.inline)
+                .settingsSubscreenLayout()
+                .checklistEditFormWidth(viewportWidth: geometry.size.width)
+                .onAppear { Task { await loadReminderLists() } }
+            } else {
+                // Deleted elsewhere (e.g. an iCloud merge) while this screen was on
+                // the stack: mirror `ChecklistDetailView`'s placeholder rather than
+                // binding a form to a missing checklist.
+                ContentUnavailableView("Checklist not found", systemImage: "trash")
             }
-            .navigationTitle("Checklist Options")
-            .toolbarTitleDisplayMode(.inline)
-            .settingsSubscreenLayout()
-            .onAppear { Task { await loadReminderLists() } }
-        } else {
-            // Deleted elsewhere (e.g. an iCloud merge) while this screen was on
-            // the stack: mirror `ChecklistDetailView`'s placeholder rather than
-            // binding a form to a missing checklist.
-            ContentUnavailableView("Checklist not found", systemImage: "trash")
         }
     }
 
