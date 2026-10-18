@@ -4,6 +4,8 @@ import CheckStitchCore
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    var seams = LaunchSeams()
+
     @Environment(ChecklistListViewModel.self) private var listVM
     @Environment(ChecklistRunViewModel.self) private var runVM
     @Environment(SettingsViewModel.self) private var settingsVM
@@ -180,6 +182,15 @@ struct ContentView: View {
             // A cold-start arrival must reach the same consume path once the
             // root exists.
             consumePendingSharedImport()
+        }
+        .task {
+            if seams.openSettings {
+                settingsVM.begin(from: settingsSnapshot())
+            }
+            if let index = seams.openChecklistIndex,
+               listVM.checklists.indices.contains(index) {
+                path = [listVM.checklists[index].id]
+            }
         }
         .onChange(of: backgroundPinned) { _, pin in
             Task { await backgroundVM.setPinned(pin) }

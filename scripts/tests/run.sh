@@ -457,6 +457,57 @@ documentTypeRegistrationWiresInfoPlist() {
 
 run_case documentTypeRegistrationWiresInfoPlist documentTypeRegistrationWiresInfoPlist
 
+# --- appstore-screenshots.sh ------------------------------------------------
+
+stub_appstore_capture() { # $1 = "WxH" the sips stub reports
+    local pair="$1"
+    new_stubs xcrun xcodebuild sips
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+case "\$1 \$2" in
+  "simctl list")
+    echo '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-0":[{"name":"iPhone 17","udid":"IPHONE-UDID-1","state":"Shutdown"}]}}' ;;
+  "simctl get_app_container")
+    echo "$STUB_ROOT/container" ;;
+  "simctl io")
+    for last in "\$@"; do :; done
+    mkdir -p "\$(dirname "\$last")"; : >"\$last" ;;
+esac
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+    cat >"$STUB_ROOT/sips" <<STUB
+#!/bin/bash
+echo "pixelWidth: ${pair%x*}"
+echo "pixelHeight: ${pair#*x}"
+STUB
+    chmod +x "$STUB_ROOT/sips"
+}
+
+appstore_boots_installs_and_launches_empty_state() {
+    stub_appstore_capture 1206x2622
+    bash scripts/appstore-screenshots.sh iphone-6.3 >/dev/null 2>&1 || return 1
+    grep -q 'simctl boot IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl install IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl launch IPHONE-UDID-1 app.alanvardy.CheckStitch' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q -- '--ui-testing-empty' "$STUB_ROOT/xcrun.log"
+}
+
+appstore_size_mismatch_exits_one_and_names_file() {
+    stub_appstore_capture 999x999
+    local out status
+    set +e
+    out="$(bash scripts/appstore-screenshots.sh iphone-6.3 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"1-main-dark.png"* ]]
+}
+
+run_case appstore_boots_installs_and_launches_empty_state appstore_boots_installs_and_launches_empty_state
+run_case appstore_size_mismatch_exits_one_and_names_file appstore_size_mismatch_exits_one_and_names_file
+
 # --- system-bash parseability ----------------------------------------------
 
 # Every script must parse under the system bash at /bin/bash — macOS ships bash

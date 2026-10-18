@@ -31,25 +31,45 @@ import SwiftUI
     #endif
     @Environment(\.scenePhase) private var scenePhase
 
+    private let seams: LaunchSeams
+
     init() {
+        let seams = LaunchSeams.current()
+        self.seams = seams
+
         // Start crash reporting first so no setup work escapes the scrubber. Locally
         // the DSN is empty and no user has opted in, so this stays inert.
-        SentryBootstrap.startIfEnabled()
+        if !seams.isUITesting {
+            SentryBootstrap.startIfEnabled()
+        }
         // Inject the StoreKit-backed purchase service before any consumer
         // (view models, gate) reads `PurchaseEnvironment.service`. Core holds a
         // StoreKit-free default so out-of-app processes (widgets, Siri) link.
         PurchaseEnvironment.service = PurchaseService(
             provider: StoreKitPurchaseService(),
             cache: PurchaseEntitlementCache(defaults: AppGroup.defaults))
-        let store = ChecklistStore()
+
+        let defaults: UserDefaults
+        if seams.isUITesting {
+            let suite = LaunchSeams.uiTestingSuiteName
+            defaults = UserDefaults(suiteName: suite) ?? .standard
+            defaults.removePersistentDomain(forName: suite)
+        } else {
+            defaults = AppGroup.defaults
+        }
+
+        let store = ChecklistStore(defaults: defaults, seed: seams.loadSeedEnvelope())
+        if let language = seams.language { AppLocaleState.current.set(language) }
+
         let syncService = ChecklistSyncService(sync: UbiquitousChecklistSync(), store: store)
-        syncService.start()
+        if !seams.isUITesting { syncService.start() }
+
         _store = State(initialValue: store)
         _listViewModel = State(initialValue: ChecklistListViewModel(store: store))
         _runViewModel = State(initialValue: ChecklistRunViewModel(store: store))
         _settingsViewModel = State(initialValue: SettingsViewModel())
         _importExportViewModel = State(initialValue: ChecklistImportExportViewModel(store: store))
-        _backgroundViewModel = State(initialValue: BackgroundViewModel())
+        _backgroundViewModel = State(initialValue: BackgroundViewModel(isUITesting: seams.isUITesting))
         _appearanceViewModel = State(initialValue: AppearanceViewModel())
         _syncService = State(initialValue: syncService)
         _purchaseService = State(initialValue: PurchaseEnvironment.service)
@@ -63,7 +83,7 @@ import SwiftUI
             // restoration gives the window SwiftUI's default on-screen geometry
             // every launch instead.
             WindowGroup {
-                ContentView()
+                ContentView(seams: seams)
                     .environment(store)
                     .environment(listViewModel)
                     .environment(runViewModel)
@@ -74,24 +94,26 @@ import SwiftUI
                     .environment(syncService)
                     .environment(purchaseService)
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
-                    .task { await syncService.syncOnLaunch() }
-                    .task { await purchaseService.start() }
+                    .task { if !seams.isUITesting { await syncService.syncOnLaunch() } }
+                    .task { if !seams.isUITesting { await purchaseService.start() } }
             }
             .restorationBehavior(.disabled)
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    // Fold in a checklist written by the Create Checklist intent
-                    // while CheckStitch was backgrounded, before an edit can clobber it.
-                    store.reconcileFromDefaults()
-                } else {
-                    // Flush coalesced text edits and push before the app suspends.
-                    store.flushPendingSave()
-                    syncService.pushNow()
+                if !seams.isUITesting {
+                    if phase == .active {
+                        // Fold in a checklist written by the Create Checklist intent
+                        // while CheckStitch was backgrounded, before an edit can clobber it.
+                        store.reconcileFromDefaults()
+                    } else {
+                        // Flush coalesced text edits and push before the app suspends.
+                        store.flushPendingSave()
+                        syncService.pushNow()
+                    }
                 }
             }
         #else
             WindowGroup {
-                ContentView()
+                ContentView(seams: seams)
                     .environment(store)
                     .environment(listViewModel)
                     .environment(runViewModel)
@@ -104,6 +126,7 @@ import SwiftUI
                     .environment(\.locale, AppLocaleState.current.effectiveLocale)
                     #if os(iOS)
                         .task {
+                            guard !seams.isUITesting else { return }
                             if coordinator == nil {
                                 let coordinator = ChecklistSyncCoordinator(
                                     transport: PhoneSyncAdapter(),
@@ -131,18 +154,20 @@ import SwiftUI
                             coordinator?.languageDidChange()
                         }
                     #endif
-                    .task { await syncService.syncOnLaunch() }
-                    .task { await purchaseService.start() }
+                    .task { if !seams.isUITesting { await syncService.syncOnLaunch() } }
+                    .task { if !seams.isUITesting { await purchaseService.start() } }
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    // Fold in a checklist written by the Create Checklist intent
-                    // while CheckStitch was backgrounded, before an edit can clobber it.
-                    store.reconcileFromDefaults()
-                } else {
-                    // Flush coalesced text edits and push before the app suspends.
-                    store.flushPendingSave()
-                    syncService.pushNow()
+                if !seams.isUITesting {
+                    if phase == .active {
+                        // Fold in a checklist written by the Create Checklist intent
+                        // while CheckStitch was backgrounded, before an edit can clobber it.
+                        store.reconcileFromDefaults()
+                    } else {
+                        // Flush coalesced text edits and push before the app suspends.
+                        store.flushPendingSave()
+                        syncService.pushNow()
+                    }
                 }
             }
         #endif
