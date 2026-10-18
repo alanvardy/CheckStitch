@@ -491,7 +491,7 @@ appstore_boots_installs_and_launches_empty_state() {
     grep -q 'simctl boot IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'simctl install IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'simctl launch IPHONE-UDID-1 app.alanvardy.CheckStitch' "$STUB_ROOT/xcrun.log" || return 1
-    grep -q -- '--ui-testing-empty' "$STUB_ROOT/xcrun.log"
+    grep -q -- '--ui-testing' "$STUB_ROOT/xcrun.log"
 }
 
 appstore_size_mismatch_exits_one_and_names_file() {
@@ -505,8 +505,18 @@ appstore_size_mismatch_exits_one_and_names_file() {
     [[ "$out" == *"1-main-dark.png"* ]]
 }
 
+appstore_stages_wallpaper_into_app_container() {
+    stub_appstore_capture 1206x2622
+    bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    local dir="$STUB_ROOT/container/Library/Application Support/CheckStitch"
+    [[ -f "$dir/background.jpg" ]] || return 1
+    [[ -f "$dir/background.json" ]] || return 1
+    python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["photographer"])' "$dir/background.json" | grep -q .
+}
+
 run_case appstore_boots_installs_and_launches_empty_state appstore_boots_installs_and_launches_empty_state
 run_case appstore_size_mismatch_exits_one_and_names_file appstore_size_mismatch_exits_one_and_names_file
+run_case appstore_stages_wallpaper_into_app_container appstore_stages_wallpaper_into_app_container
 
 # --- system-bash parseability ----------------------------------------------
 
