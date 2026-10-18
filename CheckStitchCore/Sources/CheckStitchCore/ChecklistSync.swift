@@ -296,6 +296,7 @@ public final class WatchChecklistStore {
     /// races `activate()` is dropped, so `onActivated` is the first moment a
     /// retained run can actually leave the watch.
     public func start() {
+        guard !isSeeded else { return }
         transport.onMessage = { [weak self] in self?.receive($0) }
         transport.onActivated = { [weak self] in
             self?.requestRefresh()
@@ -303,6 +304,16 @@ public final class WatchChecklistStore {
         }
         transport.activate()
     }
+
+    /// UI-testing only: replace the mirrored list with a seeded envelope. While
+    /// seeded, `start()` and `requestRefresh()` are no-ops so no `WCSession` is
+    /// created.
+    public func seed(_ envelope: ChecklistEnvelope) {
+        checklists = envelope.checklists
+        folders = envelope.folders
+        isSeeded = true
+    }
+
 
     /// Asks the phone to create reminders for `checklist`. Always starts a run:
     /// the request is retained and re-sent when the session becomes usable, so
@@ -343,7 +354,8 @@ public final class WatchChecklistStore {
     /// Cold launch: the phone re-pushes its context on receipt.
     @discardableResult
     public func requestRefresh() -> Bool {
-        transport.sendUserInfo(.requestChecklists)
+        guard !isSeeded else { return false }
+        return transport.sendUserInfo(.requestChecklists)
     }
 
     private func receive(_ message: ChecklistSyncMessage) {
@@ -387,4 +399,7 @@ public final class WatchChecklistStore {
 
     private let transport: ChecklistSyncTransport
     private let locale: AppLocaleState
+    /// While seeded (UI-testing only), `start()`/`requestRefresh()` are no-ops
+    /// so no `WCSession` is ever created on the capture simulator.
+    @ObservationIgnored private var isSeeded = false
 }
