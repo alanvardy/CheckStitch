@@ -53,6 +53,7 @@ public final class ChecklistStore {
         defaults: UserDefaults = AppGroup.defaults,
         key: String = "checklists.v1",
         textEditDelay: Duration? = .milliseconds(300),
+        seed: ChecklistEnvelope? = nil,
         now: @escaping () -> Date = Date.init
     ) {
         self.defaults = defaults
@@ -66,6 +67,15 @@ public final class ChecklistStore {
             let created = UUID().uuidString
             defaults.set(created, forKey: Self.deviceIDKey)
             self.deviceID = created
+        }
+
+        if let seed {
+            self.checklists = seed.checklists
+            self.tombstones = seed.tombstones
+            self.folders = seed.folders
+            self.folderTombstones = seed.folderTombstones
+            self.canOverwriteStoredPayload = true
+            return
         }
 
         if let data = defaults.data(forKey: key) {
