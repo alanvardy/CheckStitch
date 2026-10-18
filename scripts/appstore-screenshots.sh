@@ -231,8 +231,11 @@ capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
         *-light) xcrun simctl ui "$UDID" appearance light ;;
       esac
       stage_slot "$label" "$slot"
-      shoot "$dir/$stem.png" --ui-testing
-      verify_size "$dir/$stem.png" "$size"
+      case "$stem" in
+        # Per-stem launch args; the seed env is always exported by `shoot`.
+        1-main-dark)  shoot "$dir/$stem.png" --ui-testing; verify_size "$dir/$stem.png" "$size" ;;
+        2-empty)      shoot "$dir/$stem.png" --ui-testing --ui-testing-empty; verify_size "$dir/$stem.png" "$size" ;;
+      esac
     done
   done
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true

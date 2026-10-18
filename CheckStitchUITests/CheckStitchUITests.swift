@@ -37,4 +37,27 @@ final class CheckStitchUITests: XCTestCase {
             try app.performAccessibilityAudit()
         #endif
     }
+
+    @MainActor
+    func testUITestingSeededListRendersARow() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing"]
+        app.launchEnvironment["CHECKSTITCH_UITEST_SEED"] = try Self.writeSeedFixture().path
+        app.launch()
+        let row = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'checklistRow-'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "Seeded row should render")
+    }
+
+    private static func writeSeedFixture() throws -> URL {
+        let json = """
+        {"version":6,"deviceID":"uitest","checklists":[
+          {"id":"11111111-1111-4111-8111-111111111111","name":"Weekend Trip",
+           "items":[{"id":"11111111-1111-4111-8111-111111111101","title":"Book train tickets"}]}]}
+        """
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appstore-seed-\(UUID().uuidString).json")
+        try Data(json.utf8).write(to: url, options: .atomic)
+        return url
+    }
 }

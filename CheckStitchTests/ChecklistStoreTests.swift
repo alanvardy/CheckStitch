@@ -406,6 +406,24 @@ final class ChecklistStoreTests: XCTestCase {
         XCTAssertEqual(suite.defaults.data(forKey: key), newer)
     }
 
+    /// A seed always wins over whatever is stored (even a newer-version payload
+    /// that would normally refuse to be overwritten), and leaves the store open
+    /// to remote sync — the UI-testing/screenshot harness depends on this.
+    func testSeedPopulatesTheStoreAndPermitsOverwrite() {
+        let suiteName = "test.store.seed.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        // A newer-version payload would normally refuse to overwrite.
+        defaults.set(Data("{\"version\": 99}".utf8), forKey: key)
+        let seed = ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "seed",
+            checklists: [Checklist(name: "Seeded")])
+        let store = ChecklistStore(defaults: defaults, key: key,
+                                   textEditDelay: nil, seed: seed)
+        XCTAssertEqual(store.checklists.map(\.name), ["Seeded"])
+        XCTAssertTrue(store.canAcceptRemoteChanges)
+    }
+
     func testTextEditsAreCoalescedUntilFlush() {
         let suite = makeDefaults()
         defer { suite.defaults.removePersistentDomain(forName: suite.suiteName) }
