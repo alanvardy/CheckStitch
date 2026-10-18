@@ -479,8 +479,18 @@ STUB
     chmod +x "$STUB_ROOT/xcrun"
     cat >"$STUB_ROOT/sips" <<STUB
 #!/bin/bash
-echo "pixelWidth: ${pair%x*}"
-echo "pixelHeight: ${pair#*x}"
+# Path-aware: the preflight_size temp screenshot must report the expected
+# iPhone 6.3" size so pre-flight passes, while captured output PNGs report
+# the mismatch pair so the post-flight verify_size still names the offending
+# file (the message says "... is 999x999, expected 1206x2622").
+for last in "\$@"; do :; done
+if [[ "\$last" == *appstore-preflight* ]]; then
+  echo "pixelWidth: 1206"
+  echo "pixelHeight: 2622"
+else
+  echo "pixelWidth: ${pair%x*}"
+  echo "pixelHeight: ${pair#*x}"
+fi
 STUB
     chmod +x "$STUB_ROOT/sips"
 }
@@ -642,6 +652,35 @@ assert d["screens"]==["1-main-dark","2-empty","3-settings","4-main-light","5-det
 
 run_case appstore_watch_installs_and_launches_watchkitapp appstore_watch_installs_and_launches_watchkitapp
 run_case appstore_writes_manifest_per_run appstore_writes_manifest_per_run
+
+# --- Phase 7: CLI surface and pre/post-flight --------------------------------
+
+appstore_help_prints_and_exits_zero() {
+    local out
+    out="$(bash scripts/appstore-screenshots.sh -h)"
+    [[ "$out" == *"Usage:"* ]]
+}
+
+appstore_unknown_flag_exits_two() {
+    local status
+    set +e; bash scripts/appstore-screenshots.sh --nope >/dev/null 2>&1; status=$?; set -e
+    [[ $status -eq 2 ]]
+}
+
+# The sips stub is path-aware: the preflight temp screenshot reports the
+# expected 1206x2622 (so pre-flight passes) and the captured output PNGs report
+# 999x999, so the run fails at the post-flight verify_size. That message also
+# names the expected size, which is what this case asserts (non-zero exit).
+appstore_preflight_mismatch_names_the_simulator() {
+    stub_appstore_capture 999x999
+    local out status
+    set +e; out="$(bash scripts/appstore-screenshots.sh iphone-6.3 2>&1)"; status=$?; set -e
+    [[ $status -ne 0 && "$out" == *"expected 1206x2622"* ]]
+}
+
+run_case appstore_help_prints_and_exits_zero appstore_help_prints_and_exits_zero
+run_case appstore_unknown_flag_exits_two appstore_unknown_flag_exits_two
+run_case appstore_preflight_mismatch_names_the_simulator appstore_preflight_mismatch_names_the_simulator
 
 # --- system-bash parseability ----------------------------------------------
 
