@@ -48,9 +48,9 @@ SCREENS=(
   "detail:5-detail"
 )
 
-# Phase 2 captures the empty state for every stem; the full language set and
-# per-stem launch args arrive in later phases.
-LANGUAGES=(en)
+# The six pinned AppLanguage ids (AppLanguage.swift); each gets its own output
+# directory and every shoot pins the app to that language.
+LANGUAGES=(en de es fr ja zh-Hans)
 
 wallpaper_dir() { # app-private photo directory inside the app container
   local container
@@ -233,11 +233,11 @@ capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
       stage_slot "$label" "$slot"
       case "$stem" in
         # Per-stem launch args; the seed env is always exported by `shoot`.
-        1-main-dark)  shoot "$dir/$stem.png" --ui-testing; verify_size "$dir/$stem.png" "$size" ;;
-        2-empty)      shoot "$dir/$stem.png" --ui-testing --ui-testing-empty; verify_size "$dir/$stem.png" "$size" ;;
-        3-settings)   shoot "$dir/$stem.png" --ui-testing --ui-testing-open-settings; verify_size "$dir/$stem.png" "$size" ;;
-        4-main-light) shoot "$dir/$stem.png" --ui-testing; verify_size "$dir/$stem.png" "$size" ;;
-        5-detail)     shoot "$dir/$stem.png" --ui-testing --ui-testing-open-checklist 0; verify_size "$dir/$stem.png" "$size" ;;
+        1-main-dark)  shoot "$dir/$stem.png" --ui-testing --ui-testing-app-language "$language"; verify_size "$dir/$stem.png" "$size" ;;
+        2-empty)      shoot "$dir/$stem.png" --ui-testing --ui-testing-app-language "$language" --ui-testing-empty; verify_size "$dir/$stem.png" "$size" ;;
+        3-settings)   shoot "$dir/$stem.png" --ui-testing --ui-testing-app-language "$language" --ui-testing-open-settings; verify_size "$dir/$stem.png" "$size" ;;
+        4-main-light) shoot "$dir/$stem.png" --ui-testing --ui-testing-app-language "$language"; verify_size "$dir/$stem.png" "$size" ;;
+        5-detail)     shoot "$dir/$stem.png" --ui-testing --ui-testing-app-language "$language" --ui-testing-open-checklist 0; verify_size "$dir/$stem.png" "$size" ;;
       esac
     done
   done
