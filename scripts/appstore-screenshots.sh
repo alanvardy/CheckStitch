@@ -8,6 +8,16 @@ BUNDLE=app.alanvardy.CheckStitch
 SCHEME=CheckStitch
 DD=build/appstore-dd
 APP="$DD/Build/Products/Debug-iphonesimulator/CheckStitch.app"
+
+# Standalone watch leg: its own scheme, bundle and built app. `make watch-build`
+# uses the same destination, so the built app lands in Debug-watchsimulator.
+WATCH_SCHEME=CheckStitchWatch
+WATCH_BUNDLE=app.alanvardy.CheckStitch.watchkitapp
+WATCH_APP="$DD/Build/Products/Debug-watchsimulator/CheckStitchWatch.app"
+WATCH_CLASS=watch-46mm
+WATCH_PATTERN='Apple Watch Series 11 \(46mm\)'
+WATCH_SCREENS=( "1-list" "2-detail" )
+
 OUT=build/appstore-screenshots
 SETTLE="${SETTLE:-6}"
 SEED_FILE="$PWD/scripts/fixtures/appstore-seed.json"
@@ -33,7 +43,16 @@ while [ $# -gt 0 ]; do
 done
 
 # class label : simctl devicetype name regex (newest runtime wins)
-DEVICE_TYPES=( "iphone-6.3:iPhone 17$" )
+DEVICE_TYPES=( "iphone-6.3:iPhone 17$" "ipad-13:iPad Pro 13-inch \\(M5\\)" )
+
+# No associative arrays: /bin/bash 3.2 (the gate's `bash -n` parser) rejects them.
+size_for() { # $1 = class label
+  case "$1" in
+    iphone-6.3) echo "1206x2622" ;;
+    ipad-13)    echo "2064x2752" ;;
+    watch-46mm) echo "416x496" ;;
+  esac
+}
 
 IOS_WALLPAPER_DIR="${WALLPAPER_DIR:-scripts/fixtures/appstore-wallpapers}"
 MANIFEST="$IOS_WALLPAPER_DIR/manifest.json"
@@ -190,11 +209,11 @@ print(best[1] if best else "")
 ' "$1" "$2"
 }
 
-boot_and_install() { # $1 = udid
-  local udid=$1
+boot_and_install() { # $1 = udid, $2 = app path (default $APP)
+  local udid=$1 app=${2:-$APP}
   xcrun simctl boot "$udid" 2>/dev/null || true
   xcrun simctl bootstatus "$udid" -b >/dev/null
-  if [ "$INSTALL" -eq 1 ]; then xcrun simctl install "$udid" "$APP"; fi
+  if [ "$INSTALL" -eq 1 ]; then xcrun simctl install "$udid" "$app"; fi
 }
 
 shoot() { # $1 = output path, rest = launch arguments
@@ -216,14 +235,27 @@ verify_size() { # $1 = file, $2 = accepted WxH
   fi
 }
 
+write_manifest() { # $1 = lang, $2 = class, $3 = device model, $4 = udid, $5 = size, rest = screens
+  local lang=$1 class=$2 device=$3 udid=$4 size=$5; shift 5
+  python3 - "$OUT/$lang/$class/manifest.json" "$class" "$device" "$udid" "$size" "$@" <<'PY'
+import json, sys
+path, klass, device, udid, size, *screens = sys.argv[1:]
+json.dump({"class": klass, "device": device, "udid": udid,
+           "size": size, "screens": screens},
+          open(path, "w"), indent=2, sort_keys=True)
+PY
+}
+
 capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
   local label=$1 pattern=$2 size=$3 udid dir language entry slot stem
+  local stems=()
   udid=$(resolve_udid "$pattern" iOS)
   [ -n "$udid" ] || { echo "!! no available simulator for '$pattern'" >&2; return 1; }
   UDID=$udid
   boot_and_install "$UDID"
   for language in "${LANGUAGES[@]}"; do
     dir="$OUT/$language/$label"; mkdir -p "$dir"
+    stems=()
     for entry in "${SCREENS[@]}"; do
       slot=${entry%%:*}; stem=${entry##*:}
       case "$stem" in
@@ -239,7 +271,36 @@ capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
         4-main-light) shoot "$dir/$stem.png" --ui-testing --ui-testing-app-language "$language"; verify_size "$dir/$stem.png" "$size" ;;
         5-detail)     shoot "$dir/$stem.png" --ui-testing --ui-testing-app-language "$language" --ui-testing-open-checklist 0; verify_size "$dir/$stem.png" "$size" ;;
       esac
+      stems+=("$stem")
     done
+    write_manifest "$language" "$label" "$pattern" "$UDID" "$size" "${stems[@]}"
+  done
+  xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
+}
+
+watch_shot() { # $1 = output path, rest = watch launch arguments
+  local out=$1; shift
+  xcrun simctl terminate "$UDID" "$WATCH_BUNDLE" >/dev/null 2>&1 || true
+  sleep 1
+  SIMCTL_CHILD_CHECKSTITCH_UITEST_SEED="$SEED_FILE" \
+    xcrun simctl launch "$UDID" "$WATCH_BUNDLE" "$@" >/dev/null
+  sleep "$SETTLE"
+  xcrun simctl io "$UDID" screenshot --mask ignored "$out" >/dev/null
+  echo "    ${out#"$OUT/"}"
+}
+
+capture_watch() {
+  local udid dir language size
+  size=$(size_for "$WATCH_CLASS")
+  udid=$(resolve_udid "$WATCH_PATTERN" watchOS)
+  [ -n "$udid" ] || { echo "!! no available watch simulator for '$WATCH_PATTERN'" >&2; return 1; }
+  UDID=$udid
+  boot_and_install "$UDID" "$WATCH_APP"
+  for language in "${LANGUAGES[@]}"; do
+    dir="$OUT/$language/$WATCH_CLASS"; mkdir -p "$dir"
+    watch_shot "$dir/1-list.png" --ui-testing; verify_size "$dir/1-list.png" "$size"
+    watch_shot "$dir/2-detail.png" --ui-testing --ui-testing-open-checklist 0; verify_size "$dir/2-detail.png" "$size"
+    write_manifest "$language" "$WATCH_CLASS" "$WATCH_PATTERN" "$UDID" "$size" "${WATCH_SCREENS[@]}"
   done
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 }
@@ -255,12 +316,20 @@ fi
 if [ "$BUILD" -eq 1 ]; then
   xcodebuild -scheme "$SCHEME" -configuration Debug \
     -destination 'generic/platform=iOS Simulator' -derivedDataPath "$DD" build >/dev/null
+  if [[ " ${CLASSES[*]} " == *" $WATCH_CLASS "* ]]; then
+    xcodebuild -scheme "$WATCH_SCHEME" -configuration Debug \
+      -destination 'generic/platform=watchOS Simulator' -derivedDataPath "$DD" build >/dev/null
+  fi
 fi
 
 for entry in "${DEVICE_TYPES[@]}"; do
   label=${entry%%:*}; pattern=${entry#*:}
   for wanted in "${CLASSES[@]}"; do
-    [ "$wanted" = "$label" ] && capture_class "$label" "$pattern" "1206x2622"
+    [ "$wanted" = "$label" ] && capture_class "$label" "$pattern" "$(size_for "$label")"
   done
+done
+
+for wanted in "${CLASSES[@]}"; do
+  [ "$wanted" = "$WATCH_CLASS" ] && capture_watch
 done
 echo "==> done: $OUT"

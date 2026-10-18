@@ -13,6 +13,19 @@ struct WatchChecklistStoreTests {
     }
 
     @Test
+    func seedPopulatesWithoutStartingTheTransport() {
+        let transport = FakeChecklistSyncTransport()
+        let store = WatchChecklistStore(transport: transport)
+        let envelope = ChecklistEnvelope(
+            version: ChecklistCodec.currentVersion, deviceID: "",
+            checklists: [Checklist(name: "Groceries")])
+        store.seed(envelope)
+        #expect(store.checklists.map(\.name) == ["Groceries"])
+        store.start()
+        #expect(transport.activateCount == 0)
+    }
+
+    @Test
     func contextReplacesTheChecklistList() throws {
         let transport = FakeChecklistSyncTransport()
         let store = WatchChecklistStore(transport: transport)

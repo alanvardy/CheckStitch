@@ -584,6 +584,65 @@ appstore_writes_six_language_directories() {
 
 run_case appstore_writes_six_language_directories appstore_writes_six_language_directories
 
+# --- Phase 6: iPad, standalone watch, and per-run manifest -------------------
+
+# A watchOS runtime in the `simctl list` JSON lets `resolve_udid` pick a watch
+# UDID; every install/launch/io subcommand is only logged. sips reports the
+# watch's 416x496 so `verify_size` passes.
+stub_appstore_watch_capture() {
+    new_stubs xcrun xcodebuild sips
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+case "\$1 \$2" in
+  "simctl list")
+    echo '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-0":[{"name":"iPhone 17","udid":"IPHONE-UDID-1","state":"Shutdown"}],"com.apple.CoreSimulator.SimRuntime.watchOS-11-5":[{"name":"Apple Watch Series 11 (46mm)","udid":"WATCH-UDID-1","state":"Shutdown"}]}}' ;;
+  "simctl io")
+    for last in "\$@"; do :; done
+    mkdir -p "\$(dirname "\$last")"; : >"\$last" ;;
+esac
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+    cat >"$STUB_ROOT/sips" <<STUB
+#!/bin/bash
+echo "pixelWidth: 416"
+echo "pixelHeight: 496"
+STUB
+    chmod +x "$STUB_ROOT/sips"
+}
+
+appstore_watch_installs_and_launches_watchkitapp() {
+    stub_appstore_watch_capture
+    SETTLE=0 bash scripts/appstore-screenshots.sh watch-46mm --no-build >/dev/null 2>&1 || return 1
+    grep -q 'simctl boot WATCH-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    # The watch app (not the iOS app) is installed on the resolved watch UDID.
+    grep -q 'simctl install WATCH-UDID-1.*CheckStitchWatch.app' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl launch WATCH-UDID-1 app.alanvardy.CheckStitch.watchkitapp --ui-testing' "$STUB_ROOT/xcrun.log" || return 1
+    # 2-detail carries the open-checklist directive.
+    grep -q -- '--ui-testing-open-checklist 0' "$STUB_ROOT/xcrun.log" || return 1
+    [[ -d "build/appstore-screenshots/en/watch-46mm" ]]
+}
+
+# Each language's capture class folder gets a manifest.json describing the run.
+appstore_writes_manifest_per_run() {
+    [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
+    stub_appstore_capture 1206x2622
+    SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    for lang in en de es fr ja zh-Hans; do
+        local m="build/appstore-screenshots/$lang/iphone-6.3/manifest.json"
+        [[ -f "$m" ]] || return 1
+        python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
+assert set(("class","device","udid","size","screens")) <= set(d), d;
+assert d["class"]=="iphone-6.3"; assert d["size"]=="1206x2622";
+assert d["screens"]==["1-main-dark","2-empty","3-settings","4-main-light","5-detail"]' "$m" || return 1
+    done
+    true
+}
+
+run_case appstore_watch_installs_and_launches_watchkitapp appstore_watch_installs_and_launches_watchkitapp
+run_case appstore_writes_manifest_per_run appstore_writes_manifest_per_run
+
 # --- system-bash parseability ----------------------------------------------
 
 # Every script must parse under the system bash at /bin/bash — macOS ships bash
