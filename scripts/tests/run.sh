@@ -536,6 +536,38 @@ run_case appstore_size_mismatch_exits_one_and_names_file appstore_size_mismatch_
 run_case appstore_stages_wallpaper_into_app_container appstore_stages_wallpaper_into_app_container
 run_case appstore_launches_seeded_main_then_empty appstore_launches_seeded_main_then_empty
 
+# Phase 4: all five stems launch in SCREENS order, each with its own launch
+# args (seed env always exported): 1-main-dark, 2-empty, 3-settings,
+# 4-main-light, 5-detail. Stems 1 and 4 share the bare `--ui-testing` argv, so
+# the `simctl ui` appearance pin distinguishes them: dark fires before stem 1,
+# light before stem 4.
+appstore_launches_five_shot_sequence() {
+    [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
+    stub_appstore_capture 1206x2622
+    bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    local log="$STUB_ROOT/xcrun.log"
+    local plain1 plain2 empty settings detail dark light v
+    # The two bare `--ui-testing` launches are stems 1 and 4; grab both in order.
+    plain1=$(grep -n -- '--terminate-running-process --ui-testing$' "$log" | head -1 | cut -d: -f1)
+    plain2=$(grep -n -- '--terminate-running-process --ui-testing$' "$log" | sed -n '2p' | cut -d: -f1)
+    empty=$(grep -n -- '--ui-testing-empty' "$log" | head -1 | cut -d: -f1)
+    settings=$(grep -n -- '--ui-testing-open-settings' "$log" | head -1 | cut -d: -f1)
+    detail=$(grep -n -- '--ui-testing-open-checklist 0' "$log" | head -1 | cut -d: -f1)
+    dark=$(grep -n 'simctl ui IPHONE-UDID-1 appearance dark' "$log" | head -1 | cut -d: -f1)
+    light=$(grep -n 'simctl ui IPHONE-UDID-1 appearance light' "$log" | head -1 | cut -d: -f1)
+    for v in plain1 plain2 empty settings detail dark light; do
+        [[ -n "${!v}" ]] || return 1
+    done
+    # Five stems fire in SCREENS order: main-dark, empty, settings, main-light, detail.
+    [[ "$plain1" -lt "$empty" && "$empty" -lt "$settings" \
+        && "$settings" -lt "$plain2" && "$plain2" -lt "$detail" ]] || return 1
+    # Appearance pins split the two bare `--ui-testing` stems: dark before the
+    # first (main-dark), light before the second (main-light).
+    [[ "$dark" -lt "$plain1" && "$plain1" -lt "$light" && "$light" -lt "$plain2" ]]
+}
+
+run_case appstore_launches_five_shot_sequence appstore_launches_five_shot_sequence
+
 # --- system-bash parseability ----------------------------------------------
 
 # Every script must parse under the system bash at /bin/bash — macOS ships bash
