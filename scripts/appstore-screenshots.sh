@@ -1,6 +1,33 @@
 #!/bin/bash
 # scripts/appstore-screenshots.sh — App Store captures, per language and
-# display class. `-h` prints this header.
+# display class.
+#
+# Usage:
+#   scripts/appstore-screenshots.sh [options] [class ...]
+#
+# Output tree: build/appstore-screenshots/<lang>/<device>/<n>-<name>.png, plus
+# a per-run manifest.json naming the class, device, size and screens captured.
+#
+# Known classes and their target sizes (pre/post-flight checked with sips):
+#   iphone-6.3  iPhone 17, 1206x2622
+#   ipad-13     iPad Pro 13-inch (M5), 2064x2752
+#   watch-46mm  Apple Watch Series 11 (46mm), 416x496
+#
+# Wallpapers live in scripts/fixtures/appstore-wallpapers/; each slot is named
+# <class>-<screen> and is staged into the app container before the matching
+# shot. `--fetch-wallpapers` fetches new photos from the API.
+#
+# Options:
+#   --no-build            skip the xcodebuild step
+#   --no-install          boot the simulator but skip installing the app
+#   --settle <seconds>    settle time after launch before shooting (default 6)
+#   --lang <id>           capture only this AppLanguage id
+#   --udid <class>=<udid> pin a class to an explicit simulator UDID
+#   --fetch-wallpapers    fetch wallpapers before capturing
+#   --refetch-wallpapers  refetch wallpapers even if already present
+#   --wallpaper-url <slot|*>=<url>  pin a slot (or all) to a specific photo
+#   --wallpaper-dir <dir> wallpaper + manifest directory
+#   -h, --help            print this header and exit 0
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -27,6 +54,12 @@ FETCH_WALLPAPERS=0
 REFETCH_WALLPAPERS=0
 WALLPAPER_URLS=()
 CLASSES=()
+OVERRIDE_CLASSES=()
+OVERRIDE_UDIDS=()
+
+# The six pinned AppLanguage ids (AppLanguage.swift); each gets its own output
+# directory and every shoot pins the app to that language. --lang overrides.
+LANGUAGES=(en de es fr ja zh-Hans)
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -36,6 +69,9 @@ while [ $# -gt 0 ]; do
     --wallpaper-dir)      WALLPAPER_DIR=$2; shift 2 ;;
     --no-build)           BUILD=0; shift ;;
     --no-install)         INSTALL=0; shift ;;
+    --settle)             SETTLE=$2; shift 2 ;;
+    --lang)               LANGUAGES=("$2"); shift 2 ;;
+    --udid)               OVERRIDE_CLASSES+=("${2%%=*}"); OVERRIDE_UDIDS+=("${2#*=}"); shift 2 ;;
     -h|--help)            sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*)                   echo "!! unknown option: $1" >&2; exit 2 ;;
     *)                    CLASSES+=("$1"); shift ;;
@@ -67,9 +103,14 @@ SCREENS=(
   "detail:5-detail"
 )
 
-# The six pinned AppLanguage ids (AppLanguage.swift); each gets its own output
-# directory and every shoot pins the app to that language.
-LANGUAGES=(en de es fr ja zh-Hans)
+udid_override_for() { # $1 = class label; prints an explicit UDID or nothing
+  local i
+  for i in "${!OVERRIDE_CLASSES[@]}"; do
+    if [ "${OVERRIDE_CLASSES[$i]}" = "$1" ]; then
+      printf '%s' "${OVERRIDE_UDIDS[$i]}"; return 0
+    fi
+  done
+}
 
 wallpaper_dir() { # app-private photo directory inside the app container
   local container
@@ -235,6 +276,17 @@ verify_size() { # $1 = file, $2 = accepted WxH
   fi
 }
 
+preflight_size() { # $1 = udid, $2 = expected WxH
+  local tmp dims
+  tmp=$(mktemp -t appstore-preflight).png
+  xcrun simctl io "$1" screenshot --mask ignored "$tmp" >/dev/null
+  dims=$(sips -g pixelWidth -g pixelHeight "$tmp" | tail -2 | tr -dc '0-9\n' | paste -sd x -)
+  rm -f "$tmp"
+  if [ "$dims" != "$2" ]; then
+    echo "!! simulator $1 captures ${dims}, expected ${2}" >&2; return 1
+  fi
+}
+
 write_manifest() { # $1 = lang, $2 = class, $3 = device model, $4 = udid, $5 = size, rest = screens
   local lang=$1 class=$2 device=$3 udid=$4 size=$5; shift 5
   python3 - "$OUT/$lang/$class/manifest.json" "$class" "$device" "$udid" "$size" "$@" <<'PY'
@@ -249,10 +301,12 @@ PY
 capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
   local label=$1 pattern=$2 size=$3 udid dir language entry slot stem
   local stems=()
-  udid=$(resolve_udid "$pattern" iOS)
+  udid=$(udid_override_for "$label")
+  [ -n "$udid" ] || udid=$(resolve_udid "$pattern" iOS)
   [ -n "$udid" ] || { echo "!! no available simulator for '$pattern'" >&2; return 1; }
   UDID=$udid
   boot_and_install "$UDID"
+  preflight_size "$UDID" "$size"
   for language in "${LANGUAGES[@]}"; do
     dir="$OUT/$language/$label"; mkdir -p "$dir"
     stems=()
@@ -292,10 +346,12 @@ watch_shot() { # $1 = output path, rest = watch launch arguments
 capture_watch() {
   local udid dir language size
   size=$(size_for "$WATCH_CLASS")
-  udid=$(resolve_udid "$WATCH_PATTERN" watchOS)
+  udid=$(udid_override_for "$WATCH_CLASS")
+  [ -n "$udid" ] || udid=$(resolve_udid "$WATCH_PATTERN" watchOS)
   [ -n "$udid" ] || { echo "!! no available watch simulator for '$WATCH_PATTERN'" >&2; return 1; }
   UDID=$udid
   boot_and_install "$UDID" "$WATCH_APP"
+  preflight_size "$UDID" "$size"
   for language in "${LANGUAGES[@]}"; do
     dir="$OUT/$language/$WATCH_CLASS"; mkdir -p "$dir"
     watch_shot "$dir/1-list.png" --ui-testing; verify_size "$dir/1-list.png" "$size"

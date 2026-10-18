@@ -20,7 +20,7 @@ DERIVED_DATA := DerivedData
 APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/$(SCHEME).app
 MAC_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(SCHEME).app
 
-.PHONY: build build-mac build-mac-signed run clean test test-unit test-ui watch-build widget-build
+.PHONY: build build-mac build-mac-signed run clean test test-unit test-ui watch-build widget-build appstore-screenshots
 
 build:
 	xcodebuild -scheme '$(SCHEME)' \
@@ -104,3 +104,8 @@ test-ui:
 
 clean:
 	xcodebuild -scheme '$(SCHEME)' -destination '$(SIM)' clean
+
+# Capture App Store screenshots (not part of the gate). ARGS pass through to
+# the script, e.g. `make appstore-screenshots ARGS='iphone-6.3 --no-build'`.
+appstore-screenshots:
+	bash scripts/appstore-screenshots.sh $(ARGS)

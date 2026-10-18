@@ -74,6 +74,16 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   this worktree's `.simulator_id` > shared default. Never leave a bare
   `name=` destination in a script — it selects a shared device and wedges
   parallel agents.
+- `make appstore-screenshots` / `bash scripts/appstore-screenshots.sh [class ...]`
+  captures per-language App Store PNGs into
+  `build/appstore-screenshots/<lang>/<device>/`. Classes: `iphone-6.3`
+  (iPhone 17, 1206×2622), `ipad-13` (iPad Pro 13-inch (M5), 2064×2752),
+  `watch-46mm` (Apple Watch Series 11 (46mm), 416×496). Wallpapers live in
+  `scripts/fixtures/appstore-wallpapers/` (slot `<class>-<screen>`). The app
+  reads the same launch seams under `--ui-testing*`; `LaunchSeams` in
+  `CheckStitchCore` is the only arg reader. This run is **not** part of
+  `scripts/test.sh`. Device lookup by name is the exception to the no-bare-name
+  rule and always resolves to a UDID before any `simctl` call.
 
 ## Simulator windows
 
