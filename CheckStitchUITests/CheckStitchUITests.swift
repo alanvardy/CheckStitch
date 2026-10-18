@@ -49,6 +49,27 @@ final class CheckStitchUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5), "Seeded row should render")
     }
 
+    @MainActor
+    func testUITestingOpenSettingsShowsSettingsSheet() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-open-settings"]
+        app.launch()
+        // SettingsView's root is the settings menu; the Interface row is the
+        // sheet's first entry and proves the sheet presented off the seam.
+        XCTAssertTrue(app.descendants(matching: .any)["settingsInterfaceRow"]
+            .waitForExistence(timeout: 5), "Settings sheet should present")
+    }
+
+    @MainActor
+    func testUITestingOpenChecklistPushesDetail() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-open-checklist", "0"]
+        app.launchEnvironment["CHECKSTITCH_UITEST_SEED"] = try Self.writeSeedFixture().path
+        app.launch()
+        XCTAssertTrue(app.navigationBars.buttons.firstMatch.waitForExistence(timeout: 5),
+                      "A back button implies the detail screen was pushed")
+    }
+
     private static func writeSeedFixture() throws -> URL {
         let json = """
         {"version":6,"deviceID":"uitest","checklists":[
