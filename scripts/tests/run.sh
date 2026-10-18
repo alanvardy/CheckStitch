@@ -514,9 +514,27 @@ appstore_stages_wallpaper_into_app_container() {
     python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["photographer"])' "$dir/background.json" | grep -q .
 }
 
+# Phase 3: 1-main-dark launches first with the seed, then 2-empty with
+# --ui-testing-empty. The two `simctl launch` lines must appear in that order.
+appstore_launches_seeded_main_then_empty() {
+    [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
+    stub_appstore_capture 1206x2622
+    bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    grep -q 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing$' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q \
+        'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-empty' \
+        "$STUB_ROOT/xcrun.log" || return 1
+    local seeded empty
+    seeded=$(grep -n 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing$' \
+        "$STUB_ROOT/xcrun.log" | head -1 | cut -d: -f1)
+    empty=$(grep -n -- '--ui-testing-empty' "$STUB_ROOT/xcrun.log" | head -1 | cut -d: -f1)
+    [[ -n "$seeded" && -n "$empty" && "$empty" -gt "$seeded" ]]
+}
+
 run_case appstore_boots_installs_and_launches_empty_state appstore_boots_installs_and_launches_empty_state
 run_case appstore_size_mismatch_exits_one_and_names_file appstore_size_mismatch_exits_one_and_names_file
 run_case appstore_stages_wallpaper_into_app_container appstore_stages_wallpaper_into_app_container
+run_case appstore_launches_seeded_main_then_empty appstore_launches_seeded_main_then_empty
 
 # --- system-bash parseability ----------------------------------------------
 

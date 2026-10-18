@@ -572,6 +572,7 @@ struct ContentView: View {
             } else {
                 NavigationLink(checklist.name, value: checklist.id)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("checklistRow-\(checklist.id.uuidString)")
                 createRemindersButton(for: checklist)
             }
         }
