@@ -33,14 +33,16 @@ struct LaunchSeamsTests {
         #expect(seams.isUITesting)
     }
 
-    @Test(arguments: AppLanguage.allCases.filter { $0 != .system })
-    func appLanguageParsesEveryPinnedId(_ language: AppLanguage) {
-        let seams = LaunchSeams.parse(arguments: ["--ui-testing-app-language", language.rawValue], environment: [:])
-        #expect(seams.language == language)
+    @Test(arguments: ["en", "de", "es", "fr", "ja", "zh-Hans"])
+    func everyPinnedLanguageParses(_ raw: String) {
+        let seams = LaunchSeams.parse(
+            arguments: ["--ui-testing-app-language", raw], environment: [:])
+        #expect(seams.language?.rawValue == raw)
     }
 
-    @Test func unknownLanguageIsNil() {
-        let seams = LaunchSeams.parse(arguments: ["--ui-testing-app-language", "xx"], environment: [:])
+    @Test func unknownLanguageParsesNil() {
+        let seams = LaunchSeams.parse(
+            arguments: ["--ui-testing-app-language", "xx"], environment: [:])
         #expect(seams.language == nil)
     }
 

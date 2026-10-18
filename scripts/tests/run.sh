@@ -487,7 +487,7 @@ STUB
 
 appstore_boots_installs_and_launches_empty_state() {
     stub_appstore_capture 1206x2622
-    bash scripts/appstore-screenshots.sh iphone-6.3 >/dev/null 2>&1 || return 1
+    SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 >/dev/null 2>&1 || return 1
     grep -q 'simctl boot IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'simctl install IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'simctl launch IPHONE-UDID-1 app.alanvardy.CheckStitch' "$STUB_ROOT/xcrun.log" || return 1
@@ -498,7 +498,7 @@ appstore_size_mismatch_exits_one_and_names_file() {
     stub_appstore_capture 999x999
     local out status
     set +e
-    out="$(bash scripts/appstore-screenshots.sh iphone-6.3 2>&1)"
+    out="$(SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 2>&1)"
     status=$?
     set -e
     [[ $status -ne 0 ]] || return 1
@@ -507,7 +507,7 @@ appstore_size_mismatch_exits_one_and_names_file() {
 
 appstore_stages_wallpaper_into_app_container() {
     stub_appstore_capture 1206x2622
-    bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
     local dir="$STUB_ROOT/container/Library/Application Support/CheckStitch"
     [[ -f "$dir/background.jpg" ]] || return 1
     [[ -f "$dir/background.json" ]] || return 1
@@ -519,13 +519,13 @@ appstore_stages_wallpaper_into_app_container() {
 appstore_launches_seeded_main_then_empty() {
     [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
     stub_appstore_capture 1206x2622
-    bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
-    grep -q 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing$' "$STUB_ROOT/xcrun.log" || return 1
+    SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    grep -q 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-app-language en$' "$STUB_ROOT/xcrun.log" || return 1
     grep -q \
-        'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-empty' \
+        'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-app-language en --ui-testing-empty' \
         "$STUB_ROOT/xcrun.log" || return 1
     local seeded empty
-    seeded=$(grep -n 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing$' \
+    seeded=$(grep -n 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-app-language en$' \
         "$STUB_ROOT/xcrun.log" | head -1 | cut -d: -f1)
     empty=$(grep -n -- '--ui-testing-empty' "$STUB_ROOT/xcrun.log" | head -1 | cut -d: -f1)
     [[ -n "$seeded" && -n "$empty" && "$empty" -gt "$seeded" ]]
@@ -544,12 +544,12 @@ run_case appstore_launches_seeded_main_then_empty appstore_launches_seeded_main_
 appstore_launches_five_shot_sequence() {
     [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
     stub_appstore_capture 1206x2622
-    bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
     local log="$STUB_ROOT/xcrun.log"
     local plain1 plain2 empty settings detail dark light v
     # The two bare `--ui-testing` launches are stems 1 and 4; grab both in order.
-    plain1=$(grep -n -- '--terminate-running-process --ui-testing$' "$log" | head -1 | cut -d: -f1)
-    plain2=$(grep -n -- '--terminate-running-process --ui-testing$' "$log" | sed -n '2p' | cut -d: -f1)
+    plain1=$(grep -n -- '--terminate-running-process --ui-testing --ui-testing-app-language en$' "$log" | head -1 | cut -d: -f1)
+    plain2=$(grep -n -- '--terminate-running-process --ui-testing --ui-testing-app-language en$' "$log" | sed -n '2p' | cut -d: -f1)
     empty=$(grep -n -- '--ui-testing-empty' "$log" | head -1 | cut -d: -f1)
     settings=$(grep -n -- '--ui-testing-open-settings' "$log" | head -1 | cut -d: -f1)
     detail=$(grep -n -- '--ui-testing-open-checklist 0' "$log" | head -1 | cut -d: -f1)
@@ -567,6 +567,22 @@ appstore_launches_five_shot_sequence() {
 }
 
 run_case appstore_launches_five_shot_sequence appstore_launches_five_shot_sequence
+
+# Phase 5: the six pinned languages each get their own output directory, and
+# every shoot pins the app to that language via --ui-testing-app-language.
+appstore_writes_six_language_directories() {
+    [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
+    stub_appstore_capture 1206x2622
+    SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
+    for lang in en de es fr ja zh-Hans; do
+        [[ -d "build/appstore-screenshots/$lang/iphone-6.3" ]] || return 1
+    done
+    # Every shoot carries the language flag; spot-check the first and last ids.
+    grep -q -- '--ui-testing-app-language en' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q -- '--ui-testing-app-language zh-Hans' "$STUB_ROOT/xcrun.log" || return 1
+}
+
+run_case appstore_writes_six_language_directories appstore_writes_six_language_directories
 
 # --- system-bash parseability ----------------------------------------------
 
