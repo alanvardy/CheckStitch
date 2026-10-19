@@ -90,6 +90,14 @@ size_for() { # $1 = class label
   esac
 }
 
+device_name_for() { # $1 = class label; the model name recorded in the manifest
+  case "$1" in
+    iphone-6.3) echo "iPhone 17" ;;
+    ipad-13)    echo "iPad Pro 13-inch (M5)" ;;
+    watch-46mm) echo "Apple Watch Series 11 (46mm)" ;;
+  esac
+}
+
 IOS_WALLPAPER_DIR="${WALLPAPER_DIR:-scripts/fixtures/appstore-wallpapers}"
 MANIFEST="$IOS_WALLPAPER_DIR/manifest.json"
 WALLPAPER_API="${WALLPAPER_API:-https://vardy.cc/unsplash/random}"
@@ -262,7 +270,7 @@ shoot() { # $1 = output path, rest = launch arguments
   xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
   sleep 1
   SIMCTL_CHILD_CHECKSTITCH_UITEST_SEED="$SEED_FILE" \
-    xcrun simctl launch "$UDID" "$BUNDLE" --terminate-running-process "$@" >/dev/null
+    xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE" "$@" >/dev/null
   sleep "$SETTLE"
   xcrun simctl io "$UDID" screenshot --mask ignored "$out" >/dev/null
   echo "    ${out#"$OUT/"}"
@@ -308,7 +316,7 @@ capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
   boot_and_install "$UDID"
   preflight_size "$UDID" "$size"
   for language in "${LANGUAGES[@]}"; do
-    dir="$OUT/$language/$label"; mkdir -p "$dir"
+    dir="$OUT/$language/$label"; rm -rf "$dir"; mkdir -p "$dir"
     stems=()
     for entry in "${SCREENS[@]}"; do
       slot=${entry%%:*}; stem=${entry##*:}
@@ -327,7 +335,7 @@ capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
       esac
       stems+=("$stem")
     done
-    write_manifest "$language" "$label" "$pattern" "$UDID" "$size" "${stems[@]}"
+    write_manifest "$language" "$label" "$(device_name_for "$label")" "$UDID" "$size" "${stems[@]}"
   done
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 }
@@ -353,16 +361,31 @@ capture_watch() {
   boot_and_install "$UDID" "$WATCH_APP"
   preflight_size "$UDID" "$size"
   for language in "${LANGUAGES[@]}"; do
-    dir="$OUT/$language/$WATCH_CLASS"; mkdir -p "$dir"
-    watch_shot "$dir/1-list.png" --ui-testing; verify_size "$dir/1-list.png" "$size"
-    watch_shot "$dir/2-detail.png" --ui-testing --ui-testing-open-checklist 0; verify_size "$dir/2-detail.png" "$size"
-    write_manifest "$language" "$WATCH_CLASS" "$WATCH_PATTERN" "$UDID" "$size" "${WATCH_SCREENS[@]}"
+    dir="$OUT/$language/$WATCH_CLASS"; rm -rf "$dir"; mkdir -p "$dir"
+    watch_shot "$dir/1-list.png" --ui-testing --ui-testing-app-language "$language"; verify_size "$dir/1-list.png" "$size"
+    watch_shot "$dir/2-detail.png" --ui-testing --ui-testing-app-language "$language" --ui-testing-open-checklist 0; verify_size "$dir/2-detail.png" "$size"
+    write_manifest "$language" "$WATCH_CLASS" "$(device_name_for "$WATCH_CLASS")" "$UDID" "$size" "${WATCH_SCREENS[@]}"
   done
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 }
 
 [ ${#CLASSES[@]} -gt 0 ] || CLASSES=(iphone-6.3)
-rm -rf "$OUT"; mkdir -p "$OUT"
+
+for wanted in "${CLASSES[@]}"; do
+  case "$wanted" in
+    iphone-6.3|ipad-13|watch-46mm) ;;
+    *) echo "!! unknown class: $wanted (expected iphone-6.3, ipad-13 or watch-46mm)" >&2; exit 2 ;;
+  esac
+done
+
+for language in "${LANGUAGES[@]}"; do
+  case "$language" in
+    en|de|es|fr|ja|zh-Hans) ;;
+    *) echo "!! unknown language: $language (expected en, de, es, fr, ja or zh-Hans)" >&2; exit 2 ;;
+  esac
+done
+
+mkdir -p "$OUT"
 
 if [ "$FETCH_WALLPAPERS" -eq 1 ]; then
   echo "==> wallpapers"

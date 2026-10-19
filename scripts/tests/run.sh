@@ -500,7 +500,7 @@ appstore_boots_installs_and_launches_empty_state() {
     SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 >/dev/null 2>&1 || return 1
     grep -q 'simctl boot IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'simctl install IPHONE-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
-    grep -q 'simctl launch IPHONE-UDID-1 app.alanvardy.CheckStitch' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl launch --terminate-running-process IPHONE-UDID-1 app.alanvardy.CheckStitch' "$STUB_ROOT/xcrun.log" || return 1
     grep -q -- '--ui-testing' "$STUB_ROOT/xcrun.log"
 }
 
@@ -530,12 +530,12 @@ appstore_launches_seeded_main_then_empty() {
     [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
     stub_appstore_capture 1206x2622
     SETTLE=0 bash scripts/appstore-screenshots.sh iphone-6.3 --no-install --no-build >/dev/null 2>&1 || return 1
-    grep -q 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-app-language en$' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'launch --terminate-running-process IPHONE-UDID-1 app.alanvardy.CheckStitch --ui-testing --ui-testing-app-language en$' "$STUB_ROOT/xcrun.log" || return 1
     grep -q \
-        'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-app-language en --ui-testing-empty' \
+        'launch --terminate-running-process IPHONE-UDID-1 app.alanvardy.CheckStitch --ui-testing --ui-testing-app-language en --ui-testing-empty' \
         "$STUB_ROOT/xcrun.log" || return 1
     local seeded empty
-    seeded=$(grep -n 'launch IPHONE-UDID-1 app.alanvardy.CheckStitch --terminate-running-process --ui-testing --ui-testing-app-language en$' \
+    seeded=$(grep -n 'launch --terminate-running-process IPHONE-UDID-1 app.alanvardy.CheckStitch --ui-testing --ui-testing-app-language en$' \
         "$STUB_ROOT/xcrun.log" | head -1 | cut -d: -f1)
     empty=$(grep -n -- '--ui-testing-empty' "$STUB_ROOT/xcrun.log" | head -1 | cut -d: -f1)
     [[ -n "$seeded" && -n "$empty" && "$empty" -gt "$seeded" ]]
@@ -558,8 +558,8 @@ appstore_launches_five_shot_sequence() {
     local log="$STUB_ROOT/xcrun.log"
     local plain1 plain2 empty settings detail dark light v
     # The two bare `--ui-testing` launches are stems 1 and 4; grab both in order.
-    plain1=$(grep -n -- '--terminate-running-process --ui-testing --ui-testing-app-language en$' "$log" | head -1 | cut -d: -f1)
-    plain2=$(grep -n -- '--terminate-running-process --ui-testing --ui-testing-app-language en$' "$log" | sed -n '2p' | cut -d: -f1)
+    plain1=$(grep -n 'launch --terminate-running-process IPHONE-UDID-1 app.alanvardy.CheckStitch --ui-testing --ui-testing-app-language en$' "$log" | head -1 | cut -d: -f1)
+    plain2=$(grep -n 'launch --terminate-running-process IPHONE-UDID-1 app.alanvardy.CheckStitch --ui-testing --ui-testing-app-language en$' "$log" | sed -n '2p' | cut -d: -f1)
     empty=$(grep -n -- '--ui-testing-empty' "$log" | head -1 | cut -d: -f1)
     settings=$(grep -n -- '--ui-testing-open-settings' "$log" | head -1 | cut -d: -f1)
     detail=$(grep -n -- '--ui-testing-open-checklist 0' "$log" | head -1 | cut -d: -f1)
@@ -629,6 +629,11 @@ appstore_watch_installs_and_launches_watchkitapp() {
     # The watch app (not the iOS app) is installed on the resolved watch UDID.
     grep -q 'simctl install WATCH-UDID-1.*CheckStitchWatch.app' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'simctl launch WATCH-UDID-1 app.alanvardy.CheckStitch.watchkitapp --ui-testing' "$STUB_ROOT/xcrun.log" || return 1
+    # Every language's watch launch pins the app locale via the seam.
+    for lang in en de es fr ja zh-Hans; do
+        grep -q "simctl launch WATCH-UDID-1 app.alanvardy.CheckStitch.watchkitapp --ui-testing --ui-testing-app-language $lang" \
+            "$STUB_ROOT/xcrun.log" || return 1
+    done
     # 2-detail carries the open-checklist directive.
     grep -q -- '--ui-testing-open-checklist 0' "$STUB_ROOT/xcrun.log" || return 1
     [[ -d "build/appstore-screenshots/en/watch-46mm" ]]
@@ -667,6 +672,18 @@ appstore_unknown_flag_exits_two() {
     [[ $status -eq 2 ]]
 }
 
+appstore_unknown_class_exits_two() {
+    local status
+    set +e; bash scripts/appstore-screenshots.sh bogus-class >/dev/null 2>&1; status=$?; set -e
+    [[ $status -eq 2 ]]
+}
+
+appstore_unknown_language_exits_two() {
+    local status
+    set +e; bash scripts/appstore-screenshots.sh --lang bogus >/dev/null 2>&1; status=$?; set -e
+    [[ $status -eq 2 ]]
+}
+
 # The sips stub is path-aware: the preflight temp screenshot reports the
 # expected 1206x2622 (so pre-flight passes) and the captured output PNGs report
 # 999x999, so the run fails at the post-flight verify_size. That message also
@@ -680,6 +697,8 @@ appstore_preflight_mismatch_names_the_simulator() {
 
 run_case appstore_help_prints_and_exits_zero appstore_help_prints_and_exits_zero
 run_case appstore_unknown_flag_exits_two appstore_unknown_flag_exits_two
+run_case appstore_unknown_class_exits_two appstore_unknown_class_exits_two
+run_case appstore_unknown_language_exits_two appstore_unknown_language_exits_two
 run_case appstore_preflight_mismatch_names_the_simulator appstore_preflight_mismatch_names_the_simulator
 
 # --- system-bash parseability ----------------------------------------------

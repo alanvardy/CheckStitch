@@ -314,7 +314,6 @@ public final class WatchChecklistStore {
         isSeeded = true
     }
 
-
     /// Asks the phone to create reminders for `checklist`. Always starts a run:
     /// the request is retained and re-sent when the session becomes usable, so
     /// the UI can honestly show `Sending…` from the first tap.

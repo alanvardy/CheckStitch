@@ -87,8 +87,8 @@ test-unit:
 	  -only-testing:CheckStitchTests \
 	  test
 
-# Exactly one UI smoke case, on this worktree's dedicated simulator (never a
-# bare `name=` destination).
+# The CheckStitchUITests class (smoke + UI-testing seam cases), on this
+# worktree's dedicated simulator (never a bare `name=` destination).
 test-ui:
 	xcodebuild -scheme '$(SCHEME)' \
 	  -destination '$(SIM)' \
