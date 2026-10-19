@@ -60,9 +60,10 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   per-leg coverage; `build-mac-signed`, `run-watch.sh` and `run-devices.sh` are
   device helpers outside the enforced set.
 - `make test-unit` runs `CheckStitchTests` on `platform=macOS` with
-  `CODE_SIGNING_ALLOWED=NO` (no sim, no signing). `make test-ui` runs exactly one
-  `CheckStitchUITests` smoke case via `build-for-testing` →
-  `test-without-building` on this worktree's `.simulator_id` simulator.
+  `CODE_SIGNING_ALLOWED=NO` (no sim, no signing). `make test-ui` runs the
+  `CheckStitchUITests` class (the launch/accessibility smoke plus the
+  UI-testing seam cases) via `build-for-testing` → `test-without-building` on
+  this worktree's `.simulator_id` simulator.
 - Unit tests import `@testable import CheckStitchCore`; the UI smoke stays XCTest.
   Test targets deliberately do **not** set `SWIFT_DEFAULT_ACTOR_ISOLATION`, so
   suites opt in with `@MainActor` — never restore the app's default there.
