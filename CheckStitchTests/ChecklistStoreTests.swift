@@ -79,6 +79,7 @@ final class ChecklistStoreTests: XCTestCase {
             XCTAssertEqual(item.priority, .none)
         }
         XCTAssertEqual(created.multiple, 1)
+        XCTAssertEqual(created.scaling, .fixed(1))
         XCTAssertNil(created.folderID)
         XCTAssertTrue(created.showsOnWatch)
     }
