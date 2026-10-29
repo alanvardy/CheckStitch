@@ -28,12 +28,12 @@ public enum ChecklistTitleNumbering {
 
 /// Replaces every `((n))` marker (literal `((`, one or more ASCII digits, `))`)
 /// with the product `n * multiple`, leaving all other text byte-for-byte
-/// unchanged. Returns `text` unchanged when `multiple == 1`. A marker whose
-/// digits do not parse as `Int`, or whose product overflows `Int`, is left
-/// literal. Pure; no model dependency.
+/// unchanged. Every `((n))` marker is replaced regardless of `multiple`,
+/// including `multiple == 1`. A marker whose digits do not parse as `Int`, or
+/// whose product overflows `Int`, is left literal. Pure; no model dependency.
 public enum ChecklistScaling {
     public static func resolve(_ text: String, multiple: Int) -> String {
-        guard multiple != 1, text.contains("((") else { return text }
+        guard text.contains("((") else { return text }
         var result = ""
         result.reserveCapacity(text.count)
         var index = text.startIndex

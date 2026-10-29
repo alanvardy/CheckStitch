@@ -211,8 +211,8 @@ struct ChecklistCreatorTests {
     }
 
     @Test
-    func multipleOneIsAFastPath() {
-        #expect(ChecklistScaling.resolve("((2)) raw", multiple: 1) == "((2)) raw")
+    func markersResolveAtOne() {
+        #expect(ChecklistScaling.resolve("((2)) raw", multiple: 1) == "2 raw")
     }
 
     @Test
