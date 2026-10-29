@@ -407,6 +407,26 @@ struct ChecklistRunViewModelTests {
         #expect(spy.createdTitles == ["milk 10"])
         #expect(store.checklist(id: id)?.scaling == .fixed(1))
     }
+
+    /// Confirming a prompt run at `1` is not an identity: the run still strips
+    /// markers, and the confirmed factor is never persisted.
+    @Test
+    func promptConfirmedAtOneStripsMarkers() async {
+        let (store, id) = makeStore(items: ["milk ((2))"])
+        store.setScaling(.prompt(lastFixed: 1), for: id)
+        let spy = resolvableDestination()
+        let viewModel = makeViewModel(store: store, targeting: spy)
+
+        viewModel.startRun(for: id)
+        #expect(viewModel.promptingRunID == id)
+
+        let task = viewModel.confirmPrompt(multiple: 1)
+        await task?.value
+
+        #expect(spy.createdTitles == ["milk 2"])
+        #expect(store.checklist(id: id)?.scaling == .prompt(lastFixed: 1),
+                "a confirmed factor is never persisted")
+    }
 }
 
 /// Test double for `ReminderDestinationTargeting` whose `reminderLists()` throws,

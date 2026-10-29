@@ -579,6 +579,24 @@ struct ChecklistRemindersTests {
         #expect(spy.createdNotes == ["8 boxes"])
     }
 
+    /// A factor of 1 is not an identity: markers are still removed on run.
+    @Test
+    func fixedOneStripsMarkersOnRun() async {
+        let spy = SpyReminderDestination()
+        spy.lists = snapshot()
+        let checklist = Checklist(
+            items: [makeItem("milk ((2))", description: "((4)) boxes")],
+            destination: .list("list-a"),
+            prefixesReminderNumbers: true,
+            scaling: .fixed(1))
+
+        let outcome = await create(checklist, targeting: spy)
+
+        #expect(outcome == .created(count: 1))
+        #expect(spy.createdTitles == ["1: milk 2"])
+        #expect(spy.createdNotes == ["4 boxes"])
+    }
+
     /// The readable surfaces must never rewrite the stored item text: scaling is
     /// purely a render/creation concern.
     @Test

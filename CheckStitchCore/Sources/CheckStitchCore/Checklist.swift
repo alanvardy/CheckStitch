@@ -219,8 +219,9 @@ public enum Scaling: Equatable, Hashable, Sendable {
     }
 
     /// The multiplier a *display* surface uses when no number has been asked for:
-    /// a prompt's `lastFixed` is not the multiplier for this run, so previews
-    /// resolve at the neutral value.
+    /// a prompt's `lastFixed` is not the multiplier for this run, so the surface
+    /// resolves at the neutral value. Markers still resolve — at factor `1` a
+    /// `((2))` preview therefore reads `2`, not `((2))`.
     public var displayNumber: Int {
         switch self {
         case .fixed(let value): return Checklist.clampedMultiple(value)
