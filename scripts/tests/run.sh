@@ -413,6 +413,46 @@ run_case run_devices_discovers_every_physical_ios_device run_devices_discovers_e
 run_case run_devices_rejects_unreadable_saved_inventory run_devices_rejects_unreadable_saved_inventory
 run_case run_devices_rejects_malformed_saved_inventory run_devices_rejects_malformed_saved_inventory
 
+run_devices_builds_against_each_device_destination() {
+    stub_ios_command
+    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q -- '-destination id=CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcodebuild.log" || return 1
+    grep -q -- '-destination id=CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcodebuild.log" || return 1
+    grep -q -- '-allowProvisioningDeviceRegistration' "$STUB_ROOT/xcodebuild.log"
+}
+
+run_devices_continues_after_a_device_build_failure() {
+    stub_ios_command
+    # Fail the build only for the Duo destination; every other destination
+    # succeeds.
+    cat >"$STUB_ROOT/xcodebuild" <<STUB
+#!/bin/bash
+echo "\$*" >>"$STUB_ROOT/xcodebuild.log"
+case "\$*" in
+    *id=CCCCCCCC-0000-0000-0000-000000000009*) exit 1 ;;
+esac
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcodebuild"
+    local out status
+    set +e
+    out="$(DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    # The other two physical devices still installed.
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000008' "$STUB_ROOT/xcrun.log" || return 1
+    # The failed Duo build was never installed.
+    if grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    [[ "$out" == *"Build failed for Fixture iPhone Duo"* ]]
+}
+
+run_case run_devices_builds_against_each_device_destination run_devices_builds_against_each_device_destination
+run_case run_devices_continues_after_a_device_build_failure run_devices_continues_after_a_device_build_failure
+
 # --- macOS sandbox network entitlement -------------------------------------
 
 # Regression pin for the background-photo regression: the macOS slice runs under
