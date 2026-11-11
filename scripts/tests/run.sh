@@ -233,11 +233,14 @@ run_watch_installs_and_launches_resolved_device() {
     mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-watchos/CheckStitchWatch.app"
     DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-watch.sh >/dev/null 2>&1 || return 1
     grep -q 'device install app --device WATCH-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
-    grep -q 'process launch.*app.alanvardy.CheckStitch.watchkitapp' "$STUB_ROOT/xcrun.log"
+    grep -q 'process launch.*app.alanvardy.CheckStitch.watchkitapp' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q -- '-destination id=WATCH-UDID-1' "$STUB_ROOT/xcodebuild.log" || return 1
+    grep -q -- '-allowProvisioningDeviceRegistration' "$STUB_ROOT/xcodebuild.log"
 }
 
 run_watch_errors_on_unreachable_device() {
     stub_watch_command
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-watchos/CheckStitchWatch.app"
     cat >"$WATCH_FIXTURE" <<'JSON'
 {"result":{"devices":[{"identifier":"WATCH-UDID-1","deviceProperties":{"name":"Test Watch"},"connectionProperties":{"transportType":null}}]}}
 JSON
@@ -247,7 +250,9 @@ JSON
     status=$?
     set -e
     [[ $status -ne 0 ]] || return 1
-    [[ "$out" == *"Could not resolve"* ]]
+    [[ "$out" == *"unreachable"* ]] || return 1
+    # Fallback built the generic watchOS target (never a device destination).
+    grep -q -- 'generic/platform=watchOS' "$STUB_ROOT/xcodebuild.log"
 }
 
 run_watch_errors_on_unknown_device() {
@@ -293,6 +298,7 @@ run_devices_watch_installs_and_launches_resolved_device() {
     DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
     grep -q 'device install app --device WATCH-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'process launch.*app.alanvardy.CheckStitch.watchkitapp' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q -- '-destination id=WATCH-UDID-1' "$STUB_ROOT/xcodebuild.log" || return 1
     # macOS leg still ran alongside the watch leg.
     grep -q 'build-mac-signed' "$STUB_ROOT/make.log" && [[ -s "$STUB_ROOT/open.log" ]] || return 1
     true
@@ -310,7 +316,7 @@ JSON
     status=$?
     set -e
     [[ $status -ne 0 ]] || return 1
-    [[ "$out" == *"Could not resolve"* ]] || return 1
+    [[ "$out" == *"unreachable"* ]] || return 1
     # The unreachable watch does not break the macOS leg.
     grep -q 'build-mac-signed' "$STUB_ROOT/make.log" && [[ -s "$STUB_ROOT/open.log" ]] || return 1
     true
