@@ -106,9 +106,10 @@ if [[ "$WATCH_RESOLVE_STATUS" -eq 2 ]]; then
         exit 1
     fi
     if [[ ! -d "$WATCH_APP" ]]; then
-        echo "❌ Built watch app not found at $WATCH_APP" >&2
+        echo "❌ ${WATCH_NAME} is unreachable and the fallback build produced no app at $WATCH_APP." >&2
+    else
+        echo "❌ ${WATCH_NAME} is unreachable — the app was built but not installed." >&2
     fi
-    echo "❌ ${WATCH_NAME} is unreachable — the app was built but not installed." >&2
     exit 1
 fi
 
