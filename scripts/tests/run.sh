@@ -559,6 +559,19 @@ documentTypeRegistrationWiresInfoPlist() {
 
 run_case documentTypeRegistrationWiresInfoPlist documentTypeRegistrationWiresInfoPlist
 
+# --- shared-width seam ------------------------------------------------------
+
+# `ChecklistLayout` must be the only source of the 32/16 content gutter; a
+# re-introduced literal would silently reopen the regression this ticket fixes.
+# The Duo branch itself is proven by `ChecklistLayoutTests`.
+contentViewHasNoLiteralContentGutter() {
+    if grep -q '\.padding(\.horizontal, 32)' CheckStitch/ContentView.swift; then return 1; fi
+    # Regression guard: the default fraction lives in Core, never inline here.
+    ! grep -q 'viewportWidth: geometry.size.width \* 0.6' CheckStitch/ContentView.swift
+}
+
+run_case contentViewHasNoLiteralContentGutter contentViewHasNoLiteralContentGutter
+
 # --- appstore-screenshots.sh ------------------------------------------------
 
 stub_appstore_capture() { # $1 = "WxH" the sips stub reports
