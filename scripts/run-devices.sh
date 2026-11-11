@@ -89,8 +89,9 @@ with open(sys.argv[2], "a", encoding="utf-8") as unreachable_log:
         if hardware.get("deviceType") not in ("iPhone", "iPad"):
             continue
         # A paired iOS simulator shares platform/deviceType with a physical
-        # device but is not a devicectl install target, so exclude it here the
-        # same way the watch filter does.
+        # device but is not a devicectl install target, so exclude it here by
+        # reality (the watch resolver matches by name only, so it has no such
+        # check to share).
         if hardware.get("reality") != "physical":
             continue
         name = props.get("name", "unknown device")
@@ -220,7 +221,7 @@ if [[ "$RUN_WATCH" -eq 1 ]]; then
     echo ""
     echo "==> Building and launching on the Apple Watch (via run-watch.sh)…"
     if ! bash scripts/run-watch.sh; then
-        echo "❌ Watch step failed (unpaired, unreachable, or Developer Mode off)." >&2
+        echo "❌ Watch step failed (unpaired or unreachable)." >&2
         failures=$((failures + 1))
     fi
 fi
