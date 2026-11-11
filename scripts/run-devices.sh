@@ -2,14 +2,16 @@
 set -euo pipefail
 
 # scripts/run-devices.sh — build CheckStitch for iOS, install + launch it on
-# every paired iPhone/iPad that has Developer Mode enabled (via devicectl),
-# plus (by default) the host Mac and the paired Apple Watch (via the
-# run-watch.sh leg).
+# every paired physical iPhone/iPad (simulators excluded; Developer Mode off is
+# noted, not skipped) (via devicectl), plus (by default) the host Mac and the
+# paired Apple Watch (via the run-watch.sh leg).
 #
 #   ./scripts/run-devices.sh
 #
 # Overrides (same env-override pattern as the Makefile):
 #   SCHEME=… BUNDLE_ID=… CONFIGURATION=… DERIVED_DATA=…
+#   DEVICES_JSON_IN=… # replay a saved `devicectl list devices -j` inventory
+#                     # offline instead of querying devicectl (tests/fixtures)
 #   RUN_MAC=0   # skip the macOS build + launch step (default RUN_MAC=1)
 #   RUN_WATCH=0 # skip the Apple Watch build + launch step (default RUN_WATCH=1)
 #
@@ -30,6 +32,7 @@ CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA="${DERIVED_DATA:-DerivedData}"
 RUN_MAC="${RUN_MAC:-1}"
 RUN_WATCH="${RUN_WATCH:-1}"
+DEVICES_JSON_IN="${DEVICES_JSON_IN:-}"
 DEVICES_JSON="${TMPDIR:-/tmp}/run-devices-$$.json"
 UNREACHABLE_LOG="${TMPDIR:-/tmp}/run-devices-unreachable-$$.log"
 trap 'rm -f "$DEVICES_JSON" "$UNREACHABLE_LOG"' EXIT
@@ -44,14 +47,24 @@ cd "$REPO_ROOT"
 
 # ── Discover devices ─────────────────────────────────────────────────────────
 echo "==> Discovering paired iPhone/iPad devices…"
-if ! xcrun devicectl list devices -j "$DEVICES_JSON" >/dev/null 2>&1; then
+if [[ -n "$DEVICES_JSON_IN" ]]; then
+    echo "  (using the saved inventory in DEVICES_JSON_IN=$DEVICES_JSON_IN)"
+    if ! cp "$DEVICES_JSON_IN" "$DEVICES_JSON" 2>/dev/null; then
+        echo "❌ DEVICES_JSON_IN=$DEVICES_JSON_IN could not be read." >&2
+        exit 1
+    fi
+    if ! python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$DEVICES_JSON" 2>/dev/null; then
+        echo "❌ DEVICES_JSON_IN=$DEVICES_JSON_IN is not valid JSON." >&2
+        exit 1
+    fi
+elif ! xcrun devicectl list devices -j "$DEVICES_JSON" >/dev/null 2>&1; then
     echo "❌ devicectl could not list devices." >&2
     echo "   Plug in a device, unlock it, and tap 'Trust', then retry." >&2
     exit 1
 fi
 
 # Emits "identifier|name" per qualifying device (platform iOS, iPhone or iPad,
-# Developer Mode enabled). Skipped devices go to stderr so stdout stays parseable;
+# physical). Skipped devices go to stderr so stdout stays parseable;
 # unreachable qualifying devices are logged to "$UNREACHABLE_LOG" for the failure
 # tally, so a phone that is locked / off-network / has Remote Device Services down
 # is reported with the real reason instead of a raw devicectl 4016 install error.
@@ -66,17 +79,27 @@ with open(sys.argv[1], encoding="utf-8") as fh:
     payload = json.load(fh)
 
 with open(sys.argv[2], "a", encoding="utf-8") as unreachable_log:
-    for device in payload["result"]["devices"]:
+    result = payload.get("result") if isinstance(payload, dict) else None
+    devices = result.get("devices", []) if isinstance(result, dict) else []
+    for device in devices:
         hardware = device.get("hardwareProperties", {})
         props = device.get("deviceProperties", {})
         if hardware.get("platform") != "iOS":
             continue
         if hardware.get("deviceType") not in ("iPhone", "iPad"):
             continue
-        name = props.get("name", "unknown device")
-        if props.get("developerModeStatus") != "enabled":
-            print(f"  (skipping {name} — Developer Mode disabled)", file=sys.stderr)
+        # A paired iOS simulator shares platform/deviceType with a physical
+        # device but is not a devicectl install target, so exclude it here the
+        # same way the watch filter does.
+        if hardware.get("reality") != "physical":
             continue
+        name = props.get("name", "unknown device")
+        # Developer Mode is required to run a development-signed build. Do not
+        # pre-skip on it: every paired physical phone (e.g. a second iPhone)
+        # must receive the build, and devicectl reports the real failure if
+        # Developer Mode is off. Name the likely cause up front instead.
+        if props.get("developerModeStatus") != "enabled":
+            print(f"  (note: {name} has Developer Mode off — if the install below fails, enable Settings → Privacy & Security → Developer Mode on it)", file=sys.stderr)
         # Physical devices install over a connection (localNetwork, wired, or
         # sameMachine for local simulators). When CoreDevice cannot reach the
         # device — locked, asleep, on another network, or Remote Device
@@ -104,10 +127,10 @@ if [[ ${#DEVICES[@]} -eq 0 ]]; then
         exit 1
     fi
     if [[ "$RUN_MAC" -eq 1 ]]; then
-        echo "  (no iPhone/iPad with Developer Mode enabled found — macOS + Apple Watch run only)"
+        echo "  (no reachable iPhone/iPad found — macOS + Apple Watch run only)"
     else
-        echo "❌ No iPhone/iPad with Developer Mode enabled found." >&2
-        echo "   Plug in the device and enable Settings → Privacy & Security → Developer Mode, then retry." >&2
+        echo "❌ No reachable iPhone/iPad found." >&2
+        echo "   Pair an iPhone/iPad, unlock it, and connect it to this Mac's Wi-Fi, then retry." >&2
         exit 1
     fi
 fi

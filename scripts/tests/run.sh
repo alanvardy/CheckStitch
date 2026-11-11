@@ -357,6 +357,62 @@ run_case run_devices_watch_errors_on_unknown_device run_devices_watch_errors_on_
 run_case run_devices_watch_matches_typographic_device_name run_devices_watch_matches_typographic_device_name
 run_case run_devices_watch_skippable_with_run_watch_0 run_devices_watch_skippable_with_run_watch_0
 
+# --- run-devices.sh iOS discovery filter ------------------------------------
+
+IOS_FIXTURE=""
+
+# xcrun/xcodebuild/make/open are logging no-ops; the built app dir is
+# pre-created so the install loop does not bail on a missing product. The
+# inventory comes from DEVICES_JSON_IN, so no `devicectl list devices` stub is
+# needed.
+stub_ios_command() {
+    new_stubs xcrun xcodebuild make open
+    IOS_FIXTURE="$PWD/scripts/fixtures/devicectl-devices.json"
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-iphoneos/CheckStitch.app"
+}
+
+run_devices_discovers_every_physical_ios_device() {
+    stub_ios_command
+    local out
+    out="$(DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)" || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000008' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcrun.log" || return 1
+    if grep -q 'DDDDDDDD-0000-0000-0000-000000000010' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    # Developer Mode off is a note, not a skip (the iPad and the Duo).
+    [[ "$out" == *"Developer Mode off"* ]]
+}
+
+run_devices_rejects_unreadable_saved_inventory() {
+    stub_ios_command
+    local out status
+    set +e
+    out="$(DEVICES_JSON_IN="$STUB_ROOT/missing.json" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"could not be read"* ]]
+}
+
+run_devices_rejects_malformed_saved_inventory() {
+    stub_ios_command
+    printf 'not json' >"$STUB_ROOT/bad.json"
+    local out status
+    set +e
+    out="$(DEVICES_JSON_IN="$STUB_ROOT/bad.json" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"not valid JSON"* ]]
+}
+
+run_case run_devices_discovers_every_physical_ios_device run_devices_discovers_every_physical_ios_device
+run_case run_devices_rejects_unreadable_saved_inventory run_devices_rejects_unreadable_saved_inventory
+run_case run_devices_rejects_malformed_saved_inventory run_devices_rejects_malformed_saved_inventory
+
 # --- macOS sandbox network entitlement -------------------------------------
 
 # Regression pin for the background-photo regression: the macOS slice runs under
