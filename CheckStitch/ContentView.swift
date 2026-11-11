@@ -469,7 +469,7 @@ struct ContentView: View {
                         // No toolbar on the iOS root, and both chrome corners
                         // are taken by the create/settings plates, so the edit
                         // toggle lives in the scroll content as a right-aligned
-                        // header row sharing the card's 32pt margins. Plated
+                        // header row sharing the card's column margins. Plated
                         // like the chrome buttons so it stays legible over the
                         // photo.
                         HStack {
@@ -500,8 +500,9 @@ struct ContentView: View {
                                         .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
                                 )
                         }
-                        .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
-                        .padding(.horizontal, 32)
+                        .frame(maxWidth: ChecklistLayout.maxContentWidth(
+                            viewportWidth: geometry.size.width, context: layoutContext))
+                        .padding(.horizontal, ChecklistLayout.horizontalInset(layoutContext))
                         .padding(.bottom, 8)
                     #endif
                     LazyVStack(spacing: 0) {
@@ -755,7 +756,7 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
                     .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
             )
-            .padding(.horizontal, 32)
+            .padding(.horizontal, ChecklistLayout.horizontalInset(layoutContext))
             .padding(.top, 80)
         }
     }
