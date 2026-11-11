@@ -140,28 +140,40 @@ failures=0
 # old behavior where the guaranteed-failing install attempt was tried and failed.
 failures=$((failures + UNREACHABLE_COUNT))
 
-# ── Build once for all devices ────────────────────────────────────────────────
+# ── Build + install + launch per iOS device ───────────────────────────────────
+# Building against each device's own destination — rather than one
+# generic/platform=iOS build — is what auto-registers a newly paired phone:
+# -allowProvisioningDeviceRegistration only registers the *destination* device,
+# so a generic destination leaves a new device out of the embedded provisioning
+# profile and its install fails with 0xe8008012 ("This provisioning profile
+# cannot be installed on this device"). The first device compiles; the rest only
+# re-sign against the shared team profile, which now includes every registered
+# device.
 if [[ ${#DEVICES[@]} -gt 0 ]]; then
-    echo ""
-    echo "==> Building $SCHEME ($CONFIGURATION) for iOS devices…"
-    xcodebuild -scheme "$SCHEME" \
-      -destination 'generic/platform=iOS' \
-      -configuration "$CONFIGURATION" \
-      -derivedDataPath "$DERIVED_DATA" \
-      -allowProvisioningUpdates \
-      build
-
-    if [[ ! -d "$APP_PATH" ]]; then
-        echo "❌ Built app not found at $APP_PATH" >&2
-        exit 1
-    fi
-
-    # ── Install + launch per device ────────────────────────────────────────
     for entry in "${DEVICES[@]}"; do
         device_id="${entry%%|*}"
         device_name="${entry#*|}"
 
         echo ""
+        echo "==> Building $SCHEME ($CONFIGURATION) for ${device_name}…"
+        if ! xcodebuild -scheme "$SCHEME" \
+          -destination "id=$device_id" \
+          -configuration "$CONFIGURATION" \
+          -derivedDataPath "$DERIVED_DATA" \
+          -allowProvisioningUpdates \
+          -allowProvisioningDeviceRegistration \
+          build; then
+            echo "❌ Build failed for $device_name." >&2
+            failures=$((failures + 1))
+            continue
+        fi
+
+        if [[ ! -d "$APP_PATH" ]]; then
+            echo "❌ Built app not found at $APP_PATH" >&2
+            failures=$((failures + 1))
+            continue
+        fi
+
         echo "==> Installing on ${device_name}…"
         if ! xcrun devicectl device install app --device "$device_id" "$APP_PATH"; then
             echo "❌ Install failed on $device_name (is it unlocked?)." >&2
