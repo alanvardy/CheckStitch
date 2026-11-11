@@ -11,9 +11,13 @@ set -euo pipefail
 #   WATCH_NAME="Alan's Apple Watch"
 #
 # The watch device is resolved to an identifier through `devicectl list
-# devices -j` — never a bare name in a build destination. If devicectl cannot
-# reach the watch it usually reports usage-assertion error 4016 (device
-# offline / Remote Device Services off); that is reported explicitly.
+# devices -j` — never a bare name in a build destination. The build runs
+# against that device's own `id=<udid>` destination with
+# `-allowProvisioningDeviceRegistration` so a freshly paired watch is
+# auto-registered. If devicectl cannot reach the watch it usually reports
+# usage-assertion error 4016 (device offline / Remote Device Services off);
+# an unreachable watch takes the generic `.watchOS` fallback build (so a
+# signing/compile failure still surfaces) and then fails the leg.
 
 SCHEME="${SCHEME:-CheckStitch}"
 WATCH_SCHEME="${WATCH_SCHEME:-CheckStitchWatch}"
@@ -78,18 +82,49 @@ else:
     sys.exit(3)
 PY
 
-WATCH_ID="$(python3 "$RESOLVER_SCRIPT" "$DEVICES_JSON" "$WATCH_NAME")" || {
-    echo "❌ Could not resolve '${WATCH_NAME}' (unpaired, unreachable, or Developer Mode off)." >&2
-    echo "   Unlock the watch, keep it on this Mac's Wi-Fi, then retry. devicectl error 4016 means the same." >&2
-    exit 1
-}
+if WATCH_ID="$(python3 "$RESOLVER_SCRIPT" "$DEVICES_JSON" "$WATCH_NAME")"; then
+    WATCH_RESOLVE_STATUS=0
+else
+    WATCH_RESOLVE_STATUS=$?
+fi
 
-echo "==> Building ${WATCH_SCHEME} (${CONFIGURATION}) for watchOS…"
+# Exit 2 means the resolver matched the watch but its CoreDevice tunnel is
+# down (off the wrist, paired iPhone asleep, wrong network). There is no
+# install target, so build the generic watchOS target — this still surfaces a
+# signing/compile failure — then fail the leg: an unreachable watch is a
+# failed step, not a silent success.
+if [[ "$WATCH_RESOLVE_STATUS" -eq 2 ]]; then
+    echo "⚠️  '${WATCH_NAME}' is paired but unreachable — building the generic watchOS target only (nothing will be installed)." >&2
+    echo "   Put the watch on your wrist, unlock its paired iPhone, keep it near this Mac, then retry. devicectl error 4016 means the same." >&2
+    if ! xcodebuild -scheme "$WATCH_SCHEME" \
+      -destination 'generic/platform=watchOS' \
+      -configuration "$CONFIGURATION" \
+      -derivedDataPath "$DERIVED_DATA" \
+      -allowProvisioningUpdates \
+      build; then
+        echo "❌ Watch build failed (generic fallback)." >&2
+        exit 1
+    fi
+    if [[ ! -d "$WATCH_APP" ]]; then
+        echo "❌ Built watch app not found at $WATCH_APP" >&2
+    fi
+    echo "❌ ${WATCH_NAME} is unreachable — the app was built but not installed." >&2
+    exit 1
+fi
+
+if [[ "$WATCH_RESOLVE_STATUS" -ne 0 ]]; then
+    echo "❌ Could not resolve '${WATCH_NAME}' (unpaired or unknown)." >&2
+    echo "   Pair it in Xcode → Window → Devices and Simulators, then retry." >&2
+    exit 1
+fi
+
+echo "==> Building ${WATCH_SCHEME} (${CONFIGURATION}) for ${WATCH_NAME}…"
 xcodebuild -scheme "$WATCH_SCHEME" \
-  -destination 'generic/platform=watchOS' \
+  -destination "id=$WATCH_ID" \
   -configuration "$CONFIGURATION" \
   -derivedDataPath "$DERIVED_DATA" \
   -allowProvisioningUpdates \
+  -allowProvisioningDeviceRegistration \
   build
 
 if [[ ! -d "$WATCH_APP" ]]; then
