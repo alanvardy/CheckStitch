@@ -14,6 +14,8 @@ struct ContentView: View {
     @Environment(AppearanceViewModel.self) private var appearanceVM
     @Environment(ChecklistSyncService.self) private var syncService
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     @AppStorage("appearanceMode")
     var appearanceMode = AppearanceMode.system
@@ -453,6 +455,12 @@ struct ContentView: View {
         .accessibilityIdentifier("editChecklistsButton")
     }
 
+    /// Layout context for the Duo outer screen in portrait; `.standard`
+    /// everywhere else.
+    private var layoutContext: ChecklistLayout.Context {
+        DuoOuterPortrait.context(horizontal: horizontalSizeClass, vertical: verticalSizeClass)
+    }
+
     private var checklistList: some View {
         GeometryReader { geometry in
             ScrollView {
@@ -509,7 +517,8 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(maxWidth: ChecklistWidth.maxContentWidth(viewportWidth: geometry.size.width))
+                    .frame(maxWidth: ChecklistLayout.maxContentWidth(
+                        viewportWidth: geometry.size.width, context: layoutContext))
                     // Off-white/black plate keeps the rows readable over the photo —
                     // SingleThread's card treatment at CheckStitch's 14pt radius.
                     .background {
@@ -520,7 +529,7 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: CardPlate.cornerRadius)
                             .stroke(CardPlate.border(for: colorScheme), lineWidth: 2)
                     )
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, ChecklistLayout.horizontalInset(layoutContext))
                 }
                 #if os(iOS)
                     // Start below the floating 52×52 chrome plates (8pt top
