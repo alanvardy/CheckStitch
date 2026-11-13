@@ -269,7 +269,13 @@ if [[ "$IOS_TARGET" == "sim" ]]; then
         udid="${entry#*|}"
         SIM_TOTAL=$((SIM_TOTAL + 1))
         if [[ -z "$udid" ]]; then
-            echo "❌ Could not resolve a $label simulator — set SIM_${label^^} or check 'xcrun simctl list devices available'." >&2
+            # bash 3.2 (macOS /bin/bash, the shebang) has no ${var^^}; map the
+            # label to its override name explicitly.
+            case "$label" in
+                iPhone) sim_override="SIM_IPHONE" ;;
+                *) sim_override="SIM_IPAD" ;;
+            esac
+            echo "❌ Could not resolve a $label simulator — set $sim_override or check 'xcrun simctl list devices available'." >&2
             failures=$((failures + 1))
             continue
         fi
