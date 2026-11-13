@@ -2,14 +2,22 @@
 set -euo pipefail
 
 # scripts/run-devices.sh — build CheckStitch for iOS, install + launch it on
-# every paired physical iPhone/iPad (simulators excluded; Developer Mode off is
-# noted, not skipped) (via devicectl), plus (by default) the host Mac and the
-# paired Apple Watch (via the run-watch.sh leg).
+# every paired physical iPhone/iPad (via devicectl) and/or on the iPhone/iPad
+# simulators, plus (by default) the host Mac and the paired Apple Watch (via
+# the run-watch.sh leg).
 #
 #   ./scripts/run-devices.sh
 #
 # Overrides (same env-override pattern as the Makefile):
 #   SCHEME=… BUNDLE_ID=… CONFIGURATION=… DERIVED_DATA=…
+#   IOS_TARGET=sim|device # run the regular iPhone/iPad legs on simulators or
+#                         # on physical devices (default sim; in sim mode only
+#                         # the physical iPhone Duo is installed to over
+#                         # devicectl; Developer Mode off is noted, not skipped)
+#   SIM_IPHONE=… # pin the iPhone simulator by UDID (default: worktree
+#                # .simulator_id when valid, else `iPhone 17`)
+#   SIM_IPAD=…   # pin the iPad simulator by UDID (default: `iPad (A16)`)
+#   DUO_DEVICE_ID=… # pin the physical iPhone Duo by identifier
 #   DEVICES_JSON_IN=… # replay a saved `devicectl list devices -j` inventory
 #                     # offline instead of querying devicectl (tests/fixtures)
 #   RUN_MAC=0   # skip the macOS build + launch step (default RUN_MAC=1)
@@ -24,12 +32,26 @@ set -euo pipefail
 # Apple Watch leg); set RUN_MAC=0 to keep the old fail-fast behavior. The macOS app is built signed (make build-mac-signed)
 # so the App Group / KVS entitlements from AppGroup.entitlements land in the
 # embedded provisioning profile and the key-value store syncs through iCloud.
+# The Apple Watch leg stays physical via run-watch.sh.
+#
+# IOS_TARGET=sim runs the iPhone and iPad legs on simulators instead (reusing
+# resolve-sim-udid.sh for name→UDID resolution); IOS_TARGET=device keeps the
+# all-physical behaviour above.
+#
+# Simulator windows: simctl boots headlessly, so each simulator leg opens the
+# device GUI on the booted UDID through scripts/sim-window.sh — Xcode 27's
+# Device Hub (`com.apple.dt.Devices`) via its `devices://device/open?id=` deep
+# link when present, falling back to Simulator.app on older Xcode.
 
 # === Configuration (overridable) ===
 SCHEME="${SCHEME:-CheckStitch}"
 BUNDLE_ID="${BUNDLE_ID:-app.alanvardy.CheckStitch}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA="${DERIVED_DATA:-DerivedData}"
+IOS_TARGET="${IOS_TARGET:-sim}"         # sim | device
+SIM_IPHONE="${SIM_IPHONE:-}"            # explicit iPhone simulator UDID
+SIM_IPAD="${SIM_IPAD:-}"                # explicit iPad simulator UDID
+DUO_DEVICE_ID="${DUO_DEVICE_ID:-}"      # pin the physical Duo by identifier
 RUN_MAC="${RUN_MAC:-1}"
 RUN_WATCH="${RUN_WATCH:-1}"
 DEVICES_JSON_IN="${DEVICES_JSON_IN:-}"
@@ -40,13 +62,44 @@ trap 'rm -f "$DEVICES_JSON" "$UNREACHABLE_LOG"' EXIT
 # === Derived paths ===
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/sim-window.sh
+source "$SCRIPT_DIR/sim-window.sh"
 APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphoneos/${SCHEME}.app"
 MAC_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}/${SCHEME}.app"
+SIM_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphonesimulator/${SCHEME}.app"
+
+# The worktree pin is shared with the gate, so mirror the gate's UUID guard: a
+# corrupt .simulator_id must never reach simctl raw.
+WORKTREE_SIM_ID=""
+if [[ -f "$REPO_ROOT/.simulator_id" ]]; then
+    _candidate="$(tr -d '[:space:]' <"$REPO_ROOT/.simulator_id")"
+    if [[ "$_candidate" =~ ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$ ]]; then
+        WORKTREE_SIM_ID="$_candidate"
+    fi
+fi
+
+if [[ "$IOS_TARGET" != "sim" && "$IOS_TARGET" != "device" ]]; then
+    echo "❌ IOS_TARGET must be 'sim' or 'device' (got '$IOS_TARGET')." >&2
+    exit 1
+fi
+
+# $1 explicit UDID (may be empty), $2 default device name, $3 prefer worktree pin (0/1)
+resolve_sim() {
+    local destination
+    if [[ -n "${1:-}" ]]; then
+        destination="platform=iOS Simulator,id=$1"
+    elif [[ "${3:-0}" -eq 1 && -n "$WORKTREE_SIM_ID" ]]; then
+        destination="platform=iOS Simulator,id=$WORKTREE_SIM_ID"
+    else
+        destination="platform=iOS Simulator,name=$2"
+    fi
+    bash scripts/resolve-sim-udid.sh "$destination"
+}
 
 cd "$REPO_ROOT"
 
 # ── Discover devices ─────────────────────────────────────────────────────────
-echo "==> Discovering paired iPhone/iPad devices…"
+echo "==> Discovering paired iPhone/iPad devices… (sim default: the physical iPhone Duo only)"
 if [[ -n "$DEVICES_JSON_IN" ]]; then
     echo "  (using the saved inventory in DEVICES_JSON_IN=$DEVICES_JSON_IN)"
     if ! cp "$DEVICES_JSON_IN" "$DEVICES_JSON" 2>/dev/null; then
@@ -71,9 +124,12 @@ fi
 DEVICES=()
 while IFS= read -r entry; do
     DEVICES+=("$entry")
-done < <(python3 - "$DEVICES_JSON" "$UNREACHABLE_LOG" <<'PY'
+done < <(python3 - "$DEVICES_JSON" "$UNREACHABLE_LOG" "$IOS_TARGET" "$DUO_DEVICE_ID" <<'PY'
 import json
 import sys
+
+mode = sys.argv[3]
+duo_id = sys.argv[4]
 
 with open(sys.argv[1], encoding="utf-8") as fh:
     payload = json.load(fh)
@@ -95,6 +151,18 @@ with open(sys.argv[2], "a", encoding="utf-8") as unreachable_log:
         if hardware.get("reality") != "physical":
             continue
         name = props.get("name", "unknown device")
+        # sim mode narrows physical discovery to the iPhone Duo: the regular
+        # iPhone/iPad legs run on simulators, so only the Duo is installed to
+        # over devicectl. A device counts as the Duo when pinned by identifier,
+        # named "iPhone Duo", or identified by its productType.
+        if mode != "device":
+            is_duo = (
+                (duo_id and device.get("identifier") == duo_id)
+                or "iphone duo" in name.lower()
+                or hardware.get("productType") == "iPhone19,4"
+            )
+            if not is_duo:
+                continue
         # Developer Mode is required to run a development-signed build. Do not
         # pre-skip on it: every paired physical phone (e.g. a second iPhone)
         # must receive the build, and devicectl reports the real failure if
@@ -127,7 +195,9 @@ if [[ ${#DEVICES[@]} -eq 0 ]]; then
         echo "❌ $UNREACHABLE_COUNT device(s) found but unreachable — see messages above (unlock the device and connect it to this Mac's Wi-Fi, then retry)." >&2
         exit 1
     fi
-    if [[ "$RUN_MAC" -eq 1 ]]; then
+    if [[ "$IOS_TARGET" == "sim" ]]; then
+        echo "  (no reachable physical iPhone Duo found — running the iPhone/iPad simulator legs instead)"
+    elif [[ "$RUN_MAC" -eq 1 ]]; then
         echo "  (no reachable iPhone/iPad found — macOS + Apple Watch run only)"
     else
         echo "❌ No reachable iPhone/iPad found." >&2
@@ -190,6 +260,72 @@ if [[ ${#DEVICES[@]} -gt 0 ]]; then
     done
 fi
 
+# ── iPhone/iPad simulator leg ─────────────────────────────────────────────────
+# Opt-in via IOS_TARGET=sim. Resolution reuses resolve-sim-udid.sh; a simulator
+# that cannot be resolved or fails to boot/build/install/launch is a failed step
+# that does not stop the remaining leg (or the macOS/watch legs).
+SIM_TOTAL=0
+SIM_LAUNCHED=0
+if [[ "$IOS_TARGET" == "sim" ]]; then
+    sim_targets=(
+      "iPhone|$(resolve_sim "${SIM_IPHONE:-}" "iPhone 17" 1 || true)"
+      "iPad|$(resolve_sim "${SIM_IPAD:-}" "iPad (A16)" 0 || true)"
+    )
+    for entry in "${sim_targets[@]}"; do
+        label="${entry%%|*}"
+        udid="${entry#*|}"
+        SIM_TOTAL=$((SIM_TOTAL + 1))
+        if [[ -z "$udid" ]]; then
+            # bash 3.2 (macOS /bin/bash, the shebang) has no ${var^^}; map the
+            # label to its override name explicitly.
+            case "$label" in
+                iPhone) sim_override="SIM_IPHONE" ;;
+                *) sim_override="SIM_IPAD" ;;
+            esac
+            echo "❌ Could not resolve a $label simulator — set $sim_override or check 'xcrun simctl list devices available'." >&2
+            failures=$((failures + 1))
+            continue
+        fi
+        echo ""
+        echo "==> Booting the $label simulator ($udid)…"
+        if ! xcrun simctl bootstatus "$udid" -b; then
+            echo "❌ Failed to boot the $label simulator." >&2
+            failures=$((failures + 1))
+            continue
+        fi
+        echo "==> Showing the $label simulator window ($udid)…"
+        show_sim_window "$udid"
+        echo "==> Building $SCHEME ($CONFIGURATION) for the $label simulator…"
+        if ! xcodebuild -scheme "$SCHEME" \
+          -destination "id=$udid" \
+          -configuration "$CONFIGURATION" \
+          -derivedDataPath "$DERIVED_DATA" \
+          build; then
+            echo "❌ Build failed for the $label simulator." >&2
+            failures=$((failures + 1))
+            continue
+        fi
+        if [[ ! -d "$SIM_APP_PATH" ]]; then
+            echo "❌ Built app not found at $SIM_APP_PATH" >&2
+            failures=$((failures + 1))
+            continue
+        fi
+        echo "==> Installing on the $label simulator…"
+        if ! xcrun simctl install "$udid" "$SIM_APP_PATH"; then
+            echo "❌ Install failed on the $label simulator." >&2
+            failures=$((failures + 1))
+            continue
+        fi
+        echo "==> Launching on the $label simulator…"
+        if ! xcrun simctl launch --terminate-running-process "$udid" "$BUNDLE_ID"; then
+            echo "❌ Launch failed on the $label simulator." >&2
+            failures=$((failures + 1))
+            continue
+        fi
+        SIM_LAUNCHED=$((SIM_LAUNCHED + 1))
+    done
+fi
+
 # ── macOS (host) step ──────────────────────────────────────────────────────────
 if [[ "$RUN_MAC" -eq 1 ]]; then
     echo ""
@@ -229,6 +365,7 @@ fi
 echo ""
 if [[ "$failures" -eq 0 ]]; then
     summary="Installed and launched on ${#DEVICES[@]} device(s)"
+    [[ "$SIM_LAUNCHED" -gt 0 ]] && summary="$summary and $SIM_LAUNCHED simulator(s)"
     [[ "$RUN_MAC" -eq 1 ]] && summary="$summary and macOS"
     [[ "$RUN_WATCH" -eq 1 ]] && summary="$summary and the Apple Watch"
     echo "✅ $summary."
