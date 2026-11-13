@@ -72,6 +72,7 @@ WATCH_SCREENS=( "1-list" "2-detail" )
 DUO_CLASS=iphone-duo
 DUO_PATTERN='iPhone Duo$'
 DUO_POSE="${DUO_POSE:-folded}"
+DUO_SKIPPED=0
 
 OUT=build/appstore-screenshots
 SETTLE="${SETTLE:-6}"
@@ -100,17 +101,20 @@ while [ $# -gt 0 ]; do
     --settle)             SETTLE=$2; shift 2 ;;
     --lang)               LANGUAGES=("$2"); shift 2 ;;
     --udid)               OVERRIDE_CLASSES+=("${2%%=*}"); OVERRIDE_UDIDS+=("${2#*=}"); shift 2 ;;
-    --duo-pose)           DUO_POSE=$2
-                          case "$DUO_POSE" in
-                            folded|book|open) ;;
-                            *) echo "!! --duo-pose must be folded|book|open (got '$DUO_POSE')" >&2; exit 2 ;;
-                          esac
-                          shift 2 ;;
+    --duo-pose)           [ $# -ge 2 ] || { echo "!! --duo-pose requires folded|book|open" >&2; exit 2; }
+                          DUO_POSE=$2; shift 2 ;;
     -h|--help)            sed -n '2,54p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*)                   echo "!! unknown option: $1" >&2; exit 2 ;;
     *)                    CLASSES+=("$1"); shift ;;
   esac
 done
+
+# The flag and an exported DUO_POSE funnel here; an invalid pose must fail
+# before any simulator work, with the same exit 2 as an unknown flag/class.
+case "$DUO_POSE" in
+  folded|book|open) ;;
+  *) echo "!! DUO_POSE/--duo-pose must be folded|book|open (got '$DUO_POSE')" >&2; exit 2 ;;
+esac
 
 # class label : simctl devicetype name regex (newest runtime wins)
 DEVICE_TYPES=( "iphone-6.3:iPhone 17$" "ipad-13:iPad Pro 13-inch \\(M5\\)" "iphone-duo:iPhone Duo$" )
@@ -473,6 +477,7 @@ capture_duo() { # $1 = device type regex; pose taken from $DUO_POSE
     echo "     xcrun simctl list runtimes | grep iPhone19,4" >&2
     echo "     xcrun simctl list devicetypes | grep 'iPhone Duo'" >&2
     echo "   Skipping iphone-duo; the run continues." >&2
+    DUO_SKIPPED=1
     return 0   # never abort the whole run: `return 1` would trip `set -e`
   fi
   variant=$(duo_folder_for_pose)
@@ -546,4 +551,7 @@ done
 for wanted in "${CLASSES[@]}"; do
   [ "$wanted" = "$WATCH_CLASS" ] && capture_watch
 done
+if [ "$DUO_SKIPPED" -eq 1 ]; then
+  echo "==> skipped: iphone-duo (no Duo runtime/device found)"
+fi
 echo "==> done: $OUT"
