@@ -124,8 +124,10 @@ gate_shuts_down_only_resolved_udid() {
     grep -q 'boot 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'bootstatus 11111111-1111-1111-1111-111111111111 -b' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'shutdown 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
-    # The window-suppression lever itself must have fired.
+    # The window-suppression levers themselves must have fired: older-Xcode
+    # Simulator.app and Xcode 27's Device Hub.
     grep -q 'tell application "Simulator" to quit' "$STUB_ROOT/osascript.log" || return 1
+    grep -q 'tell application id "com.apple.dt.Devices" to quit' "$STUB_ROOT/osascript.log" || return 1
     # Never a global selector.
     ! grep -Eq 'shutdown (all|booted)|boot (all|booted)' "$STUB_ROOT/xcrun.log"
 }
@@ -189,7 +191,9 @@ run_path_requests_window_for_resolved_udid() {
     local app="$STUB_ROOT/CheckStitch.app"
     mkdir -p "$app"
     bash scripts/run-simulator.sh 'platform=iOS Simulator,id=RUN-UDID-1' "$app" >/dev/null 2>&1 || return 1
-    grep -q 'RUN-UDID-1' "$STUB_ROOT/open.log"
+    # The window must go through Xcode 27's Device Hub deep link, not the
+    # Simulator.app launch arg that no longer exists on this toolchain.
+    grep -q 'devices://device/open?id=RUN-UDID-1' "$STUB_ROOT/open.log"
 }
 
 gate_never_requests_a_window() {
@@ -201,6 +205,64 @@ gate_never_requests_a_window() {
 
 run_case run_path_requests_window_for_resolved_udid run_path_requests_window_for_resolved_udid
 run_case gate_never_requests_a_window gate_never_requests_a_window
+
+# The seed is handed to the launched app through simctl's SIMCTL_CHILD_ env
+# bridge. The generic stub logs argv only, so these cases use a stub that also
+# records the seed variable.
+stub_seed_logging_xcrun() {
+    new_stubs make xcrun defaults open
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+echo "SEED=\${SIMCTL_CHILD_CHECKSTITCH_UITEST_SEED:-}" >>"$STUB_ROOT/xcrun.log"
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+}
+
+run_path_seeds_the_store_by_default() {
+    stub_seed_logging_xcrun
+    local app="$STUB_ROOT/CheckStitch.app"
+    mkdir -p "$app"
+    bash scripts/run-simulator.sh 'platform=iOS Simulator,id=RUN-UDID-1' "$app" >/dev/null 2>&1 || return 1
+    grep -q "SEED=$PWD/scripts/fixtures/dev-seed.json" "$STUB_ROOT/xcrun.log"
+}
+
+run_path_seed_can_be_disabled() {
+    stub_seed_logging_xcrun
+    local app="$STUB_ROOT/CheckStitch.app"
+    mkdir -p "$app"
+    SEED=0 bash scripts/run-simulator.sh 'platform=iOS Simulator,id=RUN-UDID-1' "$app" >/dev/null 2>&1 || return 1
+    # No launch receives a seed when SEED=0.
+    ! grep -q 'SEED=.' "$STUB_ROOT/xcrun.log"
+}
+
+run_path_missing_seed_file_is_fatal() {
+    stub_seed_logging_xcrun
+    local app="$STUB_ROOT/CheckStitch.app"
+    mkdir -p "$app"
+    local out status
+    set +e
+    out="$(SEED_FILE="$STUB_ROOT/missing.json" bash scripts/run-simulator.sh \
+        'platform=iOS Simulator,id=RUN-UDID-1' "$app" 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"seed file not found"* ]]
+}
+
+# The fixture must stay a decodable v6 envelope; a malformed edit would only
+# surface as an empty app at launch time otherwise.
+dev_seed_is_a_valid_v6_envelope() {
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
+assert d["version"]==6, d["version"]; assert d["checklists"]; assert d["folders"]' \
+        scripts/fixtures/dev-seed.json
+}
+
+run_case run_path_seeds_the_store_by_default run_path_seeds_the_store_by_default
+run_case run_path_seed_can_be_disabled run_path_seed_can_be_disabled
+run_case run_path_missing_seed_file_is_fatal run_path_missing_seed_file_is_fatal
+run_case dev_seed_is_a_valid_v6_envelope dev_seed_is_a_valid_v6_envelope
 
 # --- run-watch.sh ----------------------------------------------------------
 
@@ -430,6 +492,20 @@ run_devices_rejects_malformed_saved_inventory() {
 }
 
 run_case run_devices_sim_default_targets_only_the_duo_physically run_devices_sim_default_targets_only_the_duo_physically
+
+run_devices_sim_opens_device_hub_windows() {
+    stub_ios_command
+    # Pin both simulators so the assertion does not depend on this worktree's
+    # .simulator_id; the Device Hub deep link must be opened for each leg.
+    SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
+        SIM_IPAD=22222222-2222-2222-2222-222222222222 \
+        DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'devices://device/open?id=11111111-1111-1111-1111-111111111111' "$STUB_ROOT/open.log" || return 1
+    grep -q 'devices://device/open?id=22222222-2222-2222-2222-222222222222' "$STUB_ROOT/open.log"
+}
+
+run_case run_devices_sim_opens_device_hub_windows run_devices_sim_opens_device_hub_windows
 run_case run_devices_rejects_unreadable_saved_inventory run_devices_rejects_unreadable_saved_inventory
 run_case run_devices_rejects_malformed_saved_inventory run_devices_rejects_malformed_saved_inventory
 
@@ -622,6 +698,26 @@ STUB
 }
 
 run_case run_devices_sim_installs_and_launches_both_simulators run_devices_sim_installs_and_launches_both_simulators
+
+run_devices_sim_seeds_the_installed_app_by_default() {
+    stub_ios_command
+    # Log the SIMCTL_CHILD_ seed alongside argv; both simulator ids are pinned
+    # so no `simctl list` fallback is needed.
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+echo "SEED=\${SIMCTL_CHILD_CHECKSTITCH_UITEST_SEED:-}" >>"$STUB_ROOT/xcrun.log"
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=sim \
+        SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
+        SIM_IPAD=22222222-2222-2222-2222-222222222222 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q "SEED=$PWD/scripts/fixtures/dev-seed.json" "$STUB_ROOT/xcrun.log"
+}
+
+run_case run_devices_sim_seeds_the_installed_app_by_default run_devices_sim_seeds_the_installed_app_by_default
 run_case run_devices_sim_prefers_the_worktree_simulator run_devices_sim_prefers_the_worktree_simulator
 run_case run_devices_sim_resolution_failure_is_fatal run_devices_sim_resolution_failure_is_fatal
 run_case run_devices_sim_continues_after_a_simulator_build_failure run_devices_sim_continues_after_a_simulator_build_failure

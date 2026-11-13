@@ -39,7 +39,12 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   `com.apple.developer.ubiquity-kvstore-identifier`) is embedded and the
   key-value store syncs through iCloud. Used by `run-devices.sh`; needs
   `-allowProvisioningUpdates` (already in the target).
-- `make run` — build, then boot/install/launch on a simulator.
+- `make run` — build, then boot/install/launch on a simulator. The launch is
+  seeded by default from `scripts/fixtures/dev-seed.json` (folders, due dates,
+  priorities, an archived checklist) so the installed app has content to click
+  through; `SEED=0` launches unseeded and `SEED_FILE=<path>` picks another
+  envelope. Seeding flips the app into its `--ui-testing` mode (ephemeral
+  UserDefaults, sync/purchases off), so the real App Group is never touched.
 - `make watch-build` — watchOS simulator compile of the `CheckStitchWatch`
   target (same `CheckStitchCore` package against the watchOS SDK), unsigned
   and sim-free.
@@ -71,6 +76,8 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   (requires Developer Mode; prefers an iPhone), plus the host Mac and the
   paired Apple Watch via the `run-watch.sh` leg (`RUN_WATCH=0` to skip it).
   Honours `SCHEME`, `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA` overrides.
+  The simulator legs are seeded by default (`SEED=0`/`SEED_FILE=` override) as
+  `make run` is.
 - Destination precedence is documented in the `Makefile`: explicit `SIM=` >
   this worktree's `.simulator_id` > shared default. Never leave a bare
   `name=` destination in a script — it selects a shared device and wedges
@@ -90,19 +97,22 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 
 - **Why windows appear** and the dead ends: see the `simulator` skill.
 - **The gate** takes a bounded host lock (`${TMPDIR:-/tmp}/checkstitch-simulator.lock`),
-  quits `Simulator.app` once before the simulator-touching part, pre-boots this
-  worktree's `.simulator_id` UDID headlessly between `make build` and `make
-  test`, then releases the lock after `make test`; the single EXIT trap also
-  releases the lock and shuts down that UDID. A lock whose recorded PID is no
-  longer alive is reaped as stale. Missing `.simulator_id` → skip; a present
+  quits the device GUI once before the simulator-touching part (Simulator.app on
+  older Xcode, Xcode 27's Device Hub with bundle id `com.apple.dt.Devices`),
+  pre-boots this worktree's `.simulator_id` UDID headlessly between `make build`
+  and `make test`, then releases the lock after `make test`; the single EXIT trap
+  also releases the lock and shuts down that UDID. A lock whose recorded PID is
+  no longer alive is reaped as stale. Missing `.simulator_id` → skip; a present
   but unresolvable `.simulator_id` is a hard error; the shutdown is scoped to
   the resolved UDID only — never `all`/`booted`. `LOCK_TIMEOUT` (default 60)
   bounds the lock wait so a slow concurrent gate cannot hang this one; on
   timeout the gate warns and runs without the lock.
-- **`make run`** requests its window explicitly, pinned to the resolved UDID
-  (`open -a Simulator --args -CurrentDeviceUDID <udid>`). The `--args` are
-  honoured on a fresh `Simulator.app` launch; if it is already running, the
-  device boot attaches that device's window instead.
+- **`make run`** and the `run-devices.sh` simulator legs open their window
+  through `scripts/sim-window.sh`: on Xcode 27 that is Device Hub
+  (`com.apple.dt.Devices`) via the `devices://device/open?id=<udid>` deep link,
+  falling back to `open -a Simulator --args -CurrentDeviceUDID <udid>` on older
+  Xcode. The `--args` are honoured on a fresh `Simulator.app` launch; if it is
+  already running, the device boot attaches that device's window instead.
 - **Shell tests**: `bash scripts/tests/run.sh`, also run by the gate; stubs
   `xcrun`/`defaults`/`make`/`open`/`osascript` on `PATH`.
 

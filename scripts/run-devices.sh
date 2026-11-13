@@ -18,6 +18,8 @@ set -euo pipefail
 #                # .simulator_id when valid, else `iPhone 17`)
 #   SIM_IPAD=…   # pin the iPad simulator by UDID (default: `iPad (A16)`)
 #   DUO_DEVICE_ID=… # pin the physical iPhone Duo by identifier
+#   SEED=0       # launch the simulator legs unseeded (default: seeded)
+#   SEED_FILE=…  # seed envelope JSON (default scripts/fixtures/dev-seed.json)
 #   DEVICES_JSON_IN=… # replay a saved `devicectl list devices -j` inventory
 #                     # offline instead of querying devicectl (tests/fixtures)
 #   RUN_MAC=0   # skip the macOS build + launch step (default RUN_MAC=1)
@@ -37,6 +39,11 @@ set -euo pipefail
 # IOS_TARGET=sim runs the iPhone and iPad legs on simulators instead (reusing
 # resolve-sim-udid.sh for name→UDID resolution); IOS_TARGET=device keeps the
 # all-physical behaviour above.
+#
+# Simulator windows: simctl boots headlessly, so each simulator leg opens the
+# device GUI on the booted UDID through scripts/sim-window.sh — Xcode 27's
+# Device Hub (`com.apple.dt.Devices`) via its `devices://device/open?id=` deep
+# link when present, falling back to Simulator.app on older Xcode.
 
 # === Configuration (overridable) ===
 SCHEME="${SCHEME:-CheckStitch}"
@@ -50,6 +57,11 @@ DUO_DEVICE_ID="${DUO_DEVICE_ID:-}"      # pin the physical Duo by identifier
 RUN_MAC="${RUN_MAC:-1}"
 RUN_WATCH="${RUN_WATCH:-1}"
 DEVICES_JSON_IN="${DEVICES_JSON_IN:-}"
+# Simulator legs are seeded with a test-data fixture by default so the
+# installed app has checklists to click through; SEED=0 disables,
+# SEED_FILE=<path> uses another ChecklistEnvelope JSON.
+SEED="${SEED:-1}"
+SEED_FILE="${SEED_FILE:-scripts/fixtures/dev-seed.json}"
 DEVICES_JSON="${TMPDIR:-/tmp}/run-devices-$$.json"
 UNREACHABLE_LOG="${TMPDIR:-/tmp}/run-devices-unreachable-$$.log"
 trap 'rm -f "$DEVICES_JSON" "$UNREACHABLE_LOG"' EXIT
@@ -57,6 +69,8 @@ trap 'rm -f "$DEVICES_JSON" "$UNREACHABLE_LOG"' EXIT
 # === Derived paths ===
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/sim-window.sh
+source "$SCRIPT_DIR/sim-window.sh"
 APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphoneos/${SCHEME}.app"
 MAC_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}/${SCHEME}.app"
 SIM_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphonesimulator/${SCHEME}.app"
@@ -90,6 +104,22 @@ resolve_sim() {
 }
 
 cd "$REPO_ROOT"
+
+# Resolve the seed path now that we are at the repo root, and export it under
+# simctl's SIMCTL_CHILD_ bridge so every simulator launch receives it. Seeding
+# flips the app into its `--ui-testing` mode (ephemeral UserDefaults, sync off),
+# so the real App Group is untouched; physical launches ignore the variable.
+if [[ "$SEED" != "0" ]]; then
+    case "$SEED_FILE" in
+        /*) ;;
+        *) SEED_FILE="$PWD/$SEED_FILE" ;;
+    esac
+    if [[ ! -f "$SEED_FILE" ]]; then
+        echo "❌ Seed file not found at $SEED_FILE (SEED=0 to launch unseeded)." >&2
+        exit 1
+    fi
+    export SIMCTL_CHILD_CHECKSTITCH_UITEST_SEED="$SEED_FILE"
+fi
 
 # ── Discover devices ─────────────────────────────────────────────────────────
 echo "==> Discovering paired iPhone/iPad devices… (sim default: the physical iPhone Duo only)"
@@ -286,7 +316,8 @@ if [[ "$IOS_TARGET" == "sim" ]]; then
             failures=$((failures + 1))
             continue
         fi
-        open -a Simulator --args -CurrentDeviceUDID "$udid" >/dev/null 2>&1 || true
+        echo "==> Showing the $label simulator window ($udid)…"
+        show_sim_window "$udid"
         echo "==> Building $SCHEME ($CONFIGURATION) for the $label simulator…"
         if ! xcodebuild -scheme "$SCHEME" \
           -destination "id=$udid" \
@@ -309,6 +340,9 @@ if [[ "$IOS_TARGET" == "sim" ]]; then
             continue
         fi
         echo "==> Launching on the $label simulator…"
+        if [[ "$SEED" != "0" ]]; then
+            echo "    (seeded with $SEED_FILE)"
+        fi
         if ! xcrun simctl launch --terminate-running-process "$udid" "$BUNDLE_ID"; then
             echo "❌ Launch failed on the $label simulator." >&2
             failures=$((failures + 1))

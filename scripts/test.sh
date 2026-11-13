@@ -41,9 +41,10 @@ make build
 
 # Phase 4b substitution (phase-1 spike proved AutoOpenDevice ineffective on
 # Xcode 26.6): a bounded host-scoped lock serializes the window-touching part
-# of the gate across concurrent gates, and Simulator.app is quit so no window
-# attaches to the device the gate pre-boots. The lock degrades to a warning
-# after LOCK_TIMEOUT seconds — it never blocks past that.
+# of the gate across concurrent gates, and the device GUI is quit so no window
+# attaches to the device the gate pre-boots — Simulator.app on older Xcode,
+# Xcode 27's Device Hub (`com.apple.dt.Devices`) otherwise. The lock degrades
+# to a warning after LOCK_TIMEOUT seconds — it never blocks past that.
 LOCK_DIR="${TMPDIR:-/tmp}/checkstitch-simulator.lock"
 LOCK_TIMEOUT="${LOCK_TIMEOUT:-60}"
 LOCK_HELD=0
@@ -93,6 +94,7 @@ gate_cleanup() {
 acquire_lock
 trap 'gate_cleanup' EXIT
 osascript -e 'tell application "Simulator" to quit' 2>/dev/null || true
+osascript -e 'tell application id "com.apple.dt.Devices" to quit' 2>/dev/null || true
 
 if [[ -n "$GATE_UDID" ]]; then
   echo "==> Pre-booting gate simulator ${GATE_UDID}…"

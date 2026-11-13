@@ -1,0 +1,62 @@
+{
+  "version": 6,
+  "deviceID": "dev-seed",
+  "folders": [
+    { "id": "aaaaaaaa-0000-4000-8000-000000000001", "name": "Home" },
+    { "id": "bbbbbbbb-0000-4000-8000-000000000002", "name": "Work", "isCollapsed": true }
+  ],
+  "checklists": [
+    {
+      "id": "c1111111-0000-4000-8000-000000000001",
+      "name": "Morning Routine",
+      "folderID": "aaaaaaaa-0000-4000-8000-000000000001",
+      "prefixesReminderNumbers": true,
+      "items": [
+        { "id": "d1111111-0000-4000-8000-000000000001", "title": "Stretch", "priority": 5, "relativeDate": 0 },
+        { "id": "d1111111-0000-4000-8000-000000000002", "title": "Journal", "description": "Three pages, longhand", "priority": 1 },
+        { "id": "d1111111-0000-4000-8000-000000000003", "title": "Vitamins", "priority": 9, "relativeDate": 1 }
+      ]
+    },
+    {
+      "id": "c2222222-0000-4000-8000-000000000002",
+      "name": "Weekend Trip",
+      "folderID": "aaaaaaaa-0000-4000-8000-000000000001",
+      "multiple": 2,
+      "items": [
+        { "id": "d2222222-0000-4000-8000-000000000001", "title": "Book train tickets", "priority": 1, "relativeDate": -1 },
+        { "id": "d2222222-0000-4000-8000-000000000002", "title": "Pack the charger", "description": "USB-C and the wall brick", "relativeDate": 2 },
+        { "id": "d2222222-0000-4000-8000-000000000003", "title": "Water the plants", "relativeDate": 0 }
+      ]
+    },
+    {
+      "id": "c3333333-0000-4000-8000-000000000003",
+      "name": "Groceries",
+      "items": [
+        { "id": "d3333333-0000-4000-8000-000000000001", "title": "Oat milk" },
+        { "id": "d3333333-0000-4000-8000-000000000002", "title": "Blueberries" },
+        { "id": "d3333333-0000-4000-8000-000000000003", "title": "Sourdough", "isEnabled": false }
+      ]
+    },
+    {
+      "id": "c4444444-0000-4000-8000-000000000004",
+      "name": "Sprint 42",
+      "folderID": "bbbbbbbb-0000-4000-8000-000000000002",
+      "scalingMode": "prompt",
+      "multiple": 3,
+      "items": [
+        { "id": "d4444444-0000-4000-8000-000000000001", "title": "Triage the inbox", "priority": 1, "relativeDate": 0 },
+        { "id": "d4444444-0000-4000-8000-000000000002", "title": "Write the release notes", "description": "Cover the simulator legs", "priority": 5, "relativeDate": 3 },
+        { "id": "d4444444-0000-4000-8000-000000000003", "title": "Ship the hotfix", "priority": 9 }
+      ]
+    },
+    {
+      "id": "c5555555-0000-4000-8000-000000000005",
+      "name": "Old Errands",
+      "isArchived": true,
+      "items": [
+        { "id": "d5555555-0000-4000-8000-000000000001", "title": "Return the parcel" },
+        { "id": "d5555555-0000-4000-8000-000000000002", "title": "Renew the library card" }
+      ]
+    }
+  ]
+}
