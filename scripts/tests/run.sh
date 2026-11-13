@@ -367,14 +367,28 @@ run_case run_devices_watch_skippable_with_run_watch_0 run_devices_watch_skippabl
 
 IOS_FIXTURE=""
 
-# xcrun/xcodebuild/make/open are logging no-ops; the built app dir is
-# pre-created so the install loop does not bail on a missing product. The
-# inventory comes from DEVICES_JSON_IN, so no `devicectl list devices` stub is
-# needed.
+# xcrun answers `simctl list devices available` with the simulator names the
+# plan defaults to and logs everything else; xcodebuild/make/open are logging
+# no-ops. The built app dirs are pre-created so the install loops do not bail
+# on a missing product. The inventory comes from DEVICES_JSON_IN, so no
+# `devicectl list devices` stub is needed.
 stub_ios_command() {
     new_stubs xcrun xcodebuild make open
     IOS_FIXTURE="$PWD/scripts/fixtures/devicectl-devices.json"
     mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-iphoneos/CheckStitch.app"
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug-iphonesimulator/CheckStitch.app"
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+if [[ "\$1" == "simctl" && "\$2" == "list" && "\$3" == "devices" ]]; then
+    printf '%s\n' \
+      '    iPhone 17 (11111111-1111-1111-1111-111111111111) (Shutdown)' \
+      '    iPad (A16) (22222222-2222-2222-2222-222222222222) (Shutdown)'
+    exit 0
+fi
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
 }
 
 run_devices_discovers_every_physical_ios_device() {
@@ -458,6 +472,96 @@ STUB
 
 run_case run_devices_builds_against_each_device_destination run_devices_builds_against_each_device_destination
 run_case run_devices_continues_after_a_device_build_failure run_devices_continues_after_a_device_build_failure
+
+# --- run-devices.sh opt-in simulator leg (IOS_TARGET=sim) -------------------
+
+# The iPhone/iPad sim env prefix is deliberately spelled out in each case: the
+# cases re-stub xcrun/xcodebuild, so a shared helper would have to re-export the
+# paths it changes.
+run_devices_sim_installs_and_launches_both_simulators() {
+    stub_ios_command
+    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=sim \
+        SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
+        SIM_IPAD=22222222-2222-2222-2222-222222222222 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'simctl install 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl install 22222222-2222-2222-2222-222222222222' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl launch --terminate-running-process 11111111-1111-1111-1111-111111111111 app.alanvardy.CheckStitch' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q -- '-destination id=11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcodebuild.log" || return 1
+    grep -q -- '-destination id=22222222-2222-2222-2222-222222222222' "$STUB_ROOT/xcodebuild.log"
+}
+
+run_devices_sim_prefers_the_worktree_simulator() {
+    stub_ios_command
+    local worktree_udid
+    if [[ -f .simulator_id ]]; then
+        worktree_udid="$(tr -d '[:space:]' <.simulator_id)"
+    else
+        worktree_udid="11111111-1111-1111-1111-111111111111"
+    fi
+    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=sim \
+        SIM_IPAD=22222222-2222-2222-2222-222222222222 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q "simctl install $worktree_udid" "$STUB_ROOT/xcrun.log"
+}
+
+run_devices_sim_resolution_failure_is_fatal() {
+    stub_ios_command
+    # Only the iPhone is offered; the iPad name cannot resolve, so its leg must
+    # fail the run.
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+if [[ "\$1" == "simctl" && "\$2" == "list" && "\$3" == "devices" ]]; then
+    printf '%s\n' '    iPhone 17 (11111111-1111-1111-1111-111111111111) (Shutdown)'
+    exit 0
+fi
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+    local out status
+    set +e
+    out="$(DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=sim \
+        SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    [[ "$out" == *"Could not resolve"* ]]
+}
+
+run_devices_sim_continues_after_a_simulator_build_failure() {
+    stub_ios_command
+    # Fail the build only for the iPad simulator destination; the iPhone and the
+    # physical destinations still succeed.
+    cat >"$STUB_ROOT/xcodebuild" <<STUB
+#!/bin/bash
+echo "\$*" >>"$STUB_ROOT/xcodebuild.log"
+case "\$*" in
+    *id=22222222-2222-2222-2222-222222222222*) exit 1 ;;
+esac
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcodebuild"
+    local out status
+    set +e
+    out="$(DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=sim \
+        SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
+        SIM_IPAD=22222222-2222-2222-2222-222222222222 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)"
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || return 1
+    grep -q 'simctl install 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
+    # The failed iPad build was never installed.
+    if grep -q 'simctl install 22222222-2222-2222-2222-222222222222' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    [[ "$out" == *"Build failed for the iPad simulator"* ]]
+}
+
+run_case run_devices_sim_installs_and_launches_both_simulators run_devices_sim_installs_and_launches_both_simulators
+run_case run_devices_sim_prefers_the_worktree_simulator run_devices_sim_prefers_the_worktree_simulator
+run_case run_devices_sim_resolution_failure_is_fatal run_devices_sim_resolution_failure_is_fatal
+run_case run_devices_sim_continues_after_a_simulator_build_failure run_devices_sim_continues_after_a_simulator_build_failure
 
 # --- macOS sandbox network entitlement -------------------------------------
 
