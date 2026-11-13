@@ -844,6 +844,62 @@ STUB
     chmod +x "$STUB_ROOT/sips"
 }
 
+# All four classes in one inventory, with a sips stub that derives each class's
+# expected pair from the output path and, for preflight, from the size embedded
+# in the temp screenshot name. Lets one bare run exercise the default class set.
+stub_appstore_default_all() {
+    new_stubs xcrun xcodebuild sips
+    cat >"$STUB_ROOT/xcrun" <<STUB
+#!/bin/bash
+echo "\$*" >>"$STUB_ROOT/xcrun.log"
+case "\$1 \$2" in
+  "simctl list")
+    echo '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4":[{"name":"iPhone Duo","udid":"DUO-UDID-1","state":"Shutdown"}],"com.apple.CoreSimulator.SimRuntime.iOS-26-0":[{"name":"iPhone 17","udid":"IPHONE-UDID-1","state":"Shutdown"},{"name":"iPad Pro 13-inch (M5)","udid":"IPAD-UDID-1","state":"Shutdown"}],"com.apple.CoreSimulator.SimRuntime.watchOS-11-5":[{"name":"Apple Watch Series 11 (46mm)","udid":"WATCH-UDID-1","state":"Shutdown"}]}}' ;;
+  "simctl get_app_container")
+    echo "$STUB_ROOT/container" ;;
+  "simctl io")
+    for last in "\$@"; do :; done
+    mkdir -p "\$(dirname "\$last")"; : >"\$last" ;;
+esac
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/xcrun"
+    cat >"$STUB_ROOT/sips" <<STUB
+#!/bin/bash
+for last in "\$@"; do :; done
+case "\$last" in
+  *appstore-preflight-*)
+    spec="\${last#*appstore-preflight-}"; spec="\${spec%%.*}"
+    echo "pixelWidth: \${spec%x*}"
+    echo "pixelHeight: \${spec#*x}"
+    ;;
+  *ipad-13*)                    echo "pixelWidth: 2064"; echo "pixelHeight: 2752" ;;
+  *watch-46mm*)                 echo "pixelWidth: 416";  echo "pixelHeight: 496" ;;
+  *iphone-duo-outer-landscape*) echo "pixelWidth: 2034"; echo "pixelHeight: 1398" ;;
+  *iphone-duo-*)                echo "pixelWidth: 1398"; echo "pixelHeight: 2034" ;;
+  *)                            echo "pixelWidth: 1206"; echo "pixelHeight: 2622" ;;
+esac
+STUB
+    chmod +x "$STUB_ROOT/sips"
+}
+
+# A bare run (no class args) must capture every class, in every language.
+appstore_default_captures_every_class() {
+    [[ -f scripts/fixtures/appstore-seed.json ]] || return 1
+    stub_appstore_default_all
+    SETTLE=0 bash scripts/appstore-screenshots.sh >/dev/null 2>&1 || return 1
+    local lang
+    for lang in en de es fr ja zh-Hans; do
+        [[ -d "build/appstore-screenshots/$lang/iphone-6.3" ]] || return 1
+        [[ -d "build/appstore-screenshots/$lang/ipad-13" ]] || return 1
+        [[ -d "build/appstore-screenshots/$lang/watch-46mm" ]] || return 1
+        [[ -d "build/appstore-screenshots/$lang/iphone-duo-outer-portrait" ]] || return 1
+    done
+    grep -q 'simctl install IPAD-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl install WATCH-UDID-1.*CheckStitchWatch.app' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'simctl install DUO-UDID-1' "$STUB_ROOT/xcrun.log"
+}
+
 appstore_watch_installs_and_launches_watchkitapp() {
     stub_appstore_watch_capture
     SETTLE=0 bash scripts/appstore-screenshots.sh watch-46mm --no-build >/dev/null 2>&1 || return 1
@@ -877,6 +933,7 @@ assert d["screens"]==["1-main-dark","2-empty","3-settings","4-main-light","5-det
     true
 }
 
+run_case appstore_default_captures_every_class appstore_default_captures_every_class
 run_case appstore_watch_installs_and_launches_watchkitapp appstore_watch_installs_and_launches_watchkitapp
 run_case appstore_writes_manifest_per_run appstore_writes_manifest_per_run
 

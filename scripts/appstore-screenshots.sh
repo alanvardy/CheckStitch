@@ -5,9 +5,9 @@
 # Usage:
 #   scripts/appstore-screenshots.sh [options] [class ...]
 #
-# Classes are opt-in: a bare run captures iphone-6.3 only. iphone-duo must be
-# named explicitly — App Store Connect's Duo slot is not live yet, so uploaded
-# Duo assets may be rejected until it opens.
+# A bare run captures every class for every language (iphone-6.3, ipad-13,
+# watch-46mm, iphone-duo). Name one or more classes to capture a subset.
+# iphone-duo is limited to the Device Hub hinge pose currently set (see below).
 #
 # Output tree: build/appstore-screenshots/<lang>/<device>/<n>-<name>.png, plus
 # a per-run manifest.json naming the class, device, size and screens captured.
@@ -18,7 +18,7 @@
 #   watch-46mm  Apple Watch Series 11 (46mm), 416x496
 #   iphone-duo  iPhone Duo, per-variant sizes (see below)
 #
-# iphone-duo — opt-in class, one Device Hub hinge pose per invocation:
+# iphone-duo — one Device Hub hinge pose per invocation:
 #   folder                       pose     display  size
 #   iphone-duo-outer-portrait    folded   1        1398x2034
 #   iphone-duo-outer-landscape   folded   1        2034x1398
@@ -335,7 +335,9 @@ verify_size() { # $1 = file, $2 = accepted WxH
 preflight_size() { # $1 = udid, $2 = expected WxH, $3 = display id (optional)
   local tmp dims display_args=()
   if [ $# -ge 3 ]; then display_args=(--display "$3"); fi
-  tmp=$(mktemp -t appstore-preflight).png
+  # The expected size in the temp name lets the shell-test sips stub report the
+  # right pair per class when a single run spans several classes.
+  tmp=$(mktemp -t "appstore-preflight-$2").png
   xcrun simctl io "$1" screenshot --mask ignored "${display_args[@]+"${display_args[@]}"}" "$tmp" >/dev/null
   dims=$(sips -g pixelWidth -g pixelHeight "$tmp" | tail -2 | tr -dc '0-9\n' | paste -sd x -)
   rm -f "$tmp"
@@ -505,7 +507,7 @@ capture_duo() { # $1 = device type regex; pose taken from $DUO_POSE
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 }
 
-[ ${#CLASSES[@]} -gt 0 ] || CLASSES=(iphone-6.3)
+[ ${#CLASSES[@]} -gt 0 ] || CLASSES=(iphone-6.3 ipad-13 watch-46mm iphone-duo)
 
 for wanted in "${CLASSES[@]}"; do
   case "$wanted" in
