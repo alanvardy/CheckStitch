@@ -12,6 +12,7 @@
 #   iphone-6.3  iPhone 17, 1206x2622
 #   ipad-13     iPad Pro 13-inch (M5), 2064x2752
 #   watch-46mm  Apple Watch Series 11 (46mm), 416x496
+#   iphone-duo  iPhone Duo, per-variant sizes (see below)
 #
 # Wallpapers live in scripts/fixtures/appstore-wallpapers/; each slot is named
 # <class>-<screen> and is staged into the app container before the matching
@@ -27,6 +28,8 @@
 #   --refetch-wallpapers  refetch wallpapers even if already present
 #   --wallpaper-url <slot|*>=<url>  pin a slot (or all) to a specific photo
 #   --wallpaper-dir <dir> wallpaper + manifest directory
+#   --duo-pose folded|book|open  Device Hub hinge pose for the iphone-duo class
+#                         (default folded; folded -> outer portrait)
 #   -h, --help            print this header and exit 0
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -44,6 +47,10 @@ WATCH_APP="$DD/Build/Products/Debug-watchsimulator/CheckStitchWatch.app"
 WATCH_CLASS=watch-46mm
 WATCH_PATTERN='Apple Watch Series 11 \(46mm\)'
 WATCH_SCREENS=( "1-list" "2-detail" )
+
+DUO_CLASS=iphone-duo
+DUO_PATTERN='iPhone Duo$'
+DUO_POSE="${DUO_POSE:-folded}"
 
 OUT=build/appstore-screenshots
 SETTLE="${SETTLE:-6}"
@@ -72,21 +79,34 @@ while [ $# -gt 0 ]; do
     --settle)             SETTLE=$2; shift 2 ;;
     --lang)               LANGUAGES=("$2"); shift 2 ;;
     --udid)               OVERRIDE_CLASSES+=("${2%%=*}"); OVERRIDE_UDIDS+=("${2#*=}"); shift 2 ;;
-    -h|--help)            sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --duo-pose)           DUO_POSE=$2
+                          case "$DUO_POSE" in
+                            folded|book|open) ;;
+                            *) echo "!! --duo-pose must be folded|book|open (got '$DUO_POSE')" >&2; exit 2 ;;
+                          esac
+                          shift 2 ;;
+    -h|--help)            sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*)                   echo "!! unknown option: $1" >&2; exit 2 ;;
     *)                    CLASSES+=("$1"); shift ;;
   esac
 done
 
 # class label : simctl devicetype name regex (newest runtime wins)
-DEVICE_TYPES=( "iphone-6.3:iPhone 17$" "ipad-13:iPad Pro 13-inch \\(M5\\)" )
+DEVICE_TYPES=( "iphone-6.3:iPhone 17$" "ipad-13:iPad Pro 13-inch \\(M5\\)" "iphone-duo:iPhone Duo$" )
 
 # No associative arrays: /bin/bash 3.2 (the gate's `bash -n` parser) rejects them.
-size_for() { # $1 = class label
+size_for() { # $1 = class label, $2 = variant (iphone-duo only)
   case "$1" in
     iphone-6.3) echo "1206x2622" ;;
     ipad-13)    echo "2064x2752" ;;
     watch-46mm) echo "416x496" ;;
+    iphone-duo)
+      case "$2" in
+        outer-portrait)  echo "1398x2034" ;;
+        outer-landscape) echo "2034x1398" ;;
+        inner-portrait)  echo "2007x2853" ;;
+        inner-landscape) echo "2853x2007" ;;
+      esac ;;
   esac
 }
 
@@ -95,6 +115,7 @@ device_name_for() { # $1 = class label; the model name recorded in the manifest
     iphone-6.3) echo "iPhone 17" ;;
     ipad-13)    echo "iPad Pro 13-inch (M5)" ;;
     watch-46mm) echo "Apple Watch Series 11 (46mm)" ;;
+    iphone-duo) echo "iPhone Duo" ;;
   esac
 }
 
@@ -265,14 +286,16 @@ boot_and_install() { # $1 = udid, $2 = app path (default $APP)
   if [ "$INSTALL" -eq 1 ]; then xcrun simctl install "$udid" "$app"; fi
 }
 
-shoot() { # $1 = output path, rest = launch arguments
+shoot() { # $1 = output path, optional `--display <id>`, rest = launch arguments
   local out=$1; shift
+  local display_args=()
+  if [ "${1:-}" = "--display" ]; then display_args=(--display "$2"); shift 2; fi
   xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
   sleep 1
   SIMCTL_CHILD_CHECKSTITCH_UITEST_SEED="$SEED_FILE" \
     xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE" "$@" >/dev/null
   sleep "$SETTLE"
-  xcrun simctl io "$UDID" screenshot --mask ignored "$out" >/dev/null
+  xcrun simctl io "$UDID" screenshot --mask ignored "${display_args[@]+"${display_args[@]}"}" "$out" >/dev/null
   echo "    ${out#"$OUT/"}"
 }
 
@@ -284,15 +307,20 @@ verify_size() { # $1 = file, $2 = accepted WxH
   fi
 }
 
-preflight_size() { # $1 = udid, $2 = expected WxH
-  local tmp dims
+preflight_size() { # $1 = udid, $2 = expected WxH, $3 = display id (optional)
+  local tmp dims display_args=()
+  if [ $# -ge 3 ]; then display_args=(--display "$3"); fi
   tmp=$(mktemp -t appstore-preflight).png
-  xcrun simctl io "$1" screenshot --mask ignored "$tmp" >/dev/null
+  xcrun simctl io "$1" screenshot --mask ignored "${display_args[@]+"${display_args[@]}"}" "$tmp" >/dev/null
   dims=$(sips -g pixelWidth -g pixelHeight "$tmp" | tail -2 | tr -dc '0-9\n' | paste -sd x -)
   rm -f "$tmp"
   if [ "$dims" != "$2" ]; then
     echo "!! simulator $1 captures ${dims}, expected ${2}" >&2; return 1
   fi
+}
+
+grant_reminder_access() { # $1 = simulator UDID; the EventKit prompt is one-shot
+  xcrun simctl privacy "$1" grant reminders "$BUNDLE" >/dev/null 2>&1 || true
 }
 
 write_manifest() { # $1 = lang, $2 = class, $3 = device model, $4 = udid, $5 = size, rest = screens
@@ -314,6 +342,7 @@ capture_class() { # $1 = class label, $2 = name regex, $3 = accepted size
   [ -n "$udid" ] || { echo "!! no available simulator for '$pattern'" >&2; return 1; }
   UDID=$udid
   boot_and_install "$UDID"
+  grant_reminder_access "$UDID"
   preflight_size "$UDID" "$size"
   for language in "${LANGUAGES[@]}"; do
     dir="$OUT/$language/$label"; rm -rf "$dir"; mkdir -p "$dir"
@@ -369,12 +398,83 @@ capture_watch() {
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 }
 
+duo_display_for_pose() { # $DUO_POSE -> simctl --display id
+  case "$DUO_POSE" in
+    folded)    echo 1 ;;
+    book|open) echo 3 ;;
+  esac
+}
+
+duo_folder_for_pose() { # $DUO_POSE -> variant folder suffix
+  case "$DUO_POSE" in
+    folded) echo "outer-portrait" ;;
+    book)   echo "inner-portrait" ;;
+    open)   echo "inner-landscape" ;;
+  esac
+}
+
+# One variant folder: the five screens with the same per-stem args/appearance as
+# capture_class, captured on `$display`, then the variant's own size gate and manifest.
+duo_shoot_variant() { # $1 = lang, $2 = variant, $3 = display id, $4 = accepted size, rest = extra launch args
+  local language=$1 variant=$2 display=$3 size=$4; shift 4
+  local extra=("$@")
+  local dir="$OUT/$language/iphone-duo-$variant"
+  local entry slot stem
+  local stems=()
+  rm -rf "$dir"; mkdir -p "$dir"
+  for entry in "${SCREENS[@]}"; do
+    slot=${entry%%:*}; stem=${entry##*:}
+    case "$stem" in
+      *-dark)  xcrun simctl ui "$UDID" appearance dark ;;
+      *-light) xcrun simctl ui "$UDID" appearance light ;;
+    esac
+    stage_slot "$DUO_CLASS" "$slot"
+    case "$stem" in
+      1-main-dark)  shoot "$dir/$stem.png" --display "$display" "${extra[@]+"${extra[@]}"}" --ui-testing --ui-testing-app-language "$language" ;;
+      2-empty)      shoot "$dir/$stem.png" --display "$display" "${extra[@]+"${extra[@]}"}" --ui-testing --ui-testing-app-language "$language" --ui-testing-empty ;;
+      3-settings)   shoot "$dir/$stem.png" --display "$display" "${extra[@]+"${extra[@]}"}" --ui-testing --ui-testing-app-language "$language" --ui-testing-open-settings ;;
+      4-main-light) shoot "$dir/$stem.png" --display "$display" "${extra[@]+"${extra[@]}"}" --ui-testing --ui-testing-app-language "$language" ;;
+      5-detail)     shoot "$dir/$stem.png" --display "$display" "${extra[@]+"${extra[@]}"}" --ui-testing --ui-testing-app-language "$language" --ui-testing-open-checklist 0 ;;
+    esac
+    verify_size "$dir/$stem.png" "$size"
+    stems+=("$stem")
+  done
+  write_manifest "$language" "iphone-duo-$variant" "$(device_name_for "$DUO_CLASS")" "$UDID" "$size" "${stems[@]}"
+}
+
+capture_duo() { # $1 = device type regex; pose taken from $DUO_POSE
+  local pattern=${1:-$DUO_PATTERN} udid variant size language
+  udid=$(udid_override_for "$DUO_CLASS")
+  [ -n "$udid" ] || udid=$(resolve_udid "$pattern" iOS)
+  if [ -z "$udid" ]; then
+    echo "!! no iPhone Duo simulator found matching '$pattern' — skipping iphone-duo." >&2
+    echo "   The Duo device type needs the iPhone19,4 runtime. Check:" >&2
+    echo "     xcrun simctl list runtimes | grep iPhone19,4" >&2
+    echo "     xcrun simctl list devicetypes | grep 'iPhone Duo'" >&2
+    return 0   # never abort the whole run: `return 1` would trip `set -e`
+  fi
+  variant=$(duo_folder_for_pose)
+  size=$(size_for "$DUO_CLASS" "$variant")
+  UDID=$udid
+  boot_and_install "$UDID"
+  grant_reminder_access "$UDID"
+  # Preflight checks the display in its as-booted (un-rotated) geometry — the primary
+  # variant's pair. The forced-landscape variant is rotated after launch, so it is
+  # verified post-shot only (not preflight).
+  preflight_size "$UDID" "$size" "$(duo_display_for_pose)"
+
+  for language in "${LANGUAGES[@]}"; do
+    duo_shoot_variant "$language" "$variant" "$(duo_display_for_pose)" "$size" --ui-testing-force-duo-outer
+  done
+  xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
+}
+
 [ ${#CLASSES[@]} -gt 0 ] || CLASSES=(iphone-6.3)
 
 for wanted in "${CLASSES[@]}"; do
   case "$wanted" in
-    iphone-6.3|ipad-13|watch-46mm) ;;
-    *) echo "!! unknown class: $wanted (expected iphone-6.3, ipad-13 or watch-46mm)" >&2; exit 2 ;;
+    iphone-6.3|ipad-13|watch-46mm|iphone-duo) ;;
+    *) echo "!! unknown class: $wanted (expected iphone-6.3, ipad-13, watch-46mm or iphone-duo)" >&2; exit 2 ;;
   esac
 done
 
@@ -404,7 +504,11 @@ fi
 for entry in "${DEVICE_TYPES[@]}"; do
   label=${entry%%:*}; pattern=${entry#*:}
   for wanted in "${CLASSES[@]}"; do
-    [ "$wanted" = "$label" ] && capture_class "$label" "$pattern" "$(size_for "$label")"
+    [ "$wanted" = "$label" ] || continue
+    case "$label" in
+      iphone-duo) capture_duo "$pattern" ;;
+      *)          capture_class "$label" "$pattern" "$(size_for "$label")" ;;
+    esac
   done
 done
 
