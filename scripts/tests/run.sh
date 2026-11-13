@@ -649,7 +649,7 @@ appstore_duo_folded_writes_outer_portrait() {
     stub_appstore_duo 1398x2034
     SETTLE=0 bash scripts/appstore-screenshots.sh --duo-pose folded --no-build iphone-duo >/dev/null 2>&1 || return 1
     [[ -d "build/appstore-screenshots/en/iphone-duo-outer-portrait" ]] || return 1
-    grep -q -- '--display 1' "$STUB_ROOT/xcrun.log" || return 1
+    grep -qE -- 'screenshot .*--display 1 .*iphone-duo-outer-portrait' "$STUB_ROOT/xcrun.log" || return 1
     grep -q -- '--ui-testing-force-duo-outer' "$STUB_ROOT/xcrun.log" || return 1
     local m="build/appstore-screenshots/en/iphone-duo-outer-portrait/manifest.json"
     python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
@@ -672,7 +672,7 @@ appstore_duo_book_writes_inner_portrait() {
     stub_appstore_duo 2007x2853
     SETTLE=0 bash scripts/appstore-screenshots.sh --duo-pose book --no-build iphone-duo >/dev/null 2>&1 || return 1
     [[ -d "build/appstore-screenshots/en/iphone-duo-inner-portrait" ]] || return 1
-    grep -q -- '--display 3' "$STUB_ROOT/xcrun.log" || return 1
+    grep -qE -- 'screenshot .*--display 3 .*iphone-duo-inner-portrait' "$STUB_ROOT/xcrun.log" || return 1
     ! grep -q -- '--ui-testing-force-duo-outer' "$STUB_ROOT/xcrun.log" || return 1
     python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
 assert d["class"]=="iphone-duo-inner-portrait"; assert d["size"]=="2007x2853"' \
@@ -691,6 +691,19 @@ assert d["class"]=="iphone-duo-inner-landscape"; assert d["size"]=="2853x2007"' 
 appstore_duo_unknown_pose_exits_two() {
     local status
     set +e; bash scripts/appstore-screenshots.sh --duo-pose sideways iphone-duo >/dev/null 2>&1; status=$?; set -e
+    [[ $status -eq 2 ]]
+}
+
+appstore_duo_env_pose_validated() {
+    local status
+    # An exported DUO_POSE bypasses the flag branch, so it must be validated too.
+    set +e; DUO_POSE=sideways bash scripts/appstore-screenshots.sh --no-build iphone-duo >/dev/null 2>&1; status=$?; set -e
+    [[ $status -eq 2 ]]
+}
+
+appstore_duo_bare_pose_flag_exits_two() {
+    local status
+    set +e; bash scripts/appstore-screenshots.sh --duo-pose >/dev/null 2>&1; status=$?; set -e
     [[ $status -eq 2 ]]
 }
 
@@ -917,6 +930,8 @@ run_case appstore_duo_folded_writes_outer_landscape appstore_duo_folded_writes_o
 run_case appstore_duo_book_writes_inner_portrait appstore_duo_book_writes_inner_portrait
 run_case appstore_duo_open_writes_inner_landscape appstore_duo_open_writes_inner_landscape
 run_case appstore_duo_unknown_pose_exits_two appstore_duo_unknown_pose_exits_two
+run_case appstore_duo_env_pose_validated appstore_duo_env_pose_validated
+run_case appstore_duo_bare_pose_flag_exits_two appstore_duo_bare_pose_flag_exits_two
 run_case appstore_duo_missing_runtime_warns_and_continues appstore_duo_missing_runtime_warns_and_continues
 
 # --- system-bash parseability ----------------------------------------------
