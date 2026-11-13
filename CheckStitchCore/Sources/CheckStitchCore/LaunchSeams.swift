@@ -13,11 +13,12 @@ public struct LaunchSeams: Sendable, Equatable {
     public var openSettings: Bool
     public var openChecklistIndex: Int?
     public var language: AppLanguage?
+    public var forceDuoOuter: Bool
 
     public init(
         isUITesting: Bool = false, isEmpty: Bool = false, seedURL: URL? = nil,
         openSettings: Bool = false, openChecklistIndex: Int? = nil,
-        language: AppLanguage? = nil
+        language: AppLanguage? = nil, forceDuoOuter: Bool = false
     ) {
         self.isUITesting = isUITesting
         self.isEmpty = isEmpty
@@ -25,6 +26,7 @@ public struct LaunchSeams: Sendable, Equatable {
         self.openSettings = openSettings
         self.openChecklistIndex = openChecklistIndex
         self.language = language
+        self.forceDuoOuter = forceDuoOuter
     }
 
     /// Ephemeral suite for `--ui-testing`; the real App Group container is
@@ -53,6 +55,8 @@ public struct LaunchSeams: Sendable, Equatable {
                 if index + 1 < arguments.count, let value = AppLanguage(rawValue: arguments[index + 1]) {
                     seams.language = value; index += 1
                 }
+            case "--ui-testing-force-duo-outer":
+                seams.isUITesting = true; seams.forceDuoOuter = true
             default:
                 break // unknown flags tolerated
             }

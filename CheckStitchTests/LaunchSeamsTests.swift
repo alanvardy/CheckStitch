@@ -50,6 +50,17 @@ struct LaunchSeamsTests {
         #expect(LaunchSeams.parse(arguments: ["--not-a-flag"], environment: [:]) == LaunchSeams())
     }
 
+    @Test(arguments: ["--ui-testing-force-duo-outer"])
+    func duoForceFlagTurnsOnUITesting(_ flag: String) {
+        let seams = LaunchSeams.parse(arguments: [flag], environment: [:])
+        #expect(seams.forceDuoOuter)
+        #expect(seams.isUITesting)
+    }
+
+    @Test func duoForceFlagDefaultsOff() {
+        #expect(LaunchSeams.parse(arguments: [], environment: [:]).forceDuoOuter == false)
+    }
+
     @Test func environmentSeedBecomesAFileURL() {
         let seams = LaunchSeams.parse(arguments: [], environment: ["CHECKSTITCH_UITEST_SEED": "/tmp/x.json"])
         #expect(seams.seedURL == URL(fileURLWithPath: "/tmp/x.json"))

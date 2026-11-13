@@ -26,12 +26,26 @@ enum DuoOuterPortrait {
     static func context(
         horizontal: UserInterfaceSizeClass?,
         vertical: UserInterfaceSizeClass?,
-        machine: String = machineIdentifier
+        machine: String,
+        forceDuoOuter: Bool = false
     ) -> ChecklistLayout.Context {
         ChecklistLayout.Context(
-            isDuoOuterPortrait: DuoDisplay.isOuterPortrait(
-                machine: machine,
-                isCompactWidth: horizontal == .compact,
-                isRegularHeight: vertical == .regular))
+            isDuoOuterPortrait: forceDuoOuter
+                || DuoDisplay.isOuterPortrait(
+                    machine: machine,
+                    isCompactWidth: horizontal == .compact,
+                    isRegularHeight: vertical == .regular))
+    }
+
+    /// Live overload reading the real launch seams; the screenshot harness
+    /// forces the Duo outer context via `--ui-testing-force-duo-outer`.
+    static func context(
+        horizontal: UserInterfaceSizeClass?,
+        vertical: UserInterfaceSizeClass?
+    ) -> ChecklistLayout.Context {
+        context(
+            horizontal: horizontal, vertical: vertical,
+            machine: machineIdentifier,
+            forceDuoOuter: LaunchSeams.current().forceDuoOuter)
     }
 }
