@@ -464,11 +464,15 @@ capture_duo() { # $1 = device type regex; pose taken from $DUO_POSE
   preflight_size "$UDID" "$size" "$(duo_display_for_pose)"
 
   for language in "${LANGUAGES[@]}"; do
-    duo_shoot_variant "$language" "$variant" "$(duo_display_for_pose)" "$size" --ui-testing-force-duo-outer
     if [ "$DUO_POSE" = folded ]; then
+      duo_shoot_variant "$language" outer-portrait 1 \
+        "$(size_for "$DUO_CLASS" outer-portrait)" --ui-testing-force-duo-outer
       duo_shoot_variant "$language" outer-landscape 1 \
         "$(size_for "$DUO_CLASS" outer-landscape)" \
         --ui-testing-force-duo-outer --ui-testing-orientation landscape
+    else
+      duo_shoot_variant "$language" "$(duo_folder_for_pose)" 3 \
+        "$(size_for "$DUO_CLASS" "$(duo_folder_for_pose)")"
     fi
   done
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true

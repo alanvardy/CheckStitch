@@ -668,6 +668,26 @@ appstore_duo_folded_writes_outer_landscape() {
 assert d["class"]=="iphone-duo-outer-landscape"; assert d["size"]=="2034x1398"' "$m" || return 1
 }
 
+appstore_duo_book_writes_inner_portrait() {
+    stub_appstore_duo 2007x2853
+    SETTLE=0 bash scripts/appstore-screenshots.sh --duo-pose book --no-build iphone-duo >/dev/null 2>&1 || return 1
+    [[ -d "build/appstore-screenshots/en/iphone-duo-inner-portrait" ]] || return 1
+    grep -q -- '--display 3' "$STUB_ROOT/xcrun.log" || return 1
+    ! grep -q -- '--ui-testing-force-duo-outer' "$STUB_ROOT/xcrun.log" || return 1
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
+assert d["class"]=="iphone-duo-inner-portrait"; assert d["size"]=="2007x2853"' \
+      "build/appstore-screenshots/en/iphone-duo-inner-portrait/manifest.json"
+}
+
+appstore_duo_open_writes_inner_landscape() {
+    stub_appstore_duo 2853x2007
+    SETTLE=0 bash scripts/appstore-screenshots.sh --duo-pose open --no-build iphone-duo >/dev/null 2>&1 || return 1
+    [[ -d "build/appstore-screenshots/en/iphone-duo-inner-landscape" ]] || return 1
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
+assert d["class"]=="iphone-duo-inner-landscape"; assert d["size"]=="2853x2007"' \
+      "build/appstore-screenshots/en/iphone-duo-inner-landscape/manifest.json"
+}
+
 appstore_duo_unknown_pose_exits_two() {
     local status
     set +e; bash scripts/appstore-screenshots.sh --duo-pose sideways iphone-duo >/dev/null 2>&1; status=$?; set -e
@@ -894,6 +914,8 @@ run_case appstore_preflight_mismatch_names_the_simulator appstore_preflight_mism
 
 run_case appstore_duo_folded_writes_outer_portrait appstore_duo_folded_writes_outer_portrait
 run_case appstore_duo_folded_writes_outer_landscape appstore_duo_folded_writes_outer_landscape
+run_case appstore_duo_book_writes_inner_portrait appstore_duo_book_writes_inner_portrait
+run_case appstore_duo_open_writes_inner_landscape appstore_duo_open_writes_inner_landscape
 run_case appstore_duo_unknown_pose_exits_two appstore_duo_unknown_pose_exits_two
 run_case appstore_duo_missing_runtime_warns_and_continues appstore_duo_missing_runtime_warns_and_continues
 
