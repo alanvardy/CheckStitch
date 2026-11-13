@@ -1,3 +1,4 @@
+import CheckStitchCore
 import Foundation
 #if os(iOS)
     import UIKit
@@ -48,9 +49,20 @@ struct OrientationPreference {
 enum OrientationPolicy: String, CaseIterable {
     case portrait
     case allButUpsideDown
+    case landscape
 
     init(allowsLandscape: Bool) {
         self = allowsLandscape ? .allButUpsideDown : .portrait
+    }
+
+    /// A forced landscape wins over the stored preference; `nil`/`.portrait`
+    /// fall back to `allowsLandscape`.
+    init(forcedOrientation: LaunchSeams.Orientation?, allowsLandscape: Bool) {
+        if forcedOrientation == .landscape {
+            self = .landscape
+        } else {
+            self = OrientationPolicy(allowsLandscape: allowsLandscape)
+        }
     }
 }
 
@@ -60,6 +72,7 @@ enum OrientationPolicy: String, CaseIterable {
             switch self {
             case .portrait: .portrait
             case .allButUpsideDown: .allButUpsideDown
+            case .landscape: .landscape
             }
         }
     }

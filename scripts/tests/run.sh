@@ -658,6 +658,16 @@ assert d["size"]=="1398x2034", d;
 assert d["screens"]==["1-main-dark","2-empty","3-settings","4-main-light","5-detail"]' "$m" || return 1
 }
 
+appstore_duo_folded_writes_outer_landscape() {
+    stub_appstore_duo 1398x2034
+    SETTLE=0 bash scripts/appstore-screenshots.sh --duo-pose folded --no-build iphone-duo >/dev/null 2>&1 || return 1
+    [[ -d "build/appstore-screenshots/en/iphone-duo-outer-landscape" ]] || return 1
+    grep -q -- '--ui-testing-orientation landscape' "$STUB_ROOT/xcrun.log" || return 1
+    local m="build/appstore-screenshots/en/iphone-duo-outer-landscape/manifest.json"
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
+assert d["class"]=="iphone-duo-outer-landscape"; assert d["size"]=="2034x1398"' "$m" || return 1
+}
+
 appstore_duo_unknown_pose_exits_two() {
     local status
     set +e; bash scripts/appstore-screenshots.sh --duo-pose sideways iphone-duo >/dev/null 2>&1; status=$?; set -e
@@ -883,6 +893,7 @@ run_case appstore_preflight_mismatch_names_the_simulator appstore_preflight_mism
 # --- iphone-duo (Phase 1: folded outer portrait) ----------------------------
 
 run_case appstore_duo_folded_writes_outer_portrait appstore_duo_folded_writes_outer_portrait
+run_case appstore_duo_folded_writes_outer_landscape appstore_duo_folded_writes_outer_landscape
 run_case appstore_duo_unknown_pose_exits_two appstore_duo_unknown_pose_exits_two
 run_case appstore_duo_missing_runtime_warns_and_continues appstore_duo_missing_runtime_warns_and_continues
 
