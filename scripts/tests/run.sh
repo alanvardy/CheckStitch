@@ -295,7 +295,7 @@ stub_device_app_dirs() {
 run_devices_watch_installs_and_launches_resolved_device() {
     stub_watch_command
     stub_device_app_dirs
-    DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    IOS_TARGET=device DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
     grep -q 'device install app --device WATCH-UDID-1' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'process launch.*app.alanvardy.CheckStitch.watchkitapp' "$STUB_ROOT/xcrun.log" || return 1
     grep -q -- '-destination id=WATCH-UDID-1' "$STUB_ROOT/xcodebuild.log" || return 1
@@ -312,7 +312,7 @@ run_devices_watch_errors_on_unreachable_device() {
 JSON
     local out status
     set +e
-    out="$(DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-devices.sh 2>&1)"
+    out="$(IOS_TARGET=device DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Test Watch" bash scripts/run-devices.sh 2>&1)"
     status=$?
     set -e
     [[ $status -ne 0 ]] || return 1
@@ -327,7 +327,7 @@ run_devices_watch_errors_on_unknown_device() {
     stub_device_app_dirs
     local out status
     set +e
-    out="$(DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="No Such Watch" bash scripts/run-devices.sh 2>&1)"
+    out="$(IOS_TARGET=device DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="No Such Watch" bash scripts/run-devices.sh 2>&1)"
     status=$?
     set -e
     [[ $status -ne 0 ]] || return 1
@@ -344,14 +344,14 @@ run_devices_watch_matches_typographic_device_name() {
     # space; the CLI's ASCII default must still resolve it. JSON \u escapes
     # keep the fixture readable on disk.
     printf '%s\n' '{"result":{"devices":[{"identifier":"WATCH-UDID-CURLY","deviceProperties":{"name":"Alan\u2019s Apple\u00a0Watch"},"connectionProperties":{"transportType":"localNetwork","tunnelState":"disconnected"}}]}}' >"$WATCH_FIXTURE"
-    DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Alan's Apple Watch" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    IOS_TARGET=device DERIVED_DATA="$STUB_ROOT/dd" WATCH_NAME="Alan's Apple Watch" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
     grep -q 'device install app --device WATCH-UDID-CURLY' "$STUB_ROOT/xcrun.log"
 }
 
 run_devices_watch_skippable_with_run_watch_0() {
     stub_watch_command
     stub_device_app_dirs
-    DERIVED_DATA="$STUB_ROOT/dd" RUN_WATCH=0 bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    IOS_TARGET=device DERIVED_DATA="$STUB_ROOT/dd" RUN_WATCH=0 bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
     # The watch leg never ran: only the fixture-writing `list devices` call
     # happens, which never logs, so no install/launch argv appears.
     [[ ! -s "$STUB_ROOT/xcrun.log" ]]
@@ -391,17 +391,17 @@ STUB
     chmod +x "$STUB_ROOT/xcrun"
 }
 
-run_devices_discovers_every_physical_ios_device() {
+run_devices_sim_default_targets_only_the_duo_physically() {
     stub_ios_command
-    local out
-    out="$(DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
-        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)" || return 1
-    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcrun.log" || return 1
-    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000008' "$STUB_ROOT/xcrun.log" || return 1
+    # No IOS_TARGET: the default is `sim`, so only the physical Duo is a
+    # devicectl target; the regular iPhone/iPad legs run on simulators.
+    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
     grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcrun.log" || return 1
-    if grep -q 'DDDDDDDD-0000-0000-0000-000000000010' "$STUB_ROOT/xcrun.log"; then return 1; fi
-    # Developer Mode off is a note, not a skip (the iPad and the Duo).
-    [[ "$out" == *"Developer Mode off"* ]]
+    if grep -q 'CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    if grep -q 'CCCCCCCC-0000-0000-0000-000000000008' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    # The simulator installs still happened.
+    grep -q 'simctl install' "$STUB_ROOT/xcrun.log"
 }
 
 run_devices_rejects_unreadable_saved_inventory() {
@@ -429,13 +429,13 @@ run_devices_rejects_malformed_saved_inventory() {
     [[ "$out" == *"not valid JSON"* ]]
 }
 
-run_case run_devices_discovers_every_physical_ios_device run_devices_discovers_every_physical_ios_device
+run_case run_devices_sim_default_targets_only_the_duo_physically run_devices_sim_default_targets_only_the_duo_physically
 run_case run_devices_rejects_unreadable_saved_inventory run_devices_rejects_unreadable_saved_inventory
 run_case run_devices_rejects_malformed_saved_inventory run_devices_rejects_malformed_saved_inventory
 
 run_devices_builds_against_each_device_destination() {
     stub_ios_command
-    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=device \
         DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
     grep -q -- '-destination id=CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcodebuild.log" || return 1
     grep -q -- '-destination id=CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcodebuild.log" || return 1
@@ -457,7 +457,7 @@ STUB
     chmod +x "$STUB_ROOT/xcodebuild"
     local out status
     set +e
-    out="$(DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+    out="$(DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=device \
         DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)"
     status=$?
     set -e
@@ -472,6 +472,69 @@ STUB
 
 run_case run_devices_builds_against_each_device_destination run_devices_builds_against_each_device_destination
 run_case run_devices_continues_after_a_device_build_failure run_devices_continues_after_a_device_build_failure
+
+# --- run-devices.sh sim default vs explicit device mode ---------------------
+
+run_devices_device_mode_targets_every_physical_device() {
+    stub_ios_command
+    DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=device \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000008' "$STUB_ROOT/xcrun.log" || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcrun.log" || return 1
+    # device mode never touches a simulator.
+    if grep -q 'simctl install' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    true
+}
+
+run_devices_sim_default_without_a_duo_is_not_fatal() {
+    stub_ios_command
+    # Drop the Duo from the inventory: with the sim default and no physical iOS
+    # target, the run must still succeed on the simulator legs.
+    python3 - "$IOS_FIXTURE" "$STUB_ROOT/no-duo.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    payload = json.load(fh)
+payload["result"]["devices"] = [
+    d for d in payload["result"]["devices"]
+    if d["identifier"] != "CCCCCCCC-0000-0000-0000-000000000009"
+]
+with open(sys.argv[2], "w", encoding="utf-8") as fh:
+    json.dump(payload, fh)
+PY
+    local out
+    out="$(DEVICES_JSON_IN="$STUB_ROOT/no-duo.json" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh 2>&1)" || return 1
+    [[ "$out" == *"no reachable physical iPhone Duo"* ]] || return 1
+    [[ "$(grep -c 'simctl install' "$STUB_ROOT/xcrun.log")" -ge 2 ]]
+}
+
+run_devices_sim_matches_the_duo_by_product_type() {
+    stub_ios_command
+    # Rename the Duo so name matching cannot find it; productType iPhone19,4
+    # must still identify it.
+    python3 - "$IOS_FIXTURE" "$STUB_ROOT/renamed-duo.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    payload = json.load(fh)
+for d in payload["result"]["devices"]:
+    if d["identifier"] == "CCCCCCCC-0000-0000-0000-000000000009":
+        d["deviceProperties"]["name"] = "Fixture Handset"
+with open(sys.argv[2], "w", encoding="utf-8") as fh:
+    json.dump(payload, fh)
+PY
+    DEVICES_JSON_IN="$STUB_ROOT/renamed-duo.json" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcrun.log"
+}
+
+run_case run_devices_device_mode_targets_every_physical_device run_devices_device_mode_targets_every_physical_device
+run_case run_devices_sim_default_without_a_duo_is_not_fatal run_devices_sim_default_without_a_duo_is_not_fatal
+run_case run_devices_sim_matches_the_duo_by_product_type run_devices_sim_matches_the_duo_by_product_type
 
 # --- run-devices.sh opt-in simulator leg (IOS_TARGET=sim) -------------------
 

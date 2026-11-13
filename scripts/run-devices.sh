@@ -10,9 +10,10 @@ set -euo pipefail
 #
 # Overrides (same env-override pattern as the Makefile):
 #   SCHEME=… BUNDLE_ID=… CONFIGURATION=… DERIVED_DATA=…
-#   IOS_TARGET=sim|device # run the iOS legs on simulators or on physical
-#                         # devices (default device; physical Developer Mode
-#                         # off is noted, not skipped)
+#   IOS_TARGET=sim|device # run the regular iPhone/iPad legs on simulators or
+#                         # on physical devices (default sim; in sim mode only
+#                         # the physical iPhone Duo is installed to over
+#                         # devicectl; Developer Mode off is noted, not skipped)
 #   SIM_IPHONE=… # pin the iPhone simulator by UDID (default: worktree
 #                # .simulator_id when valid, else `iPhone 17`)
 #   SIM_IPAD=…   # pin the iPad simulator by UDID (default: `iPad (A16)`)
@@ -42,7 +43,7 @@ SCHEME="${SCHEME:-CheckStitch}"
 BUNDLE_ID="${BUNDLE_ID:-app.alanvardy.CheckStitch}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA="${DERIVED_DATA:-DerivedData}"
-IOS_TARGET="${IOS_TARGET:-device}"      # sim | device
+IOS_TARGET="${IOS_TARGET:-sim}"         # sim | device
 SIM_IPHONE="${SIM_IPHONE:-}"            # explicit iPhone simulator UDID
 SIM_IPAD="${SIM_IPAD:-}"                # explicit iPad simulator UDID
 DUO_DEVICE_ID="${DUO_DEVICE_ID:-}"      # pin the physical Duo by identifier
@@ -91,7 +92,7 @@ resolve_sim() {
 cd "$REPO_ROOT"
 
 # ── Discover devices ─────────────────────────────────────────────────────────
-echo "==> Discovering paired iPhone/iPad devices…"
+echo "==> Discovering paired iPhone/iPad devices… (sim default: the physical iPhone Duo only)"
 if [[ -n "$DEVICES_JSON_IN" ]]; then
     echo "  (using the saved inventory in DEVICES_JSON_IN=$DEVICES_JSON_IN)"
     if ! cp "$DEVICES_JSON_IN" "$DEVICES_JSON" 2>/dev/null; then
@@ -116,9 +117,12 @@ fi
 DEVICES=()
 while IFS= read -r entry; do
     DEVICES+=("$entry")
-done < <(python3 - "$DEVICES_JSON" "$UNREACHABLE_LOG" <<'PY'
+done < <(python3 - "$DEVICES_JSON" "$UNREACHABLE_LOG" "$IOS_TARGET" "$DUO_DEVICE_ID" <<'PY'
 import json
 import sys
+
+mode = sys.argv[3]
+duo_id = sys.argv[4]
 
 with open(sys.argv[1], encoding="utf-8") as fh:
     payload = json.load(fh)
@@ -140,6 +144,18 @@ with open(sys.argv[2], "a", encoding="utf-8") as unreachable_log:
         if hardware.get("reality") != "physical":
             continue
         name = props.get("name", "unknown device")
+        # sim mode narrows physical discovery to the iPhone Duo: the regular
+        # iPhone/iPad legs run on simulators, so only the Duo is installed to
+        # over devicectl. A device counts as the Duo when pinned by identifier,
+        # named "iPhone Duo", or identified by its productType.
+        if mode != "device":
+            is_duo = (
+                (duo_id and device.get("identifier") == duo_id)
+                or "iphone duo" in name.lower()
+                or hardware.get("productType") == "iPhone19,4"
+            )
+            if not is_duo:
+                continue
         # Developer Mode is required to run a development-signed build. Do not
         # pre-skip on it: every paired physical phone (e.g. a second iPhone)
         # must receive the build, and devicectl reports the real failure if
@@ -172,7 +188,9 @@ if [[ ${#DEVICES[@]} -eq 0 ]]; then
         echo "❌ $UNREACHABLE_COUNT device(s) found but unreachable — see messages above (unlock the device and connect it to this Mac's Wi-Fi, then retry)." >&2
         exit 1
     fi
-    if [[ "$RUN_MAC" -eq 1 ]]; then
+    if [[ "$IOS_TARGET" == "sim" ]]; then
+        echo "  (no reachable physical iPhone Duo found — running the iPhone/iPad simulator legs instead)"
+    elif [[ "$RUN_MAC" -eq 1 ]]; then
         echo "  (no reachable iPhone/iPad found — macOS + Apple Watch run only)"
     else
         echo "❌ No reachable iPhone/iPad found." >&2
