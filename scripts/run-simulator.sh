@@ -15,6 +15,9 @@ SIM="${1:?usage: run-simulator.sh <destination> <app-path>}"
 APP="${2:?usage: run-simulator.sh <destination> <app-path>}"
 BUNDLE_ID="${BUNDLE_ID:-app.alanvardy.CheckStitch}"
 
+# shellcheck source=scripts/sim-window.sh
+source "$(dirname "$0")/sim-window.sh"
+
 cd "$(dirname "$0")/.."
 
 # Resolve the destination to a concrete UDID.
@@ -30,8 +33,8 @@ echo "==> Booting simulator ${UDID}…"
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b
 
-echo "==> Opening Simulator window for ${UDID}…"
-open -a Simulator --args -CurrentDeviceUDID "$UDID"
+echo "==> Showing the simulator window for ${UDID}…"
+show_sim_window "$UDID"
 
 echo "==> Installing ${APP}…"
 xcrun simctl install "$UDID" "$APP"

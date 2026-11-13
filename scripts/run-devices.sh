@@ -37,6 +37,11 @@ set -euo pipefail
 # IOS_TARGET=sim runs the iPhone and iPad legs on simulators instead (reusing
 # resolve-sim-udid.sh for name→UDID resolution); IOS_TARGET=device keeps the
 # all-physical behaviour above.
+#
+# Simulator windows: simctl boots headlessly, so each simulator leg opens the
+# device GUI on the booted UDID through scripts/sim-window.sh — Xcode 27's
+# Device Hub (`com.apple.dt.Devices`) via its `devices://device/open?id=` deep
+# link when present, falling back to Simulator.app on older Xcode.
 
 # === Configuration (overridable) ===
 SCHEME="${SCHEME:-CheckStitch}"
@@ -57,6 +62,8 @@ trap 'rm -f "$DEVICES_JSON" "$UNREACHABLE_LOG"' EXIT
 # === Derived paths ===
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/sim-window.sh
+source "$SCRIPT_DIR/sim-window.sh"
 APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphoneos/${SCHEME}.app"
 MAC_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}/${SCHEME}.app"
 SIM_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphonesimulator/${SCHEME}.app"
@@ -286,7 +293,8 @@ if [[ "$IOS_TARGET" == "sim" ]]; then
             failures=$((failures + 1))
             continue
         fi
-        open -a Simulator --args -CurrentDeviceUDID "$udid" >/dev/null 2>&1 || true
+        echo "==> Showing the $label simulator window ($udid)…"
+        show_sim_window "$udid"
         echo "==> Building $SCHEME ($CONFIGURATION) for the $label simulator…"
         if ! xcodebuild -scheme "$SCHEME" \
           -destination "id=$udid" \

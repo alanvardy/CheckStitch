@@ -124,8 +124,10 @@ gate_shuts_down_only_resolved_udid() {
     grep -q 'boot 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'bootstatus 11111111-1111-1111-1111-111111111111 -b' "$STUB_ROOT/xcrun.log" || return 1
     grep -q 'shutdown 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
-    # The window-suppression lever itself must have fired.
+    # The window-suppression levers themselves must have fired: older-Xcode
+    # Simulator.app and Xcode 27's Device Hub.
     grep -q 'tell application "Simulator" to quit' "$STUB_ROOT/osascript.log" || return 1
+    grep -q 'tell application id "com.apple.dt.Devices" to quit' "$STUB_ROOT/osascript.log" || return 1
     # Never a global selector.
     ! grep -Eq 'shutdown (all|booted)|boot (all|booted)' "$STUB_ROOT/xcrun.log"
 }
@@ -189,7 +191,9 @@ run_path_requests_window_for_resolved_udid() {
     local app="$STUB_ROOT/CheckStitch.app"
     mkdir -p "$app"
     bash scripts/run-simulator.sh 'platform=iOS Simulator,id=RUN-UDID-1' "$app" >/dev/null 2>&1 || return 1
-    grep -q 'RUN-UDID-1' "$STUB_ROOT/open.log"
+    # The window must go through Xcode 27's Device Hub deep link, not the
+    # Simulator.app launch arg that no longer exists on this toolchain.
+    grep -q 'devices://device/open?id=RUN-UDID-1' "$STUB_ROOT/open.log"
 }
 
 gate_never_requests_a_window() {
@@ -430,6 +434,20 @@ run_devices_rejects_malformed_saved_inventory() {
 }
 
 run_case run_devices_sim_default_targets_only_the_duo_physically run_devices_sim_default_targets_only_the_duo_physically
+
+run_devices_sim_opens_device_hub_windows() {
+    stub_ios_command
+    # Pin both simulators so the assertion does not depend on this worktree's
+    # .simulator_id; the Device Hub deep link must be opened for each leg.
+    SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
+        SIM_IPAD=22222222-2222-2222-2222-222222222222 \
+        DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'devices://device/open?id=11111111-1111-1111-1111-111111111111' "$STUB_ROOT/open.log" || return 1
+    grep -q 'devices://device/open?id=22222222-2222-2222-2222-222222222222' "$STUB_ROOT/open.log"
+}
+
+run_case run_devices_sim_opens_device_hub_windows run_devices_sim_opens_device_hub_windows
 run_case run_devices_rejects_unreadable_saved_inventory run_devices_rejects_unreadable_saved_inventory
 run_case run_devices_rejects_malformed_saved_inventory run_devices_rejects_malformed_saved_inventory
 
