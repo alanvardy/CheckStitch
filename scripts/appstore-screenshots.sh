@@ -5,6 +5,10 @@
 # Usage:
 #   scripts/appstore-screenshots.sh [options] [class ...]
 #
+# Classes are opt-in: a bare run captures iphone-6.3 only. iphone-duo must be
+# named explicitly — App Store Connect's Duo slot is not live yet, so uploaded
+# Duo assets may be rejected until it opens.
+#
 # Output tree: build/appstore-screenshots/<lang>/<device>/<n>-<name>.png, plus
 # a per-run manifest.json naming the class, device, size and screens captured.
 #
@@ -13,6 +17,23 @@
 #   ipad-13     iPad Pro 13-inch (M5), 2064x2752
 #   watch-46mm  Apple Watch Series 11 (46mm), 416x496
 #   iphone-duo  iPhone Duo, per-variant sizes (see below)
+#
+# iphone-duo — opt-in class, one Device Hub hinge pose per invocation:
+#   folder                       pose     display  size
+#   iphone-duo-outer-portrait    folded   1        1398x2034
+#   iphone-duo-outer-landscape   folded   1        2034x1398
+#   iphone-duo-inner-portrait    book     3        2007x2853
+#   iphone-duo-inner-landscape   open     3        2853x2007
+# Observed panels: 466x678 (outer), 669x951 (inner). Set the pose in Device
+# Hub, then run one invocation per pose:
+#   scripts/appstore-screenshots.sh --duo-pose folded iphone-duo   # outer, both
+#   scripts/appstore-screenshots.sh --duo-pose book   iphone-duo   # inner portrait
+#   scripts/appstore-screenshots.sh --duo-pose open   iphone-duo   # inner landscape
+# `folded` (display 1) emits both outer folders; `book`/`open` (display 3) emit
+# one inner folder each. Seams used: --ui-testing-force-duo-outer widens the Duo
+# card on the outer display, and --ui-testing-orientation landscape forces the
+# outer-landscape rotation (a no-op on the regular/regular inner panel).
+# The five iphone-duo-<screen> wallpaper slots are shared by all four variants.
 #
 # Wallpapers live in scripts/fixtures/appstore-wallpapers/; each slot is named
 # <class>-<screen> and is staged into the app container before the matching
@@ -85,7 +106,7 @@ while [ $# -gt 0 ]; do
                             *) echo "!! --duo-pose must be folded|book|open (got '$DUO_POSE')" >&2; exit 2 ;;
                           esac
                           shift 2 ;;
-    -h|--help)            sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)            sed -n '2,54p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*)                   echo "!! unknown option: $1" >&2; exit 2 ;;
     *)                    CLASSES+=("$1"); shift ;;
   esac
@@ -447,10 +468,11 @@ capture_duo() { # $1 = device type regex; pose taken from $DUO_POSE
   udid=$(udid_override_for "$DUO_CLASS")
   [ -n "$udid" ] || udid=$(resolve_udid "$pattern" iOS)
   if [ -z "$udid" ]; then
-    echo "!! no iPhone Duo simulator found matching '$pattern' — skipping iphone-duo." >&2
+    echo "!! no iPhone Duo simulator found matching '$pattern' — this is a missing Duo runtime, not a generic skip." >&2
     echo "   The Duo device type needs the iPhone19,4 runtime. Check:" >&2
     echo "     xcrun simctl list runtimes | grep iPhone19,4" >&2
     echo "     xcrun simctl list devicetypes | grep 'iPhone Duo'" >&2
+    echo "   Skipping iphone-duo; the run continues." >&2
     return 0   # never abort the whole run: `return 1` would trip `set -e`
   fi
   variant=$(duo_folder_for_pose)
