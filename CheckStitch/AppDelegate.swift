@@ -1,4 +1,5 @@
 #if os(iOS)
+    import CheckStitchCore
     import os
     import UIKit
 
@@ -27,6 +28,22 @@
 
         func applicationDidBecomeActive(_: UIApplication) {
             Self.applyAppearance(AppearanceMode.load())
+            Self.applyForcedOrientationIfNeeded()
+        }
+
+        /// Forces landscape when the screenshot harness passes
+        /// `--ui-testing-orientation landscape`. No-op for production launches.
+        static func applyForcedOrientationIfNeeded() {
+            guard LaunchSeams.current().orientation == .landscape else { return }
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
+                  let controller = scene.keyWindow?.rootViewController
+            else { return }
+            controller.setNeedsUpdateOfSupportedInterfaceOrientations()
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape)) { error in
+                Self.logger.error(
+                    "Forced orientation request failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
 
         /// Re-evaluates the orientation lock and requests an immediate rotation
@@ -55,7 +72,9 @@
             _: UIApplication,
             supportedInterfaceOrientationsFor _: UIWindow?) -> UIInterfaceOrientationMask {
             OrientationPolicy(
-                allowsLandscape: OrientationPreference().isLandscapeEnabled).mask
+                forcedOrientation: LaunchSeams.current().orientation,
+                allowsLandscape: OrientationPreference().isLandscapeEnabled
+            ).mask
         }
 
         func application(

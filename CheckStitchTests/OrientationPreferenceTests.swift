@@ -1,4 +1,5 @@
 @testable import CheckStitch
+import CheckStitchCore
 import Foundation
 import Testing
 
@@ -36,6 +37,20 @@ struct OrientationPreferenceTests {
         // (`OrientationPolicy.mask`) is iOS-only and exercised manually.
         #expect(OrientationPolicy(allowsLandscape: true) == .allButUpsideDown)
         #expect(OrientationPolicy(allowsLandscape: false) == .portrait)
-        #expect(OrientationPolicy.allCases.map(\.rawValue) == ["portrait", "allButUpsideDown"])
+        #expect(OrientationPolicy.allCases.map(\.rawValue) == ["portrait", "allButUpsideDown", "landscape"])
+    }
+
+    @Test
+    func forcedLandscapeBeatsThePreference() {
+        #expect(OrientationPolicy(forcedOrientation: .landscape, allowsLandscape: true) == .landscape)
+        #expect(OrientationPolicy(forcedOrientation: .landscape, allowsLandscape: false) == .landscape)
+    }
+
+    @Test
+    func nonLandscapeForcedValueFallsBackToPreference() {
+        #expect(OrientationPolicy(forcedOrientation: .portrait, allowsLandscape: true) == .allButUpsideDown)
+        #expect(OrientationPolicy(forcedOrientation: .portrait, allowsLandscape: false) == .portrait)
+        #expect(OrientationPolicy(forcedOrientation: nil, allowsLandscape: true) == .allButUpsideDown)
+        #expect(OrientationPolicy(forcedOrientation: nil, allowsLandscape: false) == .portrait)
     }
 }

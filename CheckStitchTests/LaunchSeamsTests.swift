@@ -61,6 +61,26 @@ struct LaunchSeamsTests {
         #expect(LaunchSeams.parse(arguments: [], environment: [:]).forceDuoOuter == false)
     }
 
+    @Test func forcedLandscapeParses() {
+        let seams = LaunchSeams.parse(arguments: ["--ui-testing-orientation", "landscape"], environment: [:])
+        #expect(seams.orientation == .landscape)
+        #expect(seams.isUITesting)
+    }
+
+    @Test func forcedPortraitParses() {
+        #expect(LaunchSeams.parse(arguments: ["--ui-testing-orientation", "portrait"], environment: [:]).orientation == .portrait)
+    }
+
+    @Test func absentOrientationIsNil() {
+        #expect(LaunchSeams.parse(arguments: [], environment: [:]).orientation == nil)
+    }
+
+    @Test func unknownOrientationTokenIsNil() {
+        let seams = LaunchSeams.parse(arguments: ["--ui-testing-orientation", "sideways"], environment: [:])
+        #expect(seams.orientation == nil)
+        #expect(seams.isUITesting)
+    }
+
     @Test func environmentSeedBecomesAFileURL() {
         let seams = LaunchSeams.parse(arguments: [], environment: ["CHECKSTITCH_UITEST_SEED": "/tmp/x.json"])
         #expect(seams.seedURL == URL(fileURLWithPath: "/tmp/x.json"))

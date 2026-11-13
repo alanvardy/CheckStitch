@@ -7,6 +7,12 @@ import Foundation
 /// The only reader of launch arguments / UI-testing environment in the app;
 /// views receive the parsed value, never `ProcessInfo`.
 public struct LaunchSeams: Sendable, Equatable {
+    /// A forced interface orientation for the screenshot harness.
+    public enum Orientation: String, Sendable {
+        case portrait
+        case landscape
+    }
+
     public var isUITesting: Bool
     public var isEmpty: Bool
     public var seedURL: URL?
@@ -14,11 +20,13 @@ public struct LaunchSeams: Sendable, Equatable {
     public var openChecklistIndex: Int?
     public var language: AppLanguage?
     public var forceDuoOuter: Bool
+    public var orientation: Orientation?
 
     public init(
         isUITesting: Bool = false, isEmpty: Bool = false, seedURL: URL? = nil,
         openSettings: Bool = false, openChecklistIndex: Int? = nil,
-        language: AppLanguage? = nil, forceDuoOuter: Bool = false
+        language: AppLanguage? = nil, forceDuoOuter: Bool = false,
+        orientation: Orientation? = nil
     ) {
         self.isUITesting = isUITesting
         self.isEmpty = isEmpty
@@ -27,6 +35,7 @@ public struct LaunchSeams: Sendable, Equatable {
         self.openChecklistIndex = openChecklistIndex
         self.language = language
         self.forceDuoOuter = forceDuoOuter
+        self.orientation = orientation
     }
 
     /// Ephemeral suite for `--ui-testing`; the real App Group container is
@@ -57,6 +66,11 @@ public struct LaunchSeams: Sendable, Equatable {
                 }
             case "--ui-testing-force-duo-outer":
                 seams.isUITesting = true; seams.forceDuoOuter = true
+            case "--ui-testing-orientation":
+                seams.isUITesting = true
+                if index + 1 < arguments.count, let value = Orientation(rawValue: arguments[index + 1]) {
+                    seams.orientation = value; index += 1
+                }
             default:
                 break // unknown flags tolerated
             }
