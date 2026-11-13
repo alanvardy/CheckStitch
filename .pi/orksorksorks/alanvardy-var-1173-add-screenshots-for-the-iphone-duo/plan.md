@@ -475,12 +475,12 @@ run_case appstore_duo_missing_runtime_warns_and_continues appstore_duo_missing_r
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (new `DuoOuterPortraitTests` + `LaunchSeamsTests`)
-- [ ] `bash scripts/tests/run.sh` passes (new Duo cases; existing appstore cases unchanged)
-- [ ] `bash -n scripts/appstore-screenshots.sh` and `/bin/bash -n scripts/appstore-screenshots.sh` pass
-- [ ] `python3 -c "import json;d=json.load(open('scripts/fixtures/appstore-wallpapers/manifest.json'));assert len([k for k in d if k.startswith('iphone-duo-')])==5"` passes; all five JPEGs exist
-- [ ] `grep -n '^set -euo pipefail' scripts/appstore-screenshots.sh` → subtract 1 → update `sed -n '2,Np'`; `bash scripts/appstore-screenshots.sh --help` prints the whole block
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` clean
+- [x] `make test-unit` passes (new `DuoOuterPortraitTests` + `LaunchSeamsTests`)
+- [x] `bash scripts/tests/run.sh` passes (new Duo cases; existing appstore cases unchanged)
+- [x] `bash -n scripts/appstore-screenshots.sh` and `/bin/bash -n scripts/appstore-screenshots.sh` pass
+- [x] `python3 -c "import json;d=json.load(open('scripts/fixtures/appstore-wallpapers/manifest.json'));assert len([k for k in d if k.startswith('iphone-duo-')])==5"` passes; all five JPEGs exist
+- [x] `grep -n '^set -euo pipefail' scripts/appstore-screenshots.sh` → subtract 1 → update `sed -n '2,Np'`; `bash scripts/appstore-screenshots.sh --help` prints the whole block
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` clean
 
 #### Manual
 - [ ] `xcrun simctl list runtimes | grep iPhone19,4` reports the Duo runtime; Device Hub
@@ -708,9 +708,9 @@ run_case appstore_duo_folded_writes_outer_landscape appstore_duo_folded_writes_o
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes (orientation parse + policy mapping, updated `allCases`)
-- [ ] `bash scripts/tests/run.sh` passes (both outer folders, forced-orientation arg logged)
-- [ ] `bash -n scripts/appstore-screenshots.sh` passes; `shellcheck scripts/*.sh scripts/tests/*.sh` clean
+- [x] `make test-unit` passes (orientation parse + policy mapping, updated `allCases`)
+- [x] `bash scripts/tests/run.sh` passes (both outer folders, forced-orientation arg logged)
+- [x] `bash -n scripts/appstore-screenshots.sh` passes; `shellcheck scripts/*.sh scripts/tests/*.sh` clean
 
 #### Manual
 - [ ] `bash scripts/appstore-screenshots.sh --no-build --no-install --duo-pose folded iphone-duo`
@@ -787,8 +787,8 @@ run_case appstore_duo_open_writes_inner_landscape appstore_duo_open_writes_inner
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `bash scripts/tests/run.sh` passes (book/open folders and exact pairs)
+- [x] `make test-unit` passes
+- [x] `bash scripts/tests/run.sh` passes (book/open folders and exact pairs)
 
 #### Manual
 - [ ] Set the Device Hub pose to **book**; `bash scripts/appstore-screenshots.sh --no-build
@@ -853,14 +853,14 @@ Note: `--fetch-wallpapers` already covers the new slots because `slot_names()` i
 ### Verification
 
 #### Automated
-- [ ] `make test-unit` passes
-- [ ] `bash scripts/tests/run.sh` passes
-- [ ] `bash -n scripts/appstore-screenshots.sh` and `/bin/bash -n scripts/appstore-screenshots.sh` pass
-- [ ] `shellcheck scripts/*.sh scripts/tests/*.sh` clean
-- [ ] `bash scripts/appstore-screenshots.sh --help` prints the entire doc block
-- [ ] `grep -q 'iphone-duo' scripts/appstore-screenshots.sh` and the default-class line still
+- [x] `make test-unit` passes
+- [x] `bash scripts/tests/run.sh` passes
+- [x] `bash -n scripts/appstore-screenshots.sh` and `/bin/bash -n scripts/appstore-screenshots.sh` pass
+- [x] `shellcheck scripts/*.sh scripts/tests/*.sh` clean
+- [x] `bash scripts/appstore-screenshots.sh --help` prints the entire doc block
+- [x] `grep -q 'iphone-duo' scripts/appstore-screenshots.sh` and the default-class line still
       reads `CLASSES=(iphone-6.3)` (opt-in preserved)
-- [ ] Full gate: `./scripts/test.sh` prints `gate: ok`
+- [x] Full gate: `./scripts/test.sh` prints `gate: ok`
 
 #### Manual
 - [ ] Full three-invocation sweep across all six languages (pose set in Device Hub before
