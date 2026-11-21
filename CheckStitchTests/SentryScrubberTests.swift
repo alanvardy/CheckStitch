@@ -96,6 +96,72 @@ struct SentryScrubberTests {
         #expect(SentryScrubber.scrub(hangEvent(frames: frames)) != nil)
     }
 
+    // MARK: Fail-open guarantee
+
+    @Test
+    func keepsEventWhenMechanismRenamed() {
+        #expect(SentryScrubber.scrub(hangEvent(
+            frames: Self.capturedFrames, mechanismType: "AppHangRenamed")) != nil)
+    }
+
+    @Test
+    func keepsEventWhenStacktraceMissing() {
+        let event = Event()
+        let exception = Exception(value: "App hanging.", type: "App Hang Fully Blocked")
+        exception.mechanism = Mechanism(type: "AppHang")
+        event.exceptions = [exception]
+        #expect(SentryScrubber.scrub(event) != nil)
+    }
+
+    @Test
+    func keepsEventWhenFrameListEmpty() {
+        #expect(SentryScrubber.scrub(hangEvent(frames: [])) != nil)
+    }
+
+    @Test
+    func keepsEventWhenSignaturePartiallyMatches() {
+        // AccessibilitySettingsLoader absent ⇒ not the Guided Access stall.
+        let frames = Self.capturedFrames.filter {
+            $0.image != Self.accessibilitySettingsLoader
+        }
+        #expect(SentryScrubber.scrub(hangEvent(frames: frames)) != nil)
+    }
+
+    @Test
+    func keepsEventWhenFramePackageIsMissing() {
+        let frames = Self.capturedFrames.map { (image: "", inApp: $0.inApp) }
+        #expect(SentryScrubber.scrub(hangEvent(frames: frames)) != nil)
+    }
+
+    @Test
+    func keepsNonHangEventWithStallFrames() {
+        let event = hangEvent(frames: Self.capturedFrames, mechanismType: "Crash")
+        event.extra = ["reminderTitle": "Buy milk"]
+        let scrubbed = SentryScrubber.scrub(event)
+        #expect(scrubbed != nil) // not dropped
+        #expect(scrubbed?.extra == nil) // PII scrubbing still runs
+    }
+
+    @Test
+    func keepsStallLikeEventWhenAppFramePresent() {
+        var frames = Self.capturedFrames
+        frames.insert((Self.appImage, true), at: 7) // app frame just past the stall frame
+        #expect(SentryScrubber.scrub(hangEvent(frames: frames)) != nil)
+    }
+
+    @Test
+    func scrubsKeptEventStill() {
+        var frames = Self.capturedFrames
+        frames.insert((Self.appImage, true), at: 7)
+        let event = hangEvent(frames: frames)
+        event.exceptions?[0].value = "Buy milk from the Grocery list"
+        event.user = User(userId: "Buy milk")
+        let scrubbed = SentryScrubber.scrub(event)
+        #expect(scrubbed != nil)
+        #expect(scrubbed?.exceptions?.first?.value == nil)
+        #expect(scrubbed?.user == nil)
+    }
+
     // MARK: Fixtures
 
     private static let appImage =
