@@ -96,6 +96,15 @@ struct SentryScrubberTests {
         #expect(SentryScrubber.scrub(hangEvent(frames: frames)) != nil)
     }
 
+    @Test
+    func keepsEventWhenAppPathFrameLacksInAppFlag() {
+        // The `.app/` path fallback, not `Frame.inApp`, must mark this app frame
+        // so the blocked-chain guard keeps the event.
+        var frames = Self.capturedFrames
+        frames.insert((Self.appImage, false), at: 7)
+        #expect(SentryScrubber.scrub(hangEvent(frames: frames)) != nil)
+    }
+
     // MARK: Fail-open guarantee
 
     @Test
