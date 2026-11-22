@@ -8,7 +8,10 @@ import Sentry
 /// allow-listed tags, and breadcrumb category/type/level/timestamp). Sentry's
 /// `contexts` are left intact: they carry SDK device/app metadata only, and no
 /// CheckStitch code adds reminder/list content to them.
-/// Returns `nil` to drop a breadcrumb when its payload is not allow-listed.
+///
+/// `scrub(_ event:)` returns `nil` to drop a whole event that matches the
+/// captured system-stall app hang; `scrub(_ breadcrumb:)` returns `nil` when a
+/// breadcrumb's payload is not allow-listed.
 enum SentryScrubber {
     /// One frame reduced to the fields `beforeSend` actually receives.
     struct StackFrameSignature: Equatable {
@@ -37,7 +40,8 @@ enum SentryScrubber {
     ]
 
     /// Pure drop decision. Fail-open: any under-specified input returns `false`,
-    /// so the event is reported rather than silently lost.
+    /// so the event is reported rather than silently lost. `frames` is ordered
+    /// outermost → innermost, as sentry-cocoa serializes the stack.
     ///
     /// All three conditions must hold:
     ///  1. the mechanism is the public, stable `"AppHang"` marker,
@@ -46,6 +50,8 @@ enum SentryScrubber {
     nonisolated static func isSystemStall(
         mechanismType: String?,
         frames: [StackFrameSignature]) -> Bool {
+        // Redundant with `appHangStack`'s filter; kept so the predicate stands
+        // alone and can never drop a non-`AppHang` event.
         guard mechanismType == "AppHang" else { return false }
         guard !frames.isEmpty else { return false }
         guard systemStallSignatureImages.allSatisfy({ signature in
