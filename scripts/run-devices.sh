@@ -27,8 +27,10 @@ set -euo pipefail
 #   SEED_FILE=…  # seed envelope JSON (default scripts/fixtures/dev-seed.json)
 #   DEVICES_JSON_IN=… # replay a saved `devicectl list devices -j` inventory
 #                     # offline instead of querying devicectl (tests/fixtures)
-#   RUN_MAC=0   # skip the macOS build + launch step (default RUN_MAC=1)
-#   RUN_WATCH=0 # skip the Apple Watch build + launch step (default RUN_WATCH=1)
+#   RUN_MAC=0   # skip the macOS build + launch step (default RUN_MAC=1;
+#               # duo defaults to 0 unless RUN_MAC=1 opts back in)
+#   RUN_WATCH=0 # skip the Apple Watch build + launch step (default RUN_WATCH=1;
+#               # duo defaults to 0 unless RUN_WATCH=1 opts back in)
 #
 # Devices are discovered dynamically each run, so a new iPhone/iPad is picked
 # up without editing this script. A device that is unreachable (locked, asleep,
@@ -234,8 +236,12 @@ if [[ ${#DEVICES[@]} -eq 0 ]]; then
     if [[ "$IOS_TARGET" == "sim" ]]; then
         echo "  (no reachable physical iPhone Duo found — running the iPhone/iPad simulator legs instead)"
     elif [[ "$IOS_TARGET" == "duo" ]]; then
-        if [[ "$RUN_MAC" -eq 1 || "$RUN_WATCH" -eq 1 ]]; then
+        if [[ "$RUN_MAC" -eq 1 && "$RUN_WATCH" -eq 1 ]]; then
             echo "  (no reachable iPhone Duo found — macOS + Apple Watch run only)"
+        elif [[ "$RUN_MAC" -eq 1 ]]; then
+            echo "  (no reachable iPhone Duo found — macOS run only)"
+        elif [[ "$RUN_WATCH" -eq 1 ]]; then
+            echo "  (no reachable iPhone Duo found — Apple Watch run only)"
         else
             echo "❌ No reachable iPhone Duo found." >&2
             echo "   Connect the iPhone Duo to this Mac's Wi-Fi and unlock it, then retry (set DUO_DEVICE_ID= to pin one)." >&2
