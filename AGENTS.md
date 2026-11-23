@@ -76,6 +76,9 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   (requires Developer Mode; prefers an iPhone), plus the host Mac and the
   paired Apple Watch via the `run-watch.sh` leg (`RUN_WATCH=0` to skip it).
   Honours `SCHEME`, `BUNDLE_ID`, `CONFIGURATION`, `DERIVED_DATA` overrides.
+  Target set is `IOS_TARGET=sim | device | duo`; `duo` deploys only to the
+  physical iPhone Duo (skips the simulator, macOS and Apple Watch legs unless
+  `RUN_MAC=1`/`RUN_WATCH=1` opt back in).
   The simulator legs are seeded by default (`SEED=0`/`SEED_FILE=` override) as
   `make run` is.
 - Destination precedence is documented in the `Makefile`: explicit `SIM=` >

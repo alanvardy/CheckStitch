@@ -10,10 +10,15 @@ set -euo pipefail
 #
 # Overrides (same env-override pattern as the Makefile):
 #   SCHEME=… BUNDLE_ID=… CONFIGURATION=… DERIVED_DATA=…
-#   IOS_TARGET=sim|device # run the regular iPhone/iPad legs on simulators or
-#                         # on physical devices (default sim; in sim mode only
-#                         # the physical iPhone Duo is installed to over
-#                         # devicectl; Developer Mode off is noted, not skipped)
+#   IOS_TARGET=sim|device|duo
+#                         # sim: run the regular iPhone/iPad legs on simulators
+#                         # device: run them on physical devices
+#                         # duo: deploy only to the physical iPhone Duo; skips
+#                         # the simulator, macOS and Apple Watch legs unless
+#                         # RUN_MAC=1/RUN_WATCH=1 opt back in
+#                         # (default sim; in sim mode only the physical iPhone
+#                         # Duo is installed to over devicectl; Developer Mode
+#                         # off is noted, not skipped)
 #   SIM_IPHONE=… # pin the iPhone simulator by UDID (default: worktree
 #                # .simulator_id when valid, else `iPhone 17`)
 #   SIM_IPAD=…   # pin the iPad simulator by UDID (default: `iPad (A16)`)
@@ -38,7 +43,9 @@ set -euo pipefail
 #
 # IOS_TARGET=sim runs the iPhone and iPad legs on simulators instead (reusing
 # resolve-sim-udid.sh for name→UDID resolution); IOS_TARGET=device keeps the
-# all-physical behaviour above.
+# all-physical behaviour above; IOS_TARGET=duo deploys only to the physical
+# iPhone Duo and skips the simulator, macOS and Apple Watch legs unless
+# RUN_MAC=1/RUN_WATCH=1 opt back in.
 #
 # Simulator windows: simctl boots headlessly, so each simulator leg opens the
 # device GUI on the booted UDID through scripts/sim-window.sh — Xcode 27's
@@ -50,10 +57,16 @@ SCHEME="${SCHEME:-CheckStitch}"
 BUNDLE_ID="${BUNDLE_ID:-app.alanvardy.CheckStitch}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA="${DERIVED_DATA:-DerivedData}"
-IOS_TARGET="${IOS_TARGET:-sim}"         # sim | device
+IOS_TARGET="${IOS_TARGET:-sim}"         # sim | device | duo
 SIM_IPHONE="${SIM_IPHONE:-}"            # explicit iPhone simulator UDID
 SIM_IPAD="${SIM_IPAD:-}"                # explicit iPad simulator UDID
 DUO_DEVICE_ID="${DUO_DEVICE_ID:-}"      # pin the physical Duo by identifier
+# Duo-only mode: the physical iPhone Duo is the only leg. Applied before the
+# RUN_MAC/RUN_WATCH defaults so an explicit RUN_MAC=1 / RUN_WATCH=1 opts back in.
+if [[ "$IOS_TARGET" == "duo" ]]; then
+    RUN_MAC="${RUN_MAC:-0}"
+    RUN_WATCH="${RUN_WATCH:-0}"
+fi
 RUN_MAC="${RUN_MAC:-1}"
 RUN_WATCH="${RUN_WATCH:-1}"
 DEVICES_JSON_IN="${DEVICES_JSON_IN:-}"
@@ -85,8 +98,8 @@ if [[ -f "$REPO_ROOT/.simulator_id" ]]; then
     fi
 fi
 
-if [[ "$IOS_TARGET" != "sim" && "$IOS_TARGET" != "device" ]]; then
-    echo "❌ IOS_TARGET must be 'sim' or 'device' (got '$IOS_TARGET')." >&2
+if [[ "$IOS_TARGET" != "sim" && "$IOS_TARGET" != "device" && "$IOS_TARGET" != "duo" ]]; then
+    echo "❌ IOS_TARGET must be 'sim', 'device' or 'duo' (got '$IOS_TARGET')." >&2
     exit 1
 fi
 
@@ -122,7 +135,7 @@ if [[ "$SEED" != "0" ]]; then
 fi
 
 # ── Discover devices ─────────────────────────────────────────────────────────
-echo "==> Discovering paired iPhone/iPad devices… (sim default: the physical iPhone Duo only)"
+echo "==> Discovering paired iPhone/iPad devices… (sim/duo default: the physical iPhone Duo only)"
 if [[ -n "$DEVICES_JSON_IN" ]]; then
     echo "  (using the saved inventory in DEVICES_JSON_IN=$DEVICES_JSON_IN)"
     if ! cp "$DEVICES_JSON_IN" "$DEVICES_JSON" 2>/dev/null; then
@@ -174,7 +187,7 @@ with open(sys.argv[2], "a", encoding="utf-8") as unreachable_log:
         if hardware.get("reality") != "physical":
             continue
         name = props.get("name", "unknown device")
-        # sim mode narrows physical discovery to the iPhone Duo: the regular
+        # sim/duo mode narrows physical discovery to the iPhone Duo: the regular
         # iPhone/iPad legs run on simulators, so only the Duo is installed to
         # over devicectl. A device counts as the Duo when pinned by identifier,
         # named "iPhone Duo", or identified by its productType.
@@ -220,6 +233,14 @@ if [[ ${#DEVICES[@]} -eq 0 ]]; then
     fi
     if [[ "$IOS_TARGET" == "sim" ]]; then
         echo "  (no reachable physical iPhone Duo found — running the iPhone/iPad simulator legs instead)"
+    elif [[ "$IOS_TARGET" == "duo" ]]; then
+        if [[ "$RUN_MAC" -eq 1 || "$RUN_WATCH" -eq 1 ]]; then
+            echo "  (no reachable iPhone Duo found — macOS + Apple Watch run only)"
+        else
+            echo "❌ No reachable iPhone Duo found." >&2
+            echo "   Connect the iPhone Duo to this Mac's Wi-Fi and unlock it, then retry (set DUO_DEVICE_ID= to pin one)." >&2
+            exit 1
+        fi
     elif [[ "$RUN_MAC" -eq 1 ]]; then
         echo "  (no reachable iPhone/iPad found — macOS + Apple Watch run only)"
     else
@@ -284,7 +305,8 @@ if [[ ${#DEVICES[@]} -gt 0 ]]; then
 fi
 
 # ── iPhone/iPad simulator leg ─────────────────────────────────────────────────
-# Opt-in via IOS_TARGET=sim. Resolution reuses resolve-sim-udid.sh; a simulator
+# Opt-in via IOS_TARGET=sim (IOS_TARGET=duo skips it entirely). Resolution
+# reuses resolve-sim-udid.sh; a simulator
 # that cannot be resolved or fails to boot/build/install/launch is a failed step
 # that does not stop the remaining leg (or the macOS/watch legs).
 SIM_TOTAL=0
