@@ -110,12 +110,13 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
   the resolved UDID only — never `all`/`booted`. `LOCK_TIMEOUT` (default 60)
   bounds the lock wait so a slow concurrent gate cannot hang this one; on
   timeout the gate warns and runs without the lock.
-- **`make run`** and the `run-devices.sh` simulator legs open their window
-  through `scripts/sim-window.sh`: on Xcode 27 that is Device Hub
-  (`com.apple.dt.Devices`) via the `devices://device/open?id=<udid>` deep link,
-  falling back to `open -a Simulator --args -CurrentDeviceUDID <udid>` on older
-  Xcode. The `--args` are honoured on a fresh `Simulator.app` launch; if it is
-  already running, the device boot attaches that device's window instead.
+- **`make run`** and the `run-devices.sh` simulator legs open the device GUI
+  once per run through `scripts/sim-window.sh` (repeated calls no-op): on
+  Xcode 27 that is Device Hub (`com.apple.dt.Devices`) via
+  `open -b com.apple.dt.Devices`, which lists every booted simulator; older
+  Xcode falls back to `open -a Simulator --args -CurrentDeviceUDID <udid>`. The
+  `--args` are honoured on a fresh `Simulator.app` launch; if it is already
+  running, the device boot attaches that device's window instead.
 - **Shell tests**: `bash scripts/tests/run.sh`, also run by the gate; stubs
   `xcrun`/`defaults`/`make`/`open`/`osascript` on `PATH`.
 
