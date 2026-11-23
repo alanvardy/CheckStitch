@@ -84,7 +84,11 @@ macOS-hosted) and `CheckStitchUITests/` (one XCTest smoke) test them.
 - Destination precedence is documented in the `Makefile`: explicit `SIM=` >
   this worktree's `.simulator_id` > shared default. Never leave a bare
   `name=` destination in a script — it selects a shared device and wedges
-  parallel agents.
+  parallel agents. The manual `r` / `bash scripts/run-devices.sh` simulator
+  legs are the deliberate exception: they target the shared `iPhone 17` /
+  `iPad (A16)` names (resolved to UDIDs) rather than `.simulator_id`, and
+  `SIM_IPHONE=` / `SIM_IPAD=` still pin a specific device. Do not run two `r`
+  invocations in parallel.
 - `make appstore-screenshots` / `bash scripts/appstore-screenshots.sh [class ...]`
   captures per-language App Store PNGs into
   `build/appstore-screenshots/<lang>/<device>/`. Classes: `iphone-6.3`
