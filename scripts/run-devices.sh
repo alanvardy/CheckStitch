@@ -19,8 +19,7 @@ set -euo pipefail
 #                         # (default sim; in sim mode only the physical iPhone
 #                         # Duo is installed to over devicectl; Developer Mode
 #                         # off is noted, not skipped)
-#   SIM_IPHONE=… # pin the iPhone simulator by UDID (default: worktree
-#                # .simulator_id when valid, else `iPhone 17`)
+#   SIM_IPHONE=… # pin the iPhone simulator by UDID (default: `iPhone 17`)
 #   SIM_IPAD=…   # pin the iPad simulator by UDID (default: `iPad (A16)`)
 #   DUO_DEVICE_ID=… # pin the physical iPhone Duo by identifier
 #   SEED=0       # launch the simulator legs unseeded (default: seeded)
@@ -90,28 +89,16 @@ APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphoneos/${SCHEME}.app
 MAC_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}/${SCHEME}.app"
 SIM_APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIGURATION}-iphonesimulator/${SCHEME}.app"
 
-# The worktree pin is shared with the gate, so mirror the gate's UUID guard: a
-# corrupt .simulator_id must never reach simctl raw.
-WORKTREE_SIM_ID=""
-if [[ -f "$REPO_ROOT/.simulator_id" ]]; then
-    _candidate="$(tr -d '[:space:]' <"$REPO_ROOT/.simulator_id")"
-    if [[ "$_candidate" =~ ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$ ]]; then
-        WORKTREE_SIM_ID="$_candidate"
-    fi
-fi
-
 if [[ "$IOS_TARGET" != "sim" && "$IOS_TARGET" != "device" && "$IOS_TARGET" != "duo" ]]; then
     echo "❌ IOS_TARGET must be 'sim', 'device' or 'duo' (got '$IOS_TARGET')." >&2
     exit 1
 fi
 
-# $1 explicit UDID (may be empty), $2 default device name, $3 prefer worktree pin (0/1)
+# $1 explicit UDID (may be empty), $2 default device name
 resolve_sim() {
     local destination
     if [[ -n "${1:-}" ]]; then
         destination="platform=iOS Simulator,id=$1"
-    elif [[ "${3:-0}" -eq 1 && -n "$WORKTREE_SIM_ID" ]]; then
-        destination="platform=iOS Simulator,id=$WORKTREE_SIM_ID"
     else
         destination="platform=iOS Simulator,name=$2"
     fi
@@ -319,8 +306,8 @@ SIM_TOTAL=0
 SIM_LAUNCHED=0
 if [[ "$IOS_TARGET" == "sim" ]]; then
     sim_targets=(
-      "iPhone|$(resolve_sim "${SIM_IPHONE:-}" "iPhone 17" 1 || true)"
-      "iPad|$(resolve_sim "${SIM_IPAD:-}" "iPad (A16)" 0 || true)"
+      "iPhone|$(resolve_sim "${SIM_IPHONE:-}" "iPhone 17" || true)"
+      "iPad|$(resolve_sim "${SIM_IPAD:-}" "iPad (A16)" || true)"
     )
     for entry in "${sim_targets[@]}"; do
         label="${entry%%|*}"

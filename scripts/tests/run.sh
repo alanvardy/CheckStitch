@@ -572,8 +572,8 @@ run_case run_devices_duo_run_mac_1_opts_back_in run_devices_duo_run_mac_1_opts_b
 
 run_devices_sim_opens_device_hub_once() {
     stub_ios_command
-    # Pin both simulators so the assertion does not depend on this worktree's
-    # .simulator_id; Device Hub opens once and lists both, so exactly one open
+    # Pin both simulators so the assertion is deterministic; Device Hub opens
+    # once and lists both, so exactly one open
     # must reach the stub — no per-udid deep link.
     SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
         SIM_IPAD=22222222-2222-2222-2222-222222222222 \
@@ -708,18 +708,25 @@ run_devices_sim_installs_and_launches_both_simulators() {
     grep -q -- '-destination id=22222222-2222-2222-2222-222222222222' "$STUB_ROOT/xcodebuild.log"
 }
 
-run_devices_sim_prefers_the_worktree_simulator() {
+run_devices_sim_defaults_to_the_shared_iphone() {
     stub_ios_command
-    local worktree_udid
-    if [[ -f .simulator_id ]]; then
-        worktree_udid="$(tr -d '[:space:]' <.simulator_id)"
-    else
-        worktree_udid="11111111-1111-1111-1111-111111111111"
-    fi
+    # No SIM_IPHONE pin: the iPhone leg must target the shared `iPhone 17`
+    # (fixture 11111111-…), not this worktree's .simulator_id device — `r`
+    # (this runner) is the manual path and does not use the gate's worktree pin.
     DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 IOS_TARGET=sim \
         SIM_IPAD=22222222-2222-2222-2222-222222222222 \
         DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
-    grep -q "simctl install $worktree_udid" "$STUB_ROOT/xcrun.log"
+    grep -q 'simctl install 11111111-1111-1111-1111-111111111111' "$STUB_ROOT/xcrun.log" || return 1
+    # If this worktree has a dedicated simulator, it must not be the target.
+    if [[ -f .simulator_id ]]; then
+        local worktree_udid
+        worktree_udid="$(tr -d '[:space:]' <.simulator_id)"
+        if [[ "$worktree_udid" != "11111111-1111-1111-1111-111111111111" ]] \
+            && grep -q "simctl install $worktree_udid" "$STUB_ROOT/xcrun.log"; then
+            return 1
+        fi
+    fi
+    true
 }
 
 run_devices_sim_resolution_failure_is_fatal() {
@@ -796,7 +803,7 @@ STUB
 }
 
 run_case run_devices_sim_seeds_the_installed_app_by_default run_devices_sim_seeds_the_installed_app_by_default
-run_case run_devices_sim_prefers_the_worktree_simulator run_devices_sim_prefers_the_worktree_simulator
+run_case run_devices_sim_defaults_to_the_shared_iphone run_devices_sim_defaults_to_the_shared_iphone
 run_case run_devices_sim_resolution_failure_is_fatal run_devices_sim_resolution_failure_is_fatal
 run_case run_devices_sim_continues_after_a_simulator_build_failure run_devices_sim_continues_after_a_simulator_build_failure
 
