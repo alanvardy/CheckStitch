@@ -49,10 +49,10 @@ set -euo pipefail
 # iPhone Duo and skips the simulator, macOS and Apple Watch legs unless
 # RUN_MAC=1/RUN_WATCH=1 opt back in.
 #
-# Simulator windows: simctl boots headlessly, so each simulator leg opens the
-# device GUI on the booted UDID through scripts/sim-window.sh — Xcode 27's
-# Device Hub (`com.apple.dt.Devices`) via its `devices://device/open?id=` deep
-# link when present, falling back to Simulator.app on older Xcode.
+# Simulator windows: simctl boots headlessly, so the simulator legs open the
+# device GUI once through scripts/sim-window.sh — Xcode 27's Device Hub
+# (`com.apple.dt.Devices`) shows every booted simulator in one window, so
+# later legs reuse it; older Xcode falls back to Simulator.app.
 
 # === Configuration (overridable) ===
 SCHEME="${SCHEME:-CheckStitch}"

@@ -186,14 +186,16 @@ run_case stale_lock_is_reaped stale_lock_is_reaped
 
 # --- Phase 4 ---------------------------------------------------------------
 
-run_path_requests_window_for_resolved_udid() {
+run_path_opens_device_hub_once() {
     new_stubs make xcrun defaults open
     local app="$STUB_ROOT/CheckStitch.app"
     mkdir -p "$app"
     bash scripts/run-simulator.sh 'platform=iOS Simulator,id=RUN-UDID-1' "$app" >/dev/null 2>&1 || return 1
-    # The window must go through Xcode 27's Device Hub deep link, not the
-    # Simulator.app launch arg that no longer exists on this toolchain.
-    grep -q 'devices://device/open?id=RUN-UDID-1' "$STUB_ROOT/open.log"
+    # The window opens once through Xcode 27's Device Hub, not the Simulator.app
+    # launch arg that no longer exists on this toolchain — and no per-udid deep
+    # link (Device Hub lists every booted device itself).
+    [[ "$(grep -c -- '-b com.apple.dt.Devices' "$STUB_ROOT/open.log")" -eq 1 ]] || return 1
+    ! grep -q 'devices://' "$STUB_ROOT/open.log"
 }
 
 gate_never_requests_a_window() {
@@ -203,8 +205,52 @@ gate_never_requests_a_window() {
     [[ ! -s "$STUB_ROOT/open.log" ]]
 }
 
-run_case run_path_requests_window_for_resolved_udid run_path_requests_window_for_resolved_udid
+run_case run_path_opens_device_hub_once run_path_opens_device_hub_once
 run_case gate_never_requests_a_window gate_never_requests_a_window
+
+# --- sim-window.sh open-once guard -----------------------------------------
+
+# A second call in the same process must not open the GUI again.
+sim_window_opens_device_hub_once_per_process() {
+    new_stubs open
+    bash -c 'source scripts/sim-window.sh; show_sim_window AAA; show_sim_window BBB' >/dev/null 2>&1 || return 1
+    [[ "$(grep -c -- '-b com.apple.dt.Devices' "$STUB_ROOT/open.log")" -eq 1 ]] || return 1
+    ! grep -q 'devices://' "$STUB_ROOT/open.log"
+}
+
+# When Device Hub cannot be opened, older Xcode's Simulator.app fallback fires.
+sim_window_falls_back_to_simulator_app() {
+    new_stubs open
+    cat >"$STUB_ROOT/open" <<STUB
+#!/bin/bash
+echo "\$*" >>"$STUB_ROOT/open.log"
+case "\$1" in
+    -b) exit 1 ;;
+esac
+exit 0
+STUB
+    chmod +x "$STUB_ROOT/open"
+    bash -c 'source scripts/sim-window.sh; show_sim_window FALLBACK-UDID' >/dev/null 2>&1 || return 1
+    grep -q -- '-a Simulator --args -CurrentDeviceUDID FALLBACK-UDID' "$STUB_ROOT/open.log"
+}
+
+# A failed open stays non-fatal and its note prints at most once.
+sim_window_reports_failure_once() {
+    new_stubs open
+    cat >"$STUB_ROOT/open" <<STUB
+#!/bin/bash
+echo "\$*" >>"$STUB_ROOT/open.log"
+exit 1
+STUB
+    chmod +x "$STUB_ROOT/open"
+    local out
+    out="$(bash -c 'source scripts/sim-window.sh; show_sim_window AAA; show_sim_window BBB' 2>&1)" || return 1
+    [[ "$(printf '%s\n' "$out" | grep -c 'note: could not open a device window')" -eq 1 ]]
+}
+
+run_case sim_window_opens_device_hub_once_per_process sim_window_opens_device_hub_once_per_process
+run_case sim_window_falls_back_to_simulator_app sim_window_falls_back_to_simulator_app
+run_case sim_window_reports_failure_once sim_window_reports_failure_once
 
 # The seed is handed to the launched app through simctl's SIMCTL_CHILD_ env
 # bridge. The generic stub logs argv only, so these cases use a stub that also
@@ -524,19 +570,20 @@ run_case run_devices_sim_default_targets_only_the_duo_physically run_devices_sim
 run_case run_devices_duo_targets_only_the_duo_physically run_devices_duo_targets_only_the_duo_physically
 run_case run_devices_duo_run_mac_1_opts_back_in run_devices_duo_run_mac_1_opts_back_in
 
-run_devices_sim_opens_device_hub_windows() {
+run_devices_sim_opens_device_hub_once() {
     stub_ios_command
     # Pin both simulators so the assertion does not depend on this worktree's
-    # .simulator_id; the Device Hub deep link must be opened for each leg.
+    # .simulator_id; Device Hub opens once and lists both, so exactly one open
+    # must reach the stub — no per-udid deep link.
     SIM_IPHONE=11111111-1111-1111-1111-111111111111 \
         SIM_IPAD=22222222-2222-2222-2222-222222222222 \
         DEVICES_JSON_IN="$IOS_FIXTURE" RUN_MAC=0 RUN_WATCH=0 \
         DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
-    grep -q 'devices://device/open?id=11111111-1111-1111-1111-111111111111' "$STUB_ROOT/open.log" || return 1
-    grep -q 'devices://device/open?id=22222222-2222-2222-2222-222222222222' "$STUB_ROOT/open.log"
+    [[ "$(grep -c -- '-b com.apple.dt.Devices' "$STUB_ROOT/open.log")" -eq 1 ]] || return 1
+    ! grep -q 'devices://' "$STUB_ROOT/open.log"
 }
 
-run_case run_devices_sim_opens_device_hub_windows run_devices_sim_opens_device_hub_windows
+run_case run_devices_sim_opens_device_hub_once run_devices_sim_opens_device_hub_once
 run_case run_devices_rejects_unreadable_saved_inventory run_devices_rejects_unreadable_saved_inventory
 run_case run_devices_rejects_malformed_saved_inventory run_devices_rejects_malformed_saved_inventory
 
