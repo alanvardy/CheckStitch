@@ -466,6 +466,35 @@ run_devices_sim_default_targets_only_the_duo_physically() {
     grep -q 'simctl install' "$STUB_ROOT/xcrun.log"
 }
 
+run_devices_duo_targets_only_the_duo_physically() {
+    stub_ios_command
+    # IOS_TARGET=duo: only the physical Duo is a devicectl target; the
+    # simulator, macOS and Apple Watch legs stay off unless RUN_MAC/RUN_WATCH
+    # opt back in (neither is set here).
+    IOS_TARGET=duo DEVICES_JSON_IN="$IOS_FIXTURE" \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'device install app --device CCCCCCCC-0000-0000-0000-000000000009' "$STUB_ROOT/xcrun.log" || return 1
+    if grep -q 'CCCCCCCC-0000-0000-0000-000000000007' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    if grep -q 'CCCCCCCC-0000-0000-0000-000000000008' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    # The simulator leg is skipped entirely.
+    if grep -q 'simctl install' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    # RUN_MAC defaults 0: no macOS build and no macOS launch.
+    if [[ -e "$STUB_ROOT/make.log" ]] && grep -q 'build-mac-signed' "$STUB_ROOT/make.log"; then return 1; fi
+    if [[ -s "$STUB_ROOT/open.log" ]]; then return 1; fi
+    # RUN_WATCH defaults 0: no watch install.
+    if grep -q 'watchkitapp' "$STUB_ROOT/xcrun.log"; then return 1; fi
+    true
+}
+
+run_devices_duo_run_mac_1_opts_back_in() {
+    stub_ios_command
+    # An explicit RUN_MAC=1 opts the macOS leg back in even under duo.
+    mkdir -p "$STUB_ROOT/dd/Build/Products/Debug/CheckStitch.app"
+    IOS_TARGET=duo RUN_MAC=1 RUN_WATCH=0 DEVICES_JSON_IN="$IOS_FIXTURE" \
+        DERIVED_DATA="$STUB_ROOT/dd" bash scripts/run-devices.sh >/dev/null 2>&1 || return 1
+    grep -q 'build-mac-signed' "$STUB_ROOT/make.log"
+}
+
 run_devices_rejects_unreadable_saved_inventory() {
     stub_ios_command
     local out status
@@ -492,6 +521,8 @@ run_devices_rejects_malformed_saved_inventory() {
 }
 
 run_case run_devices_sim_default_targets_only_the_duo_physically run_devices_sim_default_targets_only_the_duo_physically
+run_case run_devices_duo_targets_only_the_duo_physically run_devices_duo_targets_only_the_duo_physically
+run_case run_devices_duo_run_mac_1_opts_back_in run_devices_duo_run_mac_1_opts_back_in
 
 run_devices_sim_opens_device_hub_windows() {
     stub_ios_command
